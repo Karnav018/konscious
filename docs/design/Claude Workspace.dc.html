@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--stage:#0b0b0a;--win:#151514;--side:#151514;--pane:#1b1b1a;--raised:#242422;--line:#2b2a28;--line2:#383633;--text:#ecebe6;--muted:#a19e96;--faint:#6f6c66;--accent:#e0895a;--accentSoft:rgba(224,137,90,.14);--accentInk:#1a0f08;--ok:#7cc68d;--warn:#e6b450;--err:#ec6d63;--info:#7aa7e0;--addBg:rgba(124,198,141,.12);--delBg:rgba(236,109,99,.13);--userBg:#242422;--hover:rgba(255,255,255,.045);--sel:rgba(255,255,255,.07);--shadow:0 30px 80px rgba(0,0,0,.55);--overlay:rgba(0,0,0,.45);--ui:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;--head:'IBM Plex Sans',system-ui,sans-serif;--r:10px;--rs:6px;--wr:12px;--gap:8px;--ltf:none;--lls:0;--lsz:11.5px;--pill:999px;--pshadow:none;--fs:12.5px}
+html,body{margin:0;height:100%;background:var(--stage);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+input,button,textarea{font:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:10px;border:3px solid transparent;background-clip:padding-box}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div style="height:100vh;min-height:640px;background:var(--stage);display:flex;flex-direction:column;align-items:stretch;overflow:auto;padding:14px 18px 10px;gap:10px;font-family:var(--ui);color:var(--text);font-size:13px">
+<div style="flex:1;min-height:0;width:100%;min-width:1080px;display:flex;flex-direction:column;background:var(--win);border-radius:var(--wr);border:1px solid var(--line2);box-shadow:var(--shadow);overflow:hidden;position:relative">
+
+<div style="height:46px;flex:none;display:flex;align-items:center;gap:14px;padding:0 10px 0 14px;border-bottom:1px solid var(--line);background:var(--side)">
+  <div style="display:flex;gap:8px;flex:none"><div style="width:12px;height:12px;border-radius:6px;background:#ff5f57"></div><div style="width:12px;height:12px;border-radius:6px;background:#febc2e"></div><div style="width:12px;height:12px;border-radius:6px;background:#28c840"></div></div>
+  <div style="display:flex;align-items:center;gap:8px;margin-left:8px;flex:none">
+    <div style="width:20px;height:20px;border-radius:var(--rs);background:var(--accent);color:var(--accentInk);display:grid;place-items:center;font-size:13px;font-weight:700;line-height:1">✻</div>
+    <div style="font-family:var(--head);font-weight:600;font-size:14px;letter-spacing:-0.01em">Claude Workspace</div>
+    </div>
+  <div onClick="{{ toggleWsMenu }}" title="Workspaces & sessions (⌘O)" style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px 0 10px;border-radius:var(--rs);border:1px solid {{ wsBtnBd }};background:var(--pane);cursor:pointer;flex:0 1 auto;min-width:0;max-width:170px" style-hover="border-color:var(--line2)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="color:var(--muted);flex:none"><path d="M20 19a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"></path></svg>
+    <span style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ wsName }}</span>
+        <span style="font-size:10px;color:var(--muted);flex:none">▾</span>
+  </div>
+  <div style="margin-left:auto;display:flex;flex:none">
+    <div style="display:flex;gap:2px;padding:2px;background:var(--sel);border-radius:var(--rs)">
+      <sc-for list="{{ layoutSeg }}" as="o" hint-placeholder-count="5">
+        <div onClick="{{ o.click }}" style="height:26px;padding:0 12px;display:flex;align-items:center;border-radius:var(--rs);cursor:pointer;font-size:12.5px;font-weight:500;background:{{ o.bg }};color:{{ o.c }};box-shadow:{{ o.sh }}">{{ o.label }}</div>
+      </sc-for>
+    </div>
+  </div>
+  <sc-if value="{{ hasWaiting }}" hint-placeholder-val="{{ true }}">
+    <div onClick="{{ jumpWaiting }}" title="Next session that needs you (⌘J)" style="height:26px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:var(--pill);border:1px solid var(--warn);color:var(--warn);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none" style-hover="background:var(--hover)"><span style="width:6px;height:6px;border-radius:3px;background:var(--warn)"></span>{{ waitingLabel }}</div>
+  </sc-if>
+  <div style="flex:1"></div>
+  <div onClick="{{ openLimits }}" title="Claude plan usage limits" style="height:28px;display:flex;align-items:center;gap:12px;padding:0 10px;border-radius:var(--rs);border:1px solid var(--line);background:var(--pane);cursor:pointer;flex:none" style-hover="border-color:var(--line2)">
+    <sc-for list="{{ limits }}" as="l" hint-placeholder-count="2">
+      <div style="display:flex;align-items:center;gap:7px" title="{{ l.tip }}">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">{{ l.label }}</span>
+        <div style="width:36px;height:4px;border-radius:var(--pill);background:var(--sel);overflow:hidden"><div style="height:100%;width:{{ l.w }};background:{{ l.c }};border-radius:var(--pill)"></div></div>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text);min-width:28px">{{ l.pct }}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;gap:2px;align-items:center">
+    <div onClick="{{ toggleMode }}" title="Toggle theme" style="width:28px;height:28px;display:grid;place-items:center;border-radius:var(--rs);color:var(--muted);cursor:pointer" style-hover="background:var(--hover);color:var(--text)">
+      <sc-if value="{{ isDark }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></sc-if>
+      <sc-if value="{{ isLight }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+    </div>
+    <div onClick="{{ toggleInspector }}" title="Session details (⌘I)" style="height:28px;max-width:200px;display:flex;align-items:center;gap:7px;padding:0 8px 0 10px;border-radius:var(--rs);border:1px solid {{ insBtnBd }};background:var(--pane);cursor:pointer;flex:none" style-hover="border-color:var(--line2)">
+      <span style="font-size:11px;color:{{ insBtnC }}">{{ insBtnGlyph }}</span>
+      <span style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ insBtnName }}</span>
+      <span style="font-size:10px;color:var(--muted);flex:none">▾</span>
+    </div>
+    <div onClick="{{ openNew }}" title="New session (⌘N)" style="height:28px;padding:0 10px 0 8px;display:flex;align-items:center;gap:6px;border-radius:var(--rs);background:var(--accent);color:var(--accentInk);cursor:pointer;font-size:12.5px;font-weight:500;margin-left:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>New session</div>
+  </div>
+</div>
+
+<div style="flex:1;min-height:0;display:flex">
+  <div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:var(--gap);gap:var(--gap);background:var(--win)">
+    <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px">
+        <sc-if value="{{ firstRun }}" hint-placeholder-val="{{ true }}">
+          <div style="width:100%;max-width:560px;display:flex;flex-direction:column;gap:22px">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="width:36px;height:36px;border-radius:var(--rs);background:var(--accent);color:var(--accentInk);display:grid;place-items:center;font-size:20px;font-weight:700">✻</div>
+              <div style="font-family:var(--head);font-size:30px;font-weight:600;letter-spacing:-0.02em;line-height:1.1">The workspace for Claude Code.</div>
+              <div style="color:var(--muted);font-size:14px;line-height:1.55;text-wrap:pretty">Run, organize, switch and restore all your Claude CLI sessions from one place. Every pane is the real <span style="font-family:var(--mono);font-size:13px;color:var(--text)">claude</span> — Claude keeps its conversations, Git keeps your history.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--pane)">
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)">
+                <div style="width:22px;height:22px;border-radius:11px;background:var(--ok);color:var(--pane);display:grid;place-items:center;flex:none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">Claude CLI found</span><span style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">/usr/local/bin/claude</span></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)">
+                <div style="width:22px;height:22px;border-radius:11px;border:1px solid var(--line2);color:var(--muted);display:grid;place-items:center;flex:none;font-size:11px;font-family:var(--mono)">2</div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">Create a workspace</span><span style="font-size:12px;color:var(--muted)">A workspace is a project folder. Sessions and layout live inside it.</span></div>
+                <div onClick="{{ finishFirstRun }}" style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:var(--rs);border:1px solid var(--line2);background:var(--raised);cursor:pointer;font-size:12.5px;font-weight:500" style-hover="border-color:var(--accent)">Choose folder…</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+                <div style="width:22px;height:22px;border-radius:11px;border:1px solid var(--line2);color:var(--muted);display:grid;place-items:center;flex:none;font-size:11px;font-family:var(--mono)">3</div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">Start a Claude session</span><span style="font-size:12px;color:var(--muted)">Name it, pick a directory, and it launches in its own pane.</span></div>
+                <div onClick="{{ openNew }}" style="height:30px;padding:0 12px;display:flex;align-items:center;gap:8px;border-radius:var(--rs);background:var(--accent);color:var(--accentInk);cursor:pointer;font-size:12.5px;font-weight:500">New session <span style="font-family:var(--mono);font-size:11px;opacity:.75">⌘N</span></div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-family:var(--head);font-size:var(--lsz);text-transform:var(--ltf);letter-spacing:var(--lls);color:var(--faint);font-weight:600">Found in ~/projects</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                <sc-for list="{{ recentFolders }}" as="f" hint-placeholder-count="3">
+                  <div onClick="{{ finishFirstRun }}" style="height:30px;padding:0 12px;display:flex;align-items:center;gap:8px;border-radius:var(--rs);border:1px dashed var(--line2);cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--muted)" style-hover="border-color:var(--accent);color:var(--text)">+ {{ f.slug }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;max-width:380px">
+            <div style="font-family:var(--head);font-size:20px;font-weight:600">{{ noOpenTitle }}</div>
+            <div style="color:var(--muted);line-height:1.5;text-wrap:pretty">Hidden sessions keep running — closing a pane never stops Claude. Pick one from the sidebar, or start a new one.</div>
+            <div onClick="{{ openNew }}" style="height:32px;padding:0 14px;display:flex;align-items:center;gap:8px;border-radius:var(--rs);background:var(--accent);color:var(--accentInk);cursor:pointer;font-weight:500">New session <span style="font-family:var(--mono);font-size:11px;opacity:.75">⌘N</span></div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-height:0;display:grid;gap:var(--gap);grid-template-columns:{{ gridCols }};grid-template-rows:{{ gridRows }}">
+        <sc-for list="{{ panes }}" as="p" hint-placeholder-count="4">
+          <div onMouseDown="{{ p.select }}" style="display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--pane);border:1px solid {{ p.border }};border-radius:var(--r);box-shadow:var(--pshadow);overflow:hidden;position:relative">
+            <div style="height:36px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px 0 12px;border-bottom:1px solid var(--line)">
+              <span style="width:12px;text-align:center;font-size:12px;color:{{ p.dotC }}">{{ p.glyph }}</span>
+              <span style="font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 0 auto;max-width:55%">{{ p.name }}</span>
+              <sc-if value="{{ p.isShell }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:var(--rs);background:var(--sel);color:var(--muted);flex:none">zsh</span></sc-if>
+              <span style="font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 0">⎇ {{ p.branch }}</span>
+              <span style="font-size:11.5px;white-space:nowrap;overflow:hidden;min-width:0;flex:0 100 auto;color:{{ p.dotC }}">{{ p.statusLbl }}</span>
+              <div onClick="{{ p.toggleMenu }}" title="Session actions" style="width:24px;height:24px;flex:none;display:grid;place-items:center;border-radius:var(--rs);color:var(--faint);cursor:pointer" style-hover="background:var(--hover);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></div>
+              <div onClick="{{ p.toggleMax }}" title="{{ p.maxTitle }}" style="width:24px;height:24px;flex:none;display:grid;place-items:center;border-radius:var(--rs);color:var(--faint);cursor:pointer" style-hover="background:var(--hover);color:var(--text)">
+                <sc-if value="{{ p.canMax }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></sc-if>
+                <sc-if value="{{ p.canMin }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"></path></svg></sc-if>
+              </div>
+              <div onClick="{{ p.close }}" title="Hide pane (process keeps running)" style="width:24px;height:24px;flex:none;display:grid;place-items:center;border-radius:var(--rs);color:var(--faint);cursor:pointer" style-hover="background:var(--hover);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></div>
+            </div>
+            <sc-if value="{{ p.menuOpen }}" hint-placeholder-val="{{ false }}">
+              <div onMouseDown="{{ stop }}" style="position:absolute;top:34px;right:56px;width:200px;padding:4px;background:var(--raised);border:1px solid var(--line2);border-radius:var(--rs);box-shadow:var(--shadow);z-index:5;display:flex;flex-direction:column">
+                <sc-for list="{{ p.menu }}" as="m" hint-placeholder-count="5">
+                  <div onClick="{{ m.run }}" style="height:28px;padding:0 8px;display:flex;align-items:center;justify-content:space-between;border-radius:var(--rs);cursor:pointer;font-size:12.5px;color:{{ m.c }}" style-hover="background:var(--sel)"><span>{{ m.label }}</span><span style="font-family:var(--mono);font-size:10.5px;color:var(--faint)">{{ m.key }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div data-pane-body="{{ p.id }}" data-count="{{ p.count }}" style="flex:1;min-height:0;overflow:auto;font-family:var(--mono);font-size:var(--fs);line-height:1.6;padding:10px 0 12px">
+              <sc-if value="{{ p.isClaude }}" hint-placeholder-val="{{ true }}">
+                <div style="margin:0 12px 4px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--rs);display:flex;gap:12px;align-items:flex-start">
+                  <span style="color:var(--accent);font-size:16px;line-height:1.3">✻</span>
+                  <div style="display:flex;flex-direction:column;min-width:0">
+                    <span><b>Claude Code</b></span>
+                    <span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.cwd }}</span>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-for list="{{ p.lines }}" as="ln" hint-placeholder-count="6">
+                <div style="display:flex;gap:8px;padding:1px 14px 1px {{ ln.pl }};margin-top:{{ ln.mt }};background:{{ ln.bg }}">
+                  <span style="width:12px;flex:none;color:{{ ln.pc }}">{{ ln.pre }}</span>
+                  <span style="white-space:pre-wrap;word-break:break-word;min-width:0;color:{{ ln.tc }}"><b>{{ ln.a }}</b>{{ ln.b }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ p.hasPerm }}" hint-placeholder-val="{{ false }}">
+                <div style="margin:12px 12px 0;padding:10px 12px;border:1px solid var(--warn);border-radius:var(--rs);display:flex;flex-direction:column;gap:6px">
+                  <span style="color:var(--warn);font-weight:700">Bash command</span>
+                  <span style="padding-left:12px">{{ p.permCmd }}</span>
+                  <span style="color:var(--muted)">Do you want to proceed?</span>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <div onClick="{{ p.permYes }}" style="padding:2px 8px;border-radius:var(--rs);cursor:pointer;color:var(--text);background:var(--sel)" style-hover="background:var(--accentSoft)">❯ 1. Yes</div>
+                    <div onClick="{{ p.permAlways }}" style="padding:2px 8px;border-radius:var(--rs);cursor:pointer;color:var(--muted)" style-hover="background:var(--accentSoft);color:var(--text)">  2. Yes, and don't ask again this session</div>
+                    <div onClick="{{ p.permNo }}" style="padding:2px 8px;border-radius:var(--rs);cursor:pointer;color:var(--muted)" style-hover="background:var(--accentSoft);color:var(--text)">  3. No, and tell Claude what to do differently</div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+            <div style="flex:none;border-top:1px solid var(--line);font-family:var(--mono);font-size:var(--fs)">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 14px">
+                <span style="color:var(--muted)">{{ p.prompt }}</span>
+                <input data-input="{{ p.id }}" value="{{ p.draft }}" onChange="{{ p.onInput }}" onKeyDown="{{ p.onKey }}" placeholder="{{ p.placeholder }}" style="flex:1;min-width:0;background:transparent;border:none;outline:none;font-family:var(--mono);font-size:var(--fs);color:var(--text)">
+              </div>
+              <div style="display:flex;justify-content:space-between;gap:8px;padding:0 14px 7px;font-size:11px">
+                <span style="color:{{ p.modeC }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.modeLine }}</span>
+                <span style="color:var(--faint);white-space:nowrap">{{ p.foot }}</span>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ inspectorOpen }}" hint-placeholder-val="{{ false }}">
+    <div onMouseDown="{{ closeInspector }}" style="position:absolute;inset:0;z-index:21">
+    <div onMouseDown="{{ stop }}" style="position:absolute;top:42px;right:10px;width:340px;max-height:calc(100% - 80px);display:flex;flex-direction:column;background:var(--raised);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:2px;padding:10px 12px 0;border-bottom:1px solid var(--line)">
+        <sc-for list="{{ insTabs }}" as="o" hint-placeholder-count="3">
+          <div onClick="{{ o.click }}" style="height:32px;padding:0 10px;display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;font-weight:500;border-bottom:2px solid {{ o.bd }};color:{{ o.c }};margin-bottom:-1px">{{ o.label }}<span style="font-family:var(--mono);font-size:10.5px;color:var(--faint)">{{ o.badge }}</span></div>
+        </sc-for>
+      </div>
+      <div style="flex:1;min-height:0;overflow:auto">
+        <sc-if value="{{ tabSession }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:18px;padding:16px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <sc-if value="{{ renaming }}" hint-placeholder-val="{{ false }}">
+                  <input data-rename="1" value="{{ renameVal }}" onChange="{{ onRename }}" onKeyDown="{{ onRenameKey }}" onBlur="{{ commitRename }}" style="flex:1;min-width:0;height:28px;padding:0 8px;border-radius:var(--rs);border:1px solid var(--accent);background:var(--pane);outline:none;font-family:var(--head);font-size:15px;font-weight:600;color:var(--text)">
+                </sc-if>
+                <sc-if value="{{ notRenaming }}" hint-placeholder-val="{{ true }}">
+                  <span onDoubleClick="{{ startRename }}" title="Double-click to rename" style="font-family:var(--head);font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text">{{ ins.name }}</span>
+                </sc-if>
+                <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:var(--pill);border:1px solid {{ ins.statusC }};color:{{ ins.statusC }};white-space:nowrap">{{ ins.statusLbl }}</span>
+              </div>
+              <span style="font-size:12px;color:var(--muted)">{{ ins.wsLine }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-family:var(--head);font-size:var(--lsz);text-transform:var(--ltf);letter-spacing:var(--lls);color:var(--faint);font-weight:600">Directory</span>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--rs);background:var(--pane)">
+                <span style="flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ins.cwd }}</span>
+                <span onClick="{{ copyPath }}" style="font-size:11.5px;color:var(--accent);cursor:pointer">Copy</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ ins.rows }}" as="r" hint-placeholder-count="6">
+                <div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)">
+                  <span style="font-size:12px;color:var(--muted);flex:none">{{ r.k }}</span>
+                  <span style="font-family:var(--mono);font-size:11.5px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-family:var(--head);font-size:var(--lsz);text-transform:var(--ltf);letter-spacing:var(--lls);color:var(--faint);font-weight:600">Process</span>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+                <sc-for list="{{ ins.actions }}" as="a" hint-placeholder-count="3">
+                  <div onClick="{{ a.run }}" style="height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);border:1px solid var(--line2);background:var(--raised);cursor:pointer;font-size:12.5px;color:{{ a.c }}" style-hover="border-color:var(--accent)">{{ a.label }}</div>
+                </sc-for>
+              </div>
+              <span style="font-size:11.5px;color:var(--faint);line-height:1.45;text-wrap:pretty">Hiding a pane never stops Claude. Conversation history stays with the CLI.</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ tabGit }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:14px;padding:16px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <span style="font-family:var(--mono);font-size:14px;font-weight:500">⎇ {{ git.branch }}</span>
+              <span style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">{{ git.line }}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);overflow:hidden">
+              <sc-for list="{{ git.stats }}" as="st" hint-placeholder-count="3">
+                <div style="padding:10px 12px;display:flex;flex-direction:column;gap:2px;border-right:1px solid {{ st.br }}">
+                  <span style="font-size:11.5px;color:var(--muted)">{{ st.label }}</span>
+                  <span style="font-family:var(--mono);font-size:16px;font-weight:500;color:{{ st.c }}">{{ st.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ git.clean }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:20px 12px;border:1px dashed var(--line2);border-radius:var(--r);color:var(--muted);font-size:12.5px;text-align:center">Working tree clean</div>
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <sc-for list="{{ git.files }}" as="f" hint-placeholder-count="3">
+                <div onClick="{{ f.click }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--rs);cursor:pointer;background:{{ f.bg }}" style-hover="background:var(--sel)">
+                  <span style="font-family:var(--mono);font-size:10.5px;font-weight:700;width:14px;color:{{ f.stC }}">{{ f.st }}</span>
+                  <span style="flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.p }}</span>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--ok)">{{ f.add }}</span>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--err)">{{ f.del }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ git.hasDiff }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--pane)">
+                <div style="padding:8px 10px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ git.file }}</div>
+                <div style="overflow-x:auto;font-family:var(--mono);font-size:11px;line-height:1.65;padding:4px 0">
+                  <sc-for list="{{ git.diff }}" as="d" hint-placeholder-count="6">
+                    <div style="display:flex;gap:8px;padding:0 10px;white-space:pre;background:{{ d.bg }};color:{{ d.c }}"><span style="width:22px;text-align:right;color:var(--faint);flex:none">{{ d.n }}</span><span style="width:8px;flex:none">{{ d.s }}</span><span>{{ d.t }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <sc-for list="{{ git.actions }}" as="a" hint-placeholder-count="4">
+                <div onClick="{{ a.run }}" style="height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);border:1px solid var(--line);cursor:pointer;font-size:12.5px;color:var(--muted)" style-hover="color:var(--text);border-color:var(--line2)">{{ a.label }}</div>
+              </sc-for>
+            </div>
+            <span style="font-size:11.5px;color:var(--faint);line-height:1.45">Read from the git CLI. Commit, push and review in your usual tools.</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ tabActivity }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;padding:10px 8px">
+            <sc-for list="{{ activity }}" as="ev" hint-placeholder-count="6">
+              <div onClick="{{ ev.click }}" style="display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:var(--rs);cursor:pointer" style-hover="background:var(--sel)">
+                <span style="font-family:var(--mono);font-size:11px;color:var(--faint);line-height:18px;flex:none">{{ ev.t }}</span>
+                <span style="font-size:11px;line-height:18px;color:{{ ev.c }}">●</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+                  <span style="font-size:12.5px;line-height:18px">{{ ev.txt }}</span>
+                  <span style="font-size:11px;color:var(--faint)">{{ ev.ws }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    </div>
+  </sc-if>
+</div>
+
+<div style="height:26px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 14px;border-top:1px solid var(--line);background:var(--side);font-family:var(--mono);font-size:10.5px;color:var(--faint)">
+  <span>{{ statusLeft }}</span>
+  <span>{{ statusRight }}</span>
+</div>
+
+<sc-if value="{{ hasNotif }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ notif.click }}" style="position:absolute;top:56px;right:14px;width:320px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;border-radius:14px;background:var(--raised);border:1px solid var(--line2);box-shadow:var(--shadow);cursor:pointer;z-index:25">
+    <div style="width:32px;height:32px;border-radius:8px;background:var(--accent);color:var(--accentInk);display:grid;place-items:center;font-size:17px;font-weight:700;flex:none">✻</div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600;font-size:13px">{{ notif.title }}</span><span style="font-size:11px;color:var(--faint)">now</span></div>
+      <span style="font-size:12.5px;color:var(--muted)">{{ notif.body }}</span>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+  <div onMouseDown="{{ closeWsMenu }}" style="position:absolute;inset:0;z-index:22">
+    <div onMouseDown="{{ stop }}" style="position:absolute;top:42px;left:170px;width:640px;max-width:calc(100% - 190px);max-height:calc(100% - 80px);display:flex;background:var(--raised);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden">
+      <div style="width:220px;flex:none;border-right:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:2px;background:var(--side);overflow:auto">
+        <div style="padding:6px 8px 8px;font-family:var(--head);font-size:var(--lsz);text-transform:var(--ltf);letter-spacing:var(--lls);color:var(--faint);font-weight:600">Workspaces</div>
+        <sc-for list="{{ wsList }}" as="w" hint-placeholder-count="3">
+          <div onMouseEnter="{{ w.hover }}" onClick="{{ w.click }}" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--rs);cursor:pointer;background:{{ w.bg }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="flex:none;color:{{ w.ic }}"><path d="M20 19a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"></path></svg>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-size:13px;font-weight:600">{{ w.name }}</span>
+              <span style="font-family:var(--mono);font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.path }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">{{ w.count }}</span>
+              <span style="font-size:10.5px;color:{{ w.nc }}">{{ w.note }}</span>
+            </div>
+          </div>
+        </sc-for>
+        <div onClick="{{ addWorkspace }}" style="margin-top:6px;display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--rs);cursor:pointer;color:var(--muted);border:1px dashed var(--line2)" style-hover="color:var(--text);border-color:var(--accent)"><span style="width:16px;text-align:center">+</span><span style="font-size:12.5px">Add folder…</span></div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 14px 8px">
+          <span style="flex:1;font-family:var(--head);font-size:15px;font-weight:600">{{ wm.title }}</span>
+          <sc-for list="{{ wmFilter }}" as="o" hint-placeholder-count="3">
+            <div onClick="{{ o.click }}" style="height:24px;padding:0 9px;display:flex;align-items:center;border-radius:var(--pill);cursor:pointer;font-size:12px;background:{{ o.bg }};color:{{ o.c }}">{{ o.label }}</div>
+          </sc-for>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:0 8px 8px;display:flex;flex-direction:column;gap:1px">
+          <sc-for list="{{ wm.items }}" as="it" hint-placeholder-count="4">
+            <div onClick="{{ it.click }}" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--rs);cursor:pointer;background:{{ it.bg }}" style-hover="background:var(--sel)">
+              <span style="width:12px;flex:none;text-align:center;font-size:11px;color:{{ it.c }}">{{ it.glyph }}</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                <span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.name }}</span>
+                <span style="font-family:var(--mono);font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.sub }}</span>
+              </div>
+              <span style="font-size:11.5px;flex:none;color:{{ it.rc }}">{{ it.right }}</span>
+              <sc-if value="{{ it.unread }}" hint-placeholder-val="{{ false }}"><span style="width:6px;height:6px;border-radius:3px;background:var(--accent);flex:none"></span></sc-if>
+              <div onClick="{{ it.toggle }}" title="{{ it.tt }}" style="height:24px;min-width:66px;padding:0 8px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);border:1px solid {{ it.gbd }};font-size:11.5px;color:{{ it.gc }};flex:none" style-hover="border-color:var(--accent)">{{ it.gl }}</div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ wm.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:24px;text-align:center;color:var(--faint);font-size:12.5px">No sessions match.</div></sc-if>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-top:1px solid var(--line)">
+          <span style="font-size:11.5px;color:var(--muted)">{{ wm.cap }}</span>
+          <div onClick="{{ wm.newHere }}" style="height:28px;padding:0 12px;display:flex;align-items:center;gap:6px;border-radius:var(--rs);background:var(--accent);color:var(--accentInk);cursor:pointer;font-size:12.5px;font-weight:500;white-space:nowrap;flex:none">+ New session in {{ wm.name }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+  <div onMouseDown="{{ closeOverlay }}" style="position:absolute;inset:0;background:var(--overlay);display:flex;justify-content:center;align-items:flex-start;padding-top:90px;z-index:20">
+    <div onMouseDown="{{ stop }}" style="width:600px;max-width:calc(100% - 40px);background:var(--raised);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 14px;height:48px;border-bottom:1px solid var(--line)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--faint)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <input data-palette="1" value="{{ pq }}" onChange="{{ onPq }}" onKeyDown="{{ onPKey }}" placeholder="Search sessions or run a command…" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;color:var(--text)">
+        <span style="font-family:var(--mono);font-size:10.5px;color:var(--faint);padding:2px 6px;border:1px solid var(--line);border-radius:var(--rs)">esc</span>
+      </div>
+      <div style="max-height:400px;overflow:auto;padding:6px">
+        <sc-for list="{{ pItems }}" as="c" hint-placeholder-count="6">
+          <div onClick="{{ c.run }}" onMouseEnter="{{ c.hover }}" style="height:34px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:var(--rs);cursor:pointer;background:{{ c.bg }}">
+            <span style="width:14px;text-align:center;font-size:11px;color:{{ c.gc }}">{{ c.glyph }}</span>
+            <span style="flex:1;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label }}</span>
+            <span style="font-size:11.5px;color:var(--faint)">{{ c.group }}</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:28px;text-align:right">{{ c.key }}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{ pEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;text-align:center;color:var(--faint)">No matches</div></sc-if>
+      </div>
+      <div style="display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--line);font-size:11px;color:var(--faint)"><span>↑↓ navigate</span><span>↵ run</span><span>esc close</span></div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ newOpen }}" hint-placeholder-val="{{ false }}">
+  <div onMouseDown="{{ closeOverlay }}" style="position:absolute;inset:0;background:var(--overlay);display:flex;justify-content:center;align-items:center;z-index:20">
+    <div onMouseDown="{{ stop }}" style="width:520px;max-width:calc(100% - 40px);background:var(--raised);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 4px">
+        <span style="font-family:var(--head);font-size:17px;font-weight:600">{{ nfTitle }}</span>
+        <div onClick="{{ closeOverlay }}" style="width:26px;height:26px;display:grid;place-items:center;border-radius:var(--rs);color:var(--faint);cursor:pointer" style-hover="background:var(--hover);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:12px 18px 18px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:12px;color:var(--muted);font-weight:500">Type</span>
+            <div style="display:flex;gap:2px;padding:2px;background:var(--sel);border-radius:var(--rs)">
+              <sc-for list="{{ nfKind }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.click }}" style="flex:1;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:500;background:{{ o.bg }};color:{{ o.c }};box-shadow:{{ o.sh }}">{{ o.label }}</div></sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:12px;color:var(--muted);font-weight:500">Workspace</span>
+            <div style="display:flex;gap:2px;padding:2px;background:var(--sel);border-radius:var(--rs)">
+              <sc-for list="{{ nfWs }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.click }}" style="flex:1;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:500;background:{{ o.bg }};color:{{ o.c }};box-shadow:{{ o.sh }}">{{ o.label }}</div></sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:12px;color:var(--muted);font-weight:500">Name</span>
+          <input data-newname="1" value="{{ nfName }}" onChange="{{ onNfName }}" onKeyDown="{{ onNfKey }}" placeholder="Backend API" style="height:34px;padding:0 10px;border-radius:var(--rs);border:1px solid var(--line2);background:var(--pane);outline:none;font-size:13px;color:var(--text)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:12px;color:var(--muted);font-weight:500">Directory</span>
+          <div style="display:flex;gap:6px">
+            <input value="{{ nfDir }}" onChange="{{ onNfDir }}" onKeyDown="{{ onNfKey }}" style="flex:1;min-width:0;height:34px;padding:0 10px;border-radius:var(--rs);border:1px solid var(--line2);background:var(--pane);outline:none;font-family:var(--mono);font-size:12px;color:var(--text)">
+            <div style="height:34px;padding:0 12px;display:flex;align-items:center;border-radius:var(--rs);border:1px solid var(--line2);cursor:pointer;font-size:12.5px;color:var(--muted)" style-hover="color:var(--text)">Browse…</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <sc-for list="{{ nfDirs }}" as="d" hint-placeholder-count="3"><div onClick="{{ d.click }}" style="height:22px;padding:0 8px;display:flex;align-items:center;border-radius:var(--pill);border:1px solid var(--line);cursor:pointer;font-family:var(--mono);font-size:10.5px;color:var(--muted)" style-hover="border-color:var(--accent);color:var(--text)">{{ d.label }}</div></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:12px;color:var(--muted);font-weight:500">Branch</span>
+          <input value="{{ nfBranch }}" onChange="{{ onNfBranch }}" onKeyDown="{{ onNfKey }}" placeholder="current branch" style="height:34px;padding:0 10px;border-radius:var(--rs);border:1px solid var(--line2);background:var(--pane);outline:none;font-family:var(--mono);font-size:12px;color:var(--text)">
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px">Open in a new git worktree</span><span style="font-size:11.5px;color:var(--muted)">Keeps parallel sessions from editing the same checkout.</span></div>
+          <div onClick="{{ nfWt.toggle }}" style="width:32px;height:18px;border-radius:var(--pill);background:{{ nfWt.bg }};position:relative;cursor:pointer;flex:none;transition:background .15s"><div style="position:absolute;top:2px;left:{{ nfWt.x }};width:14px;height:14px;border-radius:var(--pill);background:#fff;transition:left .15s"></div></div>
+        </div>
+        <div style="padding:10px 12px;border-radius:var(--rs);background:var(--pane);border:1px solid var(--line);font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--muted);display:flex;flex-direction:column">
+          <sc-for list="{{ nfCmds }}" as="c" hint-placeholder-count="2"><span style="color:{{ c.c }}">$ {{ c.t }}</span></sc-for>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <div onClick="{{ closeOverlay }}" style="height:32px;padding:0 14px;display:flex;align-items:center;border-radius:var(--rs);border:1px solid var(--line2);cursor:pointer;font-size:12.5px" style-hover="background:var(--hover)">Cancel</div>
+          <div onClick="{{ createSession }}" style="height:32px;padding:0 14px;display:flex;align-items:center;gap:8px;border-radius:var(--rs);background:var(--accent);color:var(--accentInk);cursor:pointer;font-size:12.5px;font-weight:500">Create <span style="font-family:var(--mono);font-size:11px;opacity:.75">↵</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+  <div onMouseDown="{{ closeOverlay }}" style="position:absolute;inset:0;background:var(--overlay);display:flex;justify-content:center;align-items:center;z-index:20">
+    <div onMouseDown="{{ stop }}" style="width:760px;height:520px;max-width:calc(100% - 40px);max-height:calc(100% - 40px);background:var(--raised);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--shadow);display:flex;overflow:hidden">
+      <div style="width:180px;flex:none;border-right:1px solid var(--line);padding:16px 8px;display:flex;flex-direction:column;gap:2px;background:var(--side)">
+        <span style="font-family:var(--head);font-size:15px;font-weight:600;padding:0 10px 10px">Settings</span>
+        <sc-for list="{{ setTabs }}" as="o" hint-placeholder-count="6">
+          <div onClick="{{ o.click }}" style="height:30px;padding:0 10px;display:flex;align-items:center;border-radius:var(--rs);cursor:pointer;font-size:12.5px;background:{{ o.bg }};color:{{ o.c }}" style-hover="background:var(--sel)">{{ o.label }}</div>
+        </sc-for>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 8px">
+          <span style="font-family:var(--head);font-size:17px;font-weight:600">{{ setTitle }}</span>
+          <div onClick="{{ closeOverlay }}" style="width:26px;height:26px;display:grid;place-items:center;border-radius:var(--rs);color:var(--faint);cursor:pointer" style-hover="background:var(--hover);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></div>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:4px 20px 20px;display:flex;flex-direction:column">
+          <sc-if value="{{ stGeneral }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ genToggles }}" as="t" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">
+                <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span>{{ t.label }}</span><span style="font-size:11.5px;color:var(--muted)">{{ t.sub }}</span></div>
+                <div onClick="{{ t.toggle }}" style="width:32px;height:18px;border-radius:var(--pill);background:{{ t.bg }};position:relative;cursor:pointer;flex:none;transition:background .15s"><div style="position:absolute;top:2px;left:{{ t.x }};width:14px;height:14px;border-radius:var(--pill);background:#fff;transition:left .15s"></div></div>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ stAppearance }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:18px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <span>Theme</span>
+                <div style="display:flex;gap:2px;padding:2px;background:var(--sel);border-radius:var(--rs);width:200px">
+                  <sc-for list="{{ modeSeg }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.click }}" style="flex:1;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:500;background:{{ o.bg }};color:{{ o.c }};box-shadow:{{ o.sh }}">{{ o.label }}</div></sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ stTerminal }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">
+                <div style="display:flex;flex-direction:column;gap:2px"><span>Font size</span><span style="font-size:11.5px;color:var(--muted)">Applies to every pane.</span></div>
+                <div style="display:flex;gap:2px;padding:2px;background:var(--sel);border-radius:var(--rs);width:200px">
+                  <sc-for list="{{ fsSeg }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.click }}" style="flex:1;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);cursor:pointer;font-family:var(--mono);font-size:12px;background:{{ o.bg }};color:{{ o.c }};box-shadow:{{ o.sh }}">{{ o.label }}</div></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">
+                <span>Cursor</span>
+                <div style="display:flex;gap:2px;padding:2px;background:var(--sel);border-radius:var(--rs);width:200px">
+                  <sc-for list="{{ cursorSeg }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.click }}" style="flex:1;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--rs);cursor:pointer;font-size:12px;background:{{ o.bg }};color:{{ o.c }};box-shadow:{{ o.sh }}">{{ o.label }}</div></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)"><span>Scrollback</span><span style="font-family:var(--mono);font-size:12px;color:var(--muted)">10,000 lines · in memory only</span></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0"><span>Shell for terminal panes</span><span style="font-family:var(--mono);font-size:12px;color:var(--muted)">/bin/zsh -l</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ stKeys }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ keybinds }}" as="k" hint-placeholder-count="8">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)">
+                  <span>{{ k.label }}</span>
+                  <span style="font-family:var(--mono);font-size:11.5px;padding:2px 8px;border:1px solid var(--line2);border-radius:var(--rs);color:var(--muted)">{{ k.key }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ stCli }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--muted);font-weight:500">Executable</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <div style="flex:1;height:34px;padding:0 10px;display:flex;align-items:center;border-radius:var(--rs);border:1px solid var(--line2);background:var(--pane);font-family:var(--mono);font-size:12px">/usr/local/bin/claude</div>
+                  <span style="font-size:12px;color:var(--ok);white-space:nowrap">● Found</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12px;color:var(--muted);font-weight:500">Extra launch arguments</span>
+                <div style="height:34px;padding:0 10px;display:flex;align-items:center;border-radius:var(--rs);border:1px solid var(--line2);background:var(--pane);font-family:var(--mono);font-size:12px;color:var(--faint)">none</div>
+              </div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.55;text-wrap:pretty">Sessions launch as <span style="font-family:var(--mono);color:var(--text)">cd &lt;directory&gt; &amp;&amp; claude</span> in a real PTY. Claude Workspace never edits your Claude config — hooks, MCP servers and slash commands work as they do in your terminal.</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ stStorage }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="padding:12px 14px;border:1px solid var(--line);border-radius:var(--rs);background:var(--pane);font-family:var(--mono);font-size:12px;line-height:1.7">
+                <div>~/.claude-workspace/</div>
+                <div style="color:var(--muted)">├── config.json</div>
+                <div style="color:var(--muted)">├── workspaces.json</div>
+                <div style="color:var(--muted)">└── layouts/ <span style="color:var(--faint)">hawk.json · knowra.json · personal.json</span></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <span style="font-family:var(--head);font-size:var(--lsz);text-transform:var(--ltf);letter-spacing:var(--lls);color:var(--faint);font-weight:600">Stored</span>
+                  <sc-for list="{{ stored }}" as="x" hint-placeholder-count="5"><span style="font-size:12.5px"><span style="color:var(--ok)">✓</span> {{ x }}</span></sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <span style="font-family:var(--head);font-size:var(--lsz);text-transform:var(--ltf);letter-spacing:var(--lls);color:var(--faint);font-weight:600">Never stored</span>
+                  <sc-for list="{{ notStored }}" as="x" hint-placeholder-count="5"><span style="font-size:12.5px;color:var(--muted)"><span style="color:var(--faint)">—</span> {{ x }}</span></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px"><div style="height:32px;padding:0 12px;display:flex;align-items:center;border-radius:var(--rs);border:1px solid var(--line2);cursor:pointer;font-size:12.5px" style-hover="border-color:var(--accent)">Reveal in Finder</div></div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;left:50%;bottom:40px;transform:translateX(-50%);padding:8px 14px;border-radius:var(--rs);background:var(--text);color:var(--win);font-size:12.5px;z-index:30;box-shadow:var(--shadow)">{{ toast }}</div>
+</sc-if>
+</div>
+
+<div style="flex:none;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11.5px;color:var(--faint)">
+  <div onClick="{{ toggleMode }}" style="height:24px;padding:0 10px;display:flex;align-items:center;border-radius:var(--pill);cursor:pointer;border:1px solid var(--line2);color:var(--muted)">{{ modeName }}</div>
+  <div onClick="{{ toggleFirstRun }}" style="height:24px;padding:0 10px;display:flex;align-items:center;border-radius:var(--pill);cursor:pointer;border:1px solid var(--line2);color:var(--muted)">{{ firstRunName }}</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;firstRun&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  static T = {
+    A: { name: 'Graphite', desc: 'Warm charcoal, ember accent, IBM Plex.', sw: ['#151514', '#1b1b1a', '#e0895a'],
+      base: { ui: "'IBM Plex Sans', system-ui, sans-serif", mono: "'JetBrains Mono', ui-monospace, monospace", head: "'IBM Plex Sans', system-ui, sans-serif", r: '10px', rs: '6px', wr: '12px', gap: '8px', ltf: 'none', lls: '0', lsz: '11.5px', pill: '999px' },
+      dark: { stage: '#0b0b0a', win: '#151514', side: '#151514', pane: '#1b1b1a', raised: '#242422', line: '#2b2a28', line2: '#383633', text: '#ecebe6', muted: '#a19e96', faint: '#6f6c66', accent: '#e0895a', accentSoft: 'rgba(224,137,90,.14)', accentInk: '#1a0f08', ok: '#7cc68d', warn: '#e6b450', err: '#ec6d63', info: '#7aa7e0', addBg: 'rgba(124,198,141,.12)', delBg: 'rgba(236,109,99,.13)', userBg: '#242422', hover: 'rgba(255,255,255,.045)', sel: 'rgba(255,255,255,.07)', shadow: '0 30px 80px rgba(0,0,0,.55)', overlay: 'rgba(0,0,0,.45)', pshadow: 'none' },
+      light: { stage: '#d9d7d1', win: '#f5f4f0', side: '#efede8', pane: '#fbfaf8', raised: '#ffffff', line: '#e2dfd8', line2: '#d1cdc4', text: '#1c1b19', muted: '#66635c', faint: '#9a968e', accent: '#c2623a', accentSoft: 'rgba(194,98,58,.1)', accentInk: '#ffffff', ok: '#2f8a47', warn: '#a8740c', err: '#c8423a', info: '#3a6fb0', addBg: 'rgba(47,138,71,.1)', delBg: 'rgba(200,66,58,.1)', userBg: '#efede8', hover: 'rgba(0,0,0,.035)', sel: 'rgba(0,0,0,.055)', shadow: '0 24px 60px rgba(40,30,20,.18)', overlay: 'rgba(30,25,20,.25)', pshadow: 'none' } },
+  };
+  static WS = [{ id: 'hawk', name: 'Hawk', slug: 'hawk', path: '~/projects/hawk', dirs: ['backend', 'frontend', 'research'] }, { id: 'knowra', name: 'Knowra', slug: 'knowra', path: '~/projects/knowra', dirs: ['app', 'api', 'ml'] }, { id: 'personal', name: 'Personal', slug: 'personal', path: '~/projects/personal', dirs: ['experiments', 'notes'] }];
+  static SL = { working: 'Working', waiting: 'Waiting', idle: 'Idle', completed: 'Completed', failed: 'Failed' };
+  static CAP = 6;
+  static SC = { working: 'var(--ok)', waiting: 'var(--warn)', idle: 'var(--info)', completed: 'var(--faint)', failed: 'var(--err)' };
+
+  seed() {
+    const S = (o) => ({ kind: 'claude', open: false, unread: false, runSec: 0, ahead: 0, behind: 0, files: [], lines: [], wt: false, ...o });
+    return [
+      S({ id: 'h1', ws: 'hawk', name: 'Backend', cwd: '~/projects/hawk/backend', branch: 'feature/auth', status: 'working', open: true, runSec: 48, last: 'now', started: '12:41', csid: 'a3f9c2e1-47bd-4e0a', pid: 48213, ahead: 3, commit: 'a82f91c',
+        lines: [{ k: 'user', t: 'implement refresh-token rotation in the auth module' }, { k: 'tool', a: 'Read', b: '(src/auth/token.service.ts)' }, { k: 'sub', t: 'Read 118 lines' }, { k: 'tool', a: 'Update', b: '(src/auth/token.service.ts)' }, { k: 'sub', t: 'Updated token.service.ts with 2 additions and 1 removal' }, { k: 'del', n: 64, t: '  return this.sign(payload);' }, { k: 'add', n: 64, t: '  await this.revoke(oldToken.jti);' }, { k: 'add', n: 65, t: '  return this.sign({ ...payload, jti: randomUUID() });' }, { k: 'text', t: 'Rotation is in place. Running the auth suite before I add a reuse-detection test.' }, { k: 'tool', a: 'Bash', b: '(npm test -- auth)' }, { k: 'sub', t: 'Running…' }, { k: 'spin', t: 'Testing…' }],
+        files: [{ p: 'src/auth/token.service.ts', st: 'M', add: 2, del: 1, d: [{ k: 'hunk', t: '@@ -61,6 +61,7 @@ rotate()' }, { k: 'ctx', n: 61, t: '  const oldToken = await this.verify(refresh);' }, { k: 'ctx', n: 62, t: '  const payload = { sub: oldToken.sub };' }, { k: 'ctx', n: 63, t: '' }, { k: 'del', n: 64, t: '  return this.sign(payload);' }, { k: 'add', n: 64, t: '  await this.revoke(oldToken.jti);' }, { k: 'add', n: 65, t: '  return this.sign({ ...payload, jti: randomUUID() });' }, { k: 'ctx', n: 66, t: '}' }] }, { p: 'src/auth/auth.module.ts', st: 'M', add: 4, del: 0, d: [{ k: 'hunk', t: '@@ -12,3 +12,7 @@' }, { k: 'add', n: 13, t: '  providers: [TokenService, RevocationStore],' }] }, { p: 'src/auth/revocation.store.ts', st: 'A', add: 38, del: 0, d: [{ k: 'hunk', t: '@@ -0,0 +1,38 @@' }, { k: 'add', n: 1, t: '@Injectable()' }, { k: 'add', n: 2, t: 'export class RevocationStore {' }] }, { p: 'test/auth.spec.ts', st: 'M', add: 12, del: 2, d: [{ k: 'hunk', t: '@@ -40,4 +40,14 @@' }, { k: 'add', n: 41, t: "  it('rotates refresh tokens', async () => {" }] }, { p: 'package.json', st: 'M', add: 1, del: 0, d: [{ k: 'add', n: 22, t: '    "uuid": "^11.0.0",' }] }, { p: 'src/config/jwt.ts', st: 'M', add: 3, del: 3, d: [{ k: 'del', n: 4, t: "  expiresIn: '30d'," }, { k: 'add', n: 4, t: "  expiresIn: '14d'," }] }, { p: 'README.md', st: 'M', add: 6, del: 0, d: [{ k: 'add', n: 88, t: '## Token rotation' }] }] }),
+      S({ id: 'h2', ws: 'hawk', name: 'Frontend', cwd: '~/projects/hawk/frontend', branch: 'feature/dashboard', status: 'working', open: true, runSec: 12, last: 'now', started: '13:07', csid: '7b21e0d4-93aa-41c2', pid: 48377, commit: '3c0d9b7', wt: true,
+        lines: [{ k: 'user', t: 'build the usage chart on the dashboard from the /metrics endpoint' }, { k: 'tool', a: 'Read', b: '(src/pages/Dashboard.tsx)' }, { k: 'sub', t: 'Read 96 lines' }, { k: 'tool', a: 'Write', b: '(src/components/UsageChart.tsx)' }, { k: 'sub', t: 'Wrote 74 lines' }, { k: 'spin', t: 'Wiring up data…' }],
+        files: [{ p: 'src/components/UsageChart.tsx', st: 'A', add: 74, del: 0, d: [{ k: 'hunk', t: '@@ -0,0 +1,74 @@' }, { k: 'add', n: 1, t: "import { useMetrics } from '../api/metrics';" }, { k: 'add', n: 2, t: 'export function UsageChart() {' }] }] }),
+      S({ id: 'h3', ws: 'hawk', name: 'Reviewer', cwd: '~/projects/hawk/backend', branch: 'feature/auth', status: 'waiting', open: true, last: '1m', started: '12:52', csid: 'e40c7a19-2f6b-4d88', pid: 48402, commit: 'a82f91c', ahead: 3, permCmd: 'npm run test:e2e -- auth',
+        lines: [{ k: 'user', t: 'review the auth changes on this branch for security issues' }, { k: 'tool', a: 'Bash', b: '(git diff main...HEAD --stat)' }, { k: 'sub', t: '7 files changed, 66 insertions(+), 6 deletions(-)' }, { k: 'tool', a: 'Read', b: '(src/auth/token.service.ts)' }, { k: 'sub', t: 'Read 119 lines' }, { k: 'text', t: 'Rotation looks right, but I want to confirm reuse detection end-to-end before signing off.' }] }),
+      S({ id: 'h4', ws: 'hawk', name: 'Research', cwd: '~/projects/hawk/research', branch: 'main', status: 'idle', open: true, last: '6m', started: '12:43', csid: '19d5b6f0-c1e2-47a3', pid: 47102, commit: 'f10e2aa',
+        lines: [{ k: 'user', t: 'compare Postgres row-level security vs app-level tenancy for our schema' }, { k: 'tool', a: 'Read', b: '(schema/tenants.sql)' }, { k: 'sub', t: 'Read 212 lines' }, { k: 'tool', a: 'Fetch', b: '(postgresql.org/docs/current/ddl-rowsecurity.html)' }, { k: 'sub', t: 'Received 48 KB' }, { k: 'text', t: 'RLS fits: every table already carries tenant_id, and policies would replace ~40 hand-written WHERE clauses. Main cost is connection pooling — each request must SET app.tenant.' }] }),
+      S({ id: 'h5', ws: 'hawk', name: 'Terminal', kind: 'shell', cwd: '~/projects/hawk/backend', branch: 'feature/auth', status: 'idle', open: true, last: '3m', started: '12:44', csid: '—', pid: 48120, commit: 'a82f91c', ahead: 3,
+        lines: [{ k: 'sh', t: 'git status -sb' }, { k: 'out', t: '## feature/auth...origin/feature/auth [ahead 3]\n M src/auth/token.service.ts\n M src/auth/auth.module.ts\n?? src/auth/revocation.store.ts' }, { k: 'sh', t: 'docker compose ps' }, { k: 'out', t: 'NAME        STATUS\npostgres    Up 2 hours\nredis       Up 2 hours' }] }),
+      S({ id: 'k1', ws: 'knowra', name: 'Flutter', cwd: '~/projects/knowra/app', branch: 'feat/offline-sync', status: 'completed', open: true, last: '13:08', started: '11:20', csid: '5c8e21aa-0d34-4b91', pid: 46011, commit: 'bd41e07', ahead: 1,
+        lines: [{ k: 'user', t: 'add offline queueing to the sync service' }, { k: 'tool', a: 'Update', b: '(lib/sync/sync_service.dart)' }, { k: 'sub', t: 'Updated with 41 additions and 7 removals' }, { k: 'tool', a: 'Bash', b: '(flutter test test/sync)' }, { k: 'sub', t: '00:04 +12: All tests passed!', tone: 'ok' }, { k: 'text', t: 'Offline writes now queue in Hive and replay on reconnect.' }] }),
+      S({ id: 'k2', ws: 'knowra', name: 'API', cwd: '~/projects/knowra/api', branch: 'main', status: 'failed', open: true, last: '12:51', started: '12:30', csid: '2a7f90c3-e61d-4f05', pid: 45510, commit: '0e9c3f4',
+        lines: [{ k: 'user', t: 'run the migration and seed the staging db' }, { k: 'tool', a: 'Bash', b: '(npm run migrate:staging)' }, { k: 'sub', t: 'Error: connect ECONNREFUSED 10.0.4.12:5432', tone: 'err' }, { k: 'sub', t: 'Process exited with code 1', tone: 'err' }] }),
+      S({ id: 'k3', ws: 'knowra', name: 'ML', cwd: '~/projects/knowra/ml', branch: 'exp/embeddings', status: 'idle', last: '40m', started: '10:02', csid: '8d13c4b2-7aa0-4e6f', pid: 44102, commit: '77ab10c',
+        lines: [{ k: 'user', t: 'profile the embedding batch job' }, { k: 'text', t: 'Tokenization dominates — 71% of wall time. Batching by length would cut it roughly in half.' }] }),
+      S({ id: 'p1', ws: 'personal', name: 'Experiments', cwd: '~/projects/personal/experiments', branch: 'main', status: 'completed', last: 'yesterday', started: 'Tue', csid: 'f2b0e8d7-11c9-42aa', pid: 40210, commit: '1d2e3f4', lines: [{ k: 'user', t: 'sketch a tiny CRDT counter' }, { k: 'text', t: 'Done — G-Counter and PN-Counter in crdt.ts with property tests.' }] })
+    ];
+  }
+
+  state = { wsMenu: false, wsHover: null, wmFilter: 'all', recent: ['h1', 'h3', 'h2', 'h4', 'h5', 'k1', 'k2', 'k3', 'p1'], dirO: null, modeO: null, firstRunO: null, ws: 'hawk', layout: 'grid', prevLayout: 'grid', sel: 'h1', sessions: this.seed(), exp: { hawk: true, knowra: true, personal: false }, filter: 'all', insTab: 'session', palette: false, pq: '', pIdx: 0, modal: null, setTab: 'general', sidebar: true, inspector: false, tick: 0, drafts: {}, fileIdx: {}, toast: '', focusId: null, menu: null, renaming: false, renameVal: '', notif: null,
+    activity: [{ t: '13:08', sid: 'k1', txt: 'Flutter finished', c: 'var(--faint)' }, { t: '13:07', sid: 'h2', txt: 'Frontend started', c: 'var(--ok)' }, { t: '13:05', sid: 'h3', txt: 'Reviewer is waiting for approval', c: 'var(--warn)' }, { t: '13:02', sid: 'h4', txt: 'Research became idle', c: 'var(--info)' }, { t: '12:58', sid: 'h1', txt: 'Backend session resumed', c: 'var(--ok)' }, { t: '12:51', sid: 'k2', txt: 'API exited with code 1', c: 'var(--err)' }, { t: '12:43', sid: 'h4', txt: 'New Research session created', c: 'var(--faint)' }],
+    nf: { kind: 'Claude', ws: 'hawk', name: '', dir: '~/projects/hawk/backend', branch: '', worktree: false },
+    set: { restore: true, notify: true, sound: false, confirm: true, fs: 12.5, cursor: 'Block' } };
+
+  dirKey() { return 'A'; }
+  mode() { return this.state.modeO || this.props.mode || 'dark'; }
+  firstRun() { return this.state.firstRunO ?? !!this.props.firstRun; }
+  applyTheme() {
+    const d = Component.T[this.dirKey()], vals = { ...d.base, ...d[this.mode()], fs: this.state.set.fs + 'px' };
+    const key = JSON.stringify(vals);
+    if (key === this._tk) return;
+    this._tk = key;
+    const st = document.documentElement.style;
+    Object.keys(vals).forEach(k => st.setProperty('--' + k, vals[k]));
+  }
+  now() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+  componentDidMount() {
+    this.applyTheme();
+    this._iv = setInterval(() => this.setState(s => {
+      const t = s.tick + 1;
+      if (t % 3) return { tick: t };
+      return { tick: t, sessions: s.sessions.map(x => x.status === 'working' ? { ...x, runSec: x.runSec + 1 } : x) };
+    }), 330);
+    this._kd = e => this.onGlobalKey(e);
+    window.addEventListener('keydown', this._kd);
+    this.scrollPanes();
+    this.later(() => this.finish('h2', [{ k: 'tool', a: 'Update', b: '(src/pages/Dashboard.tsx)' }, { k: 'sub', t: 'Updated with 6 additions and 1 removal' }, { k: 'text', t: 'UsageChart is on the dashboard and reads from /metrics with a 60s refresh.' }], 'Claude finished working.'), 9000);
+  }
+  componentWillUnmount() { clearInterval(this._iv); window.removeEventListener('keydown', this._kd); (this._timers || []).forEach(clearTimeout); }
+  componentDidUpdate(pp) {
+    if (pp.direction !== this.props.direction && this.state.dirO) this.setState({ dirO: null });
+    if (pp.mode !== this.props.mode && this.state.modeO) this.setState({ modeO: null });
+    if (pp.firstRun !== this.props.firstRun && this.state.firstRunO !== null) this.setState({ firstRunO: null });
+    this.applyTheme();
+    this.scrollPanes();
+    if (this.state.focusId) {
+      const el = document.querySelector(`[data-input="${this.state.focusId}"]`);
+      if (el) { el.focus(); this.setState({ focusId: null }); }
+    }
+  }
+  scrollPanes() {
+    this._cnt = this._cnt || {};
+    document.querySelectorAll('[data-pane-body]').forEach(el => {
+      const id = el.getAttribute('data-pane-body'), c = el.getAttribute('data-count');
+      if (this._cnt[id] !== c) { this._cnt[id] = c; el.scrollTop = el.scrollHeight; }
+    });
+  }
+  later(fn, ms) { this._timers = this._timers || []; this._timers.push(setTimeout(fn, ms)); }
+  upd(id, fn) { this.setState(s => ({ sessions: s.sessions.map(x => x.id === id ? { ...x, ...fn(x) } : x) })); }
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast: '' }), 1800); }
+  log(sid, txt, c) { this.setState(s => ({ activity: [{ t: this.now(), sid, txt, c }, ...s.activity].slice(0, 30) })); }
+  notify(sid, body) {
+    const x = this.state.sessions.find(y => y.id === sid);
+    if (!x || !this.state.set.notify) return;
+    this.setState({ notif: { sid, title: x.name, body } });
+    clearTimeout(this._nt); this._nt = setTimeout(() => this.setState({ notif: null }), 4500);
+  }
+  finish(id, lines, body) {
+    const x = this.state.sessions.find(y => y.id === id);
+    if (!x || x.status !== 'working') return;
+    this.upd(id, y => ({ status: 'idle', last: 'now', lines: [...y.lines.filter(l => l.k !== 'spin'), ...lines], unread: this.state.sel !== id }));
+    this.log(id, `${x.name} finished`, 'var(--info)');
+    this.notify(id, body);
+  }
+
+  onGlobalKey(e) {
+    const m = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+    if (m && k === 'k') { e.preventDefault(); this.openPalette(); }
+    else if (m && k === 'n') { e.preventDefault(); this.openNew(); }
+    else if (m && k === ',') { e.preventDefault(); this.setState({ modal: 'settings', palette: false }); }
+    else if (m && k === 'o') { e.preventDefault(); this.setState(s => ({ wsMenu: !s.wsMenu, wsHover: s.ws, palette: false })); }
+    else if (m && k === 'i') { e.preventDefault(); this.setState(s => ({ inspector: !s.inspector })); }
+    else if (m && k === 'j') { e.preventDefault(); this.jumpWaiting(); }
+    else if (m && k === 'enter') { e.preventDefault(); this.toggleMax(this.state.sel); }
+    else if (m && /^[1-9]$/.test(k)) { const o = this.state.sessions.filter(x => x.open && x.ws === this.state.ws)[+k - 1]; if (o) { e.preventDefault(); this.selectSession(o.id, true); } }
+    else if (k === 'escape') this.setState({ palette: false, modal: null, menu: null, wsMenu: false, inspector: false });
+  }
+  openPalette() { this.setState({ palette: true, modal: null, menu: null, pq: '', pIdx: 0 }); setTimeout(() => { const el = document.querySelector('[data-palette]'); el && el.focus(); }, 30); }
+  openNew(p) {
+    const w = Component.WS.find(x => x.id === this.state.ws) || Component.WS[0];
+    this.setState(s => ({ modal: 'new', palette: false, menu: null, nf: { kind: 'Claude', ws: w.id, name: '', dir: w.path + '/' + w.dirs[0], branch: '', worktree: false, ...(p || {}) } }));
+    setTimeout(() => { const el = document.querySelector('[data-newname]'); el && el.focus(); }, 30);
+  }
+  capped(sessions, ws, keep, recent) {
+    const open = sessions.filter(x => x.open && x.ws === ws);
+    if (open.length <= Component.CAP) return { sessions, dropped: null };
+    const rank = id => { const i = recent.indexOf(id); return i < 0 ? 999 : i; };
+    const victim = open.filter(x => x.id !== keep).sort((a, b) => rank(b.id) - rank(a.id))[0];
+    return { sessions: sessions.map(x => x.id === victim.id ? { ...x, open: false } : x), dropped: victim.name };
+  }
+  selectSession(id, focus) {
+    let dropped = null;
+    this.setState(s => { const x = s.sessions.find(y => y.id === id);
+      const recent = [id, ...s.recent.filter(r => r !== id)];
+      const c = this.capped(s.sessions.map(y => y.id === id ? { ...y, open: true, unread: false } : y), x.ws, id, recent);
+      dropped = c.dropped;
+      return { sel: id, ws: x.ws, recent, wsMenu: false, renaming: false, sessions: c.sessions, focusId: focus ? id : s.focusId }; },
+      () => dropped && this.flash(`Grid holds ${Component.CAP} — hid ${dropped} (still running)`));
+  }
+  jumpWaiting() {
+    const w = this.state.sessions.filter(x => x.status === 'waiting');
+    if (!w.length) return this.flash('No sessions are waiting');
+    const i = w.findIndex(x => x.id === this.state.sel);
+    this.selectSession(w[(i + 1) % w.length].id, true);
+  }
+  toggleMax(id) { this.setState(s => s.layout === 'focus' ? { layout: s.prevLayout === 'focus' ? 'grid' : s.prevLayout, sel: id } : { prevLayout: s.layout, layout: 'focus', sel: id }); }
+  closePane(id) {
+    this.setState(s => {
+      const sessions = s.sessions.map(x => x.id === id ? { ...x, open: false } : x);
+      const o = sessions.filter(x => x.open && x.ws === s.ws);
+      return { sessions, menu: null, sel: s.sel === id && o[0] ? o[0].id : s.sel, layout: s.layout === 'focus' && s.sel === id ? (s.prevLayout === 'focus' ? 'grid' : s.prevLayout) : s.layout };
+    });
+  }
+  lifecycle(id, act) {
+    const x = this.state.sessions.find(y => y.id === id);
+    this.setState({ menu: null });
+    if (act === 'stop') { this.upd(id, y => ({ status: 'completed', permCmd: null, last: this.now(), lines: [...y.lines.filter(l => l.k !== 'spin'), { k: 'sys', t: 'Session stopped (SIGINT)' }] })); this.log(id, `${x.name} stopped`, 'var(--faint)'); }
+    if (act === 'kill') { this.upd(id, y => ({ status: 'failed', permCmd: null, last: this.now(), lines: [...y.lines.filter(l => l.k !== 'spin'), { k: 'sys', t: 'Process killed (SIGKILL)', tone: 'err' }] })); this.log(id, `${x.name} was killed`, 'var(--err)'); }
+    if (act === 'restart' || act === 'resume') {
+      const pid = 48600 + Math.floor(Math.random() * 300);
+      this.upd(id, y => ({ status: 'idle', pid, permCmd: null, last: 'now', lines: [...y.lines.filter(l => l.k !== 'spin'), { k: 'sys', t: act === 'resume' ? `Resumed · claude --resume ${y.csid.slice(0, 8)}…` : `Restarted · pid ${pid}` }] }));
+      this.log(id, `${x.name} ${act === 'resume' ? 'resumed' : 'restarted'}`, 'var(--ok)');
+    }
+    if (act === 'rename') { this.setState({ sel: id, inspector: true, insTab: 'session', renaming: true, renameVal: x.name }); setTimeout(() => { const el = document.querySelector('[data-rename]'); el && (el.focus(), el.select()); }, 30); }
+    if (act === 'details' || act === 'git') this.setState({ sel: id, inspector: true, insTab: act === 'git' ? 'git' : 'session' });
+    if (act === 'newHere') this.openNew({ ws: x.ws, dir: x.cwd, branch: x.branch });
+  }
+  send(id) {
+    const t = (this.state.drafts[id] || '').trim();
+    if (!t) return;
+    const x = this.state.sessions.find(y => y.id === id);
+    this.setState(s => ({ drafts: { ...s.drafts, [id]: '' } }));
+    if (x.kind === 'shell') {
+      const out = /^git status/.test(t) ? '## ' + x.branch + ' [ahead ' + x.ahead + ']\n M src/auth/token.service.ts' : /^ls/.test(t) ? 'src  test  package.json  README.md  tsconfig.json' : /^pwd/.test(t) ? x.cwd.replace('~', '/Users/karnav') : /^npm test/.test(t) ? 'PASS  test/auth.spec.ts\nTests: 24 passed, 24 total' : `zsh: ran "${t}"`;
+      this.upd(id, y => ({ lines: [...y.lines, { k: 'sh', t }, { k: 'out', t: out }], last: 'now' }));
+      return;
+    }
+    const word = (t.match(/[A-Za-z_]{4,}/g) || ['config']).slice(-1)[0];
+    this.upd(id, y => ({ lines: [...y.lines.filter(l => l.k !== 'spin'), { k: 'user', t }, { k: 'spin', t: 'Thinking…' }], status: 'working', permCmd: null, runSec: 0, last: 'now' }));
+    this.log(id, `${x.name} started`, 'var(--ok)');
+    this.later(() => this.upd(id, y => y.status !== 'working' ? {} : ({ lines: [...y.lines.filter(l => l.k !== 'spin'), { k: 'tool', a: 'Search', b: `(pattern: "${word}")` }, { k: 'sub', t: 'Found 6 matches in 3 files' }, { k: 'spin', t: 'Reading…' }] })), 1400);
+    this.later(() => this.finish(id, [{ k: 'text', t: `Found where "${word}" is handled — 3 files. Want me to make the change?` }], 'Claude finished working.'), 3600);
+  }
+  answerPerm(id, a) {
+    const x = this.state.sessions.find(y => y.id === id);
+    if (a === 'no') { this.upd(id, y => ({ permCmd: null, status: 'idle', lines: [...y.lines, { k: 'sub', t: 'User declined', tone: 'err' }] })); this.setState({ focusId: id }); return; }
+    this.upd(id, y => ({ permCmd: null, status: 'working', runSec: 0, lines: [...y.lines, { k: 'tool', a: 'Bash', b: `(${y.permCmd})` }, { k: 'spin', t: 'Running e2e…' }] }));
+    this.log(id, `${x.name} resumed work`, 'var(--ok)');
+    this.later(() => this.finish(id, [{ k: 'sub', t: 'PASS  test/auth.e2e-spec.ts (6 tests, 3.1s)', tone: 'ok' }, { k: 'text', t: 'Reuse detection works end-to-end: a replayed refresh token revokes the whole family. No blocking issues — two minor notes on log redaction.' }], 'Review finished.'), 2800);
+  }
+  createSession() {
+    const f = this.state.nf, id = 'n' + Date.now().toString(36);
+    const name = f.name.trim() || (f.kind === 'Shell' ? 'Terminal' : 'Untitled');
+    const s = { id, ws: f.ws, kind: f.kind === 'Shell' ? 'shell' : 'claude', name, cwd: f.dir.trim() || '~', branch: f.branch.trim() || 'main', status: 'idle', open: true, unread: false, runSec: 0, last: 'now', started: this.now(), csid: f.kind === 'Shell' ? '—' : Math.random().toString(16).slice(2, 10) + '-' + Math.random().toString(16).slice(2, 6), pid: 48600 + Math.floor(Math.random() * 300), commit: Math.random().toString(16).slice(2, 9), ahead: 0, behind: 0, wt: f.worktree, lines: [], files: [] };
+    this.setState(st => ({ sessions: this.capped([...st.sessions, s], f.ws, id, [id, ...st.recent]).sessions, recent: [id, ...st.recent], ws: f.ws, sel: id, modal: null, firstRunO: false, exp: { ...st.exp, [f.ws]: true }, focusId: id, layout: st.layout === 'focus' ? st.prevLayout || 'grid' : st.layout }));
+    this.log(id, `New ${name} session created`, 'var(--faint)');
+  }
+
+  seg(opts, cur, set) {
+    return opts.map(o => { const v = typeof o === 'object' ? o.v : o, label = typeof o === 'object' ? o.l : o, on = v === cur;
+      return { label, bg: on ? 'var(--raised)' : 'transparent', c: on ? 'var(--text)' : 'var(--muted)', sh: on ? '0 1px 2px rgba(0,0,0,.18)' : 'none', click: () => set(v) }; });
+  }
+  tog(on, fn) { return { on, bg: on ? 'var(--accent)' : 'var(--line2)', x: on ? '16px' : '2px', toggle: fn }; }
+  line(l, x, g) {
+    const o = { pre: '', pc: 'var(--faint)', a: '', b: '', tc: 'var(--text)', bg: 'transparent', mt: '0px', pl: '14px' };
+    switch (l.k) {
+      case 'user': return { ...o, pre: '>', pc: 'var(--muted)', b: l.t, bg: 'var(--userBg)', mt: '10px' };
+      case 'tool': return { ...o, pre: '●', pc: 'var(--ok)', a: l.a, b: l.b, mt: '10px' };
+      case 'sub': return { ...o, pre: '⎿', pl: '32px', b: l.t, tc: l.tone === 'err' ? 'var(--err)' : l.tone === 'ok' ? 'var(--ok)' : 'var(--muted)' };
+      case 'add': return { ...o, pre: '+', pc: 'var(--ok)', pl: '32px', b: String(l.n).padStart(3) + '  ' + l.t, bg: 'var(--addBg)' };
+      case 'del': return { ...o, pre: '−', pc: 'var(--err)', pl: '32px', b: String(l.n).padStart(3) + '  ' + l.t, bg: 'var(--delBg)' };
+      case 'text': return { ...o, pre: '●', pc: 'var(--text)', b: l.t, mt: '10px' };
+      case 'spin': return { ...o, pre: g, pc: 'var(--accent)', a: l.t, b: `  (esc to interrupt · ${x.runSec}s)`, tc: 'var(--accent)', mt: '10px' };
+      case 'sys': return { ...o, pre: '—', b: l.t, tc: l.tone === 'err' ? 'var(--err)' : 'var(--faint)', mt: '10px' };
+      case 'sh': return { ...o, pre: '$', pc: 'var(--ok)', b: l.t, mt: '8px' };
+      case 'out': return { ...o, b: l.t, tc: 'var(--muted)' };
+    }
+    return o;
+  }
+
+  renderVals() {
+    const s = this.state, T = Component.T, SL = Component.SL, SC = Component.SC, WS = Component.WS, dk = this.dirKey(), mode = this.mode(), fr = this.firstRun();
+    const G = ['✻', '✳', '✢', '·', '✢', '✳'][s.tick % 6];
+    const sessions = s.sessions;
+    const glyphOf = x => x.status === 'working' ? G : x.status === 'completed' ? '○' : '●';
+    const wsObj = WS.find(w => w.id === s.ws) || WS[0];
+    const open = fr ? [] : sessions.filter(x => x.open && x.ws === s.ws);
+    const selS = sessions.find(x => x.id === s.sel) || sessions[0];
+    const waiting = sessions.filter(x => x.status === 'waiting');
+    const working = sessions.filter(x => x.status === 'working');
+    const claudeN = sessions.filter(x => x.kind === 'claude').length;
+
+    const single = s.layout === 'focus';
+    const visible = single ? (open.some(x => x.id === s.sel) ? open.filter(x => x.id === s.sel) : open.slice(0, 1)) : open;
+    const n = visible.length || 1;
+    const cols = single ? 1 : n <= 3 ? n : n === 4 ? 2 : 3;
+    const rows = single ? 1 : n <= 3 ? 1 : 2;
+
+    const panes = visible.map(x => {
+      const isSel = x.id === s.sel, sh = x.kind === 'shell';
+      const dead = x.status === 'completed' || x.status === 'failed';
+      const menu = [
+        { label: 'Session details', key: '⌘I', act: 'details' }, { label: 'Git changes', key: '', act: 'git' }, { label: 'Rename…', key: '', act: 'rename' }, { label: 'New session in this folder', key: '', act: 'newHere' },
+        dead ? { label: 'Resume session', key: '', act: 'resume' } : { label: 'Stop', key: '⌃C', act: 'stop' },
+        { label: 'Restart', key: '', act: 'restart' }, { label: 'Kill process', key: '', act: 'kill', danger: true }
+      ].map(m => ({ label: m.label, key: m.key, c: m.danger ? 'var(--err)' : 'var(--text)', run: e => { e.stopPropagation(); this.lifecycle(x.id, m.act); } }));
+      return {
+        id: x.id, name: x.name, kind: sh ? 'zsh' : 'claude', branch: x.branch, glyph: glyphOf(x), dotC: SC[x.status], statusLbl: SL[x.status], isClaude: !sh, isShell: sh,
+        border: isSel && open.length > 1 ? 'var(--accent)' : 'var(--line)',
+        canMax: s.layout !== 'focus', canMin: s.layout === 'focus', maxTitle: s.layout === 'focus' ? 'Restore (⌘↵)' : 'Focus (⌘↵)',
+        menuOpen: s.menu === x.id, menu, toggleMenu: e => { e.stopPropagation(); this.setState({ menu: s.menu === x.id ? null : x.id, sel: x.id }); },
+        cwd: x.cwd, lines: x.lines.map(l => this.line(l, x, G)), count: x.lines.length + (x.permCmd ? 1 : 0),
+        hasPerm: !!x.permCmd, permCmd: x.permCmd || '',
+        permYes: () => this.answerPerm(x.id, 'yes'), permAlways: () => this.answerPerm(x.id, 'always'), permNo: () => this.answerPerm(x.id, 'no'),
+        prompt: sh ? '$' : '>', draft: s.drafts[x.id] || '',
+        placeholder: sh ? 'git status, npm test…' : dead ? 'Session ended — resume from ⋯' : x.status === 'working' ? 'Queue a message…' : x.lines.length ? 'Try "git diff", or type help' : 'What are we working on?',
+        onInput: e => { const v = e.target.value; this.setState(st => ({ drafts: { ...st.drafts, [x.id]: v } })); },
+        onKey: e => { if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); this.send(x.id); } },
+        select: () => { if (s.sel !== x.id || s.menu) this.setState({ sel: x.id, menu: s.menu === x.id ? s.menu : null, sessions: s.sessions.map(y => y.id === x.id && y.unread ? { ...y, unread: false } : y) }); },
+        toggleMax: e => { e.stopPropagation(); this.toggleMax(x.id); },
+        close: e => { e.stopPropagation(); this.closePane(x.id); },
+        modeLine: sh ? 'shell · ' + x.cwd : '⏵⏵ accept edits on (shift+tab to cycle)', modeC: sh ? 'var(--faint)' : 'var(--accent)',
+        foot: 'pid ' + x.pid
+      };
+    });
+
+    const filt = x => s.filter === 'all' || (s.filter === 'waiting' ? x.status === 'waiting' : x.status === 'working');
+    const groups = fr ? [] : WS.map(w => {
+      const items = sessions.filter(x => x.ws === w.id && filt(x));
+      const expanded = s.exp[w.id] !== false, active = w.id === s.ws;
+      return { name: w.name, count: sessions.filter(x => x.ws === w.id).length, expanded, rot: expanded ? 'rotate(90deg)' : 'none', bg: 'transparent', c: active ? 'var(--text)' : 'var(--muted)',
+        toggle: () => this.setState(st => active ? { exp: { ...st.exp, [w.id]: !expanded } } : { ws: w.id, exp: { ...st.exp, [w.id]: true }, sel: (st.sessions.find(y => y.ws === w.id && y.open) || st.sessions.find(y => y.ws === w.id) || {}).id || st.sel }),
+        items: items.map(x => ({ name: x.name, sub: (x.kind === 'shell' ? 'zsh · ' : '') + x.cwd.replace(w.path + '/', './'), glyph: glyphOf(x), c: SC[x.status], tc: x.open ? 'var(--text)' : 'var(--muted)',
+          right: x.status === 'working' ? x.runSec + 's' : x.status === 'waiting' ? 'waiting' : x.status === 'failed' ? 'failed' : !x.open ? 'hidden' : x.last,
+          rc: x.status === 'waiting' ? 'var(--warn)' : x.status === 'failed' ? 'var(--err)' : 'var(--faint)', unread: x.unread,
+          bg: x.id === s.sel ? 'var(--sel)' : 'transparent', click: () => this.selectSession(x.id) })) };
+    }).filter(g => g.items.length || s.filter === 'all');
+    const filterSeg = [{ v: 'all', l: 'All' }, { v: 'working', l: `Working ${working.length}` }, { v: 'waiting', l: `Waiting ${waiting.length}` }].map(o => ({ label: o.l, bg: s.filter === o.v ? 'var(--sel)' : 'transparent', c: s.filter === o.v ? 'var(--text)' : 'var(--muted)', click: () => this.setState({ filter: o.v }) }));
+
+    const x = selS;
+    const dead = x.status === 'completed' || x.status === 'failed';
+    const ins = {
+      name: x.name, statusLbl: SL[x.status], statusC: SC[x.status] === 'var(--faint)' ? 'var(--muted)' : SC[x.status],
+      wsLine: `${(WS.find(w => w.id === x.ws) || {}).name} · ${x.kind === 'shell' ? 'Terminal' : 'Claude CLI'}`, cwd: x.cwd,
+      rows: [{ k: 'Claude session', v: x.csid }, { k: 'Process', v: x.kind === 'shell' ? `zsh · pid ${x.pid}` : `claude · pid ${x.pid}` }, { k: 'Branch', v: x.branch }, { k: 'Started', v: x.started }, { k: 'Last activity', v: x.last === 'now' ? 'just now' : x.last }],
+      actions: [dead ? { l: 'Resume', a: 'resume' } : { l: 'Stop', a: 'stop' }, { l: 'Restart', a: 'restart' }, { l: 'Kill', a: 'kill', c: 'var(--err)' }].map(a => ({ label: a.l, c: a.c || 'var(--text)', run: () => this.lifecycle(x.id, a.a) }))
+    };
+    const fi = Math.min(s.fileIdx[x.id] || 0, Math.max(0, x.files.length - 1)), cf = x.files[fi];
+    const git = { branch: x.branch, line: `${x.commit}${x.wt ? ' · worktree' : ''}`, clean: !x.files.length, hasDiff: !!cf, file: cf ? cf.p : '',
+      stats: [{ label: 'Ahead', value: '↑ ' + x.ahead, c: 'var(--text)' }, { label: 'Behind', value: '↓ ' + x.behind, c: 'var(--text)' }, { label: 'Modified', value: String(x.files.length), c: x.files.length ? 'var(--warn)' : 'var(--ok)' }].map((st, i) => ({ ...st, br: i < 2 ? 'var(--line)' : 'transparent' })),
+      files: x.files.map((f, i) => ({ p: f.p, st: f.st, stC: f.st === 'A' ? 'var(--ok)' : 'var(--warn)', add: '+' + f.add, del: '−' + f.del, bg: i === fi ? 'var(--sel)' : 'transparent', click: () => this.setState(st => ({ fileIdx: { ...st.fileIdx, [x.id]: i } })) })),
+      diff: cf ? cf.d.map(d => ({ n: d.n ?? '', s: d.k === 'add' ? '+' : d.k === 'del' ? '−' : '', t: d.t, bg: d.k === 'add' ? 'var(--addBg)' : d.k === 'del' ? 'var(--delBg)' : d.k === 'hunk' ? 'var(--sel)' : 'transparent', c: d.k === 'hunk' ? 'var(--muted)' : 'var(--text)' })) : [],
+      actions: ['Open Git', 'Open Worktree', 'Open Folder', 'Copy Path'].map(l => ({ label: l, run: () => l === 'Copy Path' ? this.copy(x.cwd, 'Path copied') : this.flash(`${l} · ${x.cwd}`) })) };
+
+    const act = sessions.find(y => y.id === s.sel);
+    const cmds = [
+      ...sessions.map(y => ({ label: y.name, group: (WS.find(w => w.id === y.ws) || {}).name, glyph: glyphOf(y), gc: SC[y.status], key: open.indexOf(y) > -1 && open.indexOf(y) < 9 ? '⌘' + (open.indexOf(y) + 1) : '', run: () => this.selectSession(y.id, true) })),
+      { label: 'New Claude session', group: 'Session', key: '⌘N', run: () => this.openNew() },
+      { label: 'New terminal', group: 'Session', run: () => this.openNew({ kind: 'Shell' }) },
+      { label: 'Rename session', group: 'Session', run: () => this.lifecycle(s.sel, 'rename') },
+      { label: 'Focus session', group: 'Layout', key: '⌘↵', run: () => this.setState(st => ({ prevLayout: 'grid', layout: 'focus' })) },
+      { label: 'Show grid', group: 'Layout', run: () => this.setState({ layout: 'grid' }) },
+      { label: 'Hide session from grid', group: 'Layout', run: () => this.closePane(s.sel) },
+      { label: 'Open workspace menu', group: 'Workspace', key: '⌘O', run: () => this.setState({ wsMenu: true, wsHover: s.ws }) },
+      { label: act && (act.status === 'completed' || act.status === 'failed') ? 'Resume session' : 'Stop session', group: 'Process', run: () => this.lifecycle(s.sel, act && (act.status === 'completed' || act.status === 'failed') ? 'resume' : 'stop') },
+      { label: 'Restart session', group: 'Process', run: () => this.lifecycle(s.sel, 'restart') },
+      { label: 'Kill session', group: 'Process', run: () => this.lifecycle(s.sel, 'kill') },
+      { label: 'Jump to next waiting session', group: 'Session', key: '⌘J', run: () => this.jumpWaiting() },
+      ...WS.map(w => ({ label: 'Switch workspace: ' + w.name, group: 'Workspace', run: () => this.setState(st => ({ ws: w.id, exp: { ...st.exp, [w.id]: true }, sel: (st.sessions.find(y => y.ws === w.id && y.open) || st.sessions.find(y => y.ws === w.id)).id })) })),
+      { label: 'Open Git', group: 'Git', run: () => this.setState({ inspector: true, insTab: 'git' }) },
+      { label: 'Open folder', group: 'Git', run: () => this.flash('Open Folder · ' + (act || {}).cwd) },
+      { label: 'Toggle activity', group: 'View', run: () => this.setState(st => ({ inspector: !(st.inspector && st.insTab === 'activity'), insTab: 'activity' })) },
+      { label: `Switch to ${mode === 'dark' ? 'light' : 'dark'} theme`, group: 'Appearance', run: () => this.setState({ modeO: mode === 'dark' ? 'light' : 'dark' }) },
+      { label: 'Settings', group: 'App', key: '⌘,', run: () => this.setState({ modal: 'settings' }) },
+      { label: fr ? 'Exit first-run screen' : 'Show first-run screen', group: 'App', run: () => this.setState({ firstRunO: !fr }) }
+    ];
+    const q = s.pq.trim().toLowerCase();
+    const pf = cmds.filter(c => !q || (c.label + ' ' + c.group).toLowerCase().includes(q));
+    const pIdx = Math.min(s.pIdx, Math.max(0, pf.length - 1));
+    const runC = c => { this.setState({ palette: false }); c.run(); };
+    const pItems = pf.map((c, i) => ({ label: c.label, group: c.group, key: c.key || '', glyph: c.glyph || '›', gc: c.gc || 'var(--faint)', bg: i === pIdx ? 'var(--sel)' : 'transparent', run: () => runC(c), hover: () => this.state.pIdx !== i && this.setState({ pIdx: i }) }));
+
+    const nf = s.nf, nfW = WS.find(w => w.id === nf.ws) || WS[0];
+    const setNf = p => this.setState(st => ({ nf: { ...st.nf, ...p } }));
+    const setSet = p => this.setState(st => ({ set: { ...st.set, ...p } }));
+    const nfSlug = (nf.branch.trim() || 'session').replace(/[^a-zA-Z0-9]+/g, '-');
+    const nfCmds = [];
+    if (nf.worktree) nfCmds.push({ t: `git worktree add ../.worktrees/${nfSlug} ${nf.branch.trim() || '-b session'}`, c: 'var(--muted)' });
+    else if (nf.branch.trim()) nfCmds.push({ t: `git switch ${nf.branch.trim()}`, c: 'var(--muted)' });
+    nfCmds.push({ t: `cd ${nf.worktree ? nfW.path + '/.worktrees/' + nfSlug : nf.dir}${nf.kind === 'Claude' ? ' && claude' : ''}`, c: 'var(--text)' });
+
+    const setTabsL = [['general', 'General'], ['appearance', 'Appearance'], ['terminal', 'Terminal'], ['keys', 'Keybindings'], ['cli', 'Claude CLI'], ['storage', 'Storage']];
+    const G2 = s.set;
+
+    return {
+      limits: [{ label: '5h', p: 42, reset: 'resets 2h 14m', tip: '5-hour limit · resets in 2h 14m' }, { label: '7d', p: 68, reset: 'resets Thu', tip: 'Weekly limit · resets Thu 09:00' }].map(l => ({ ...l, pct: l.p + '%', w: l.p + '%', c: l.p >= 85 ? 'var(--err)' : l.p >= 60 ? 'var(--warn)' : 'var(--ok)' })),
+      openLimits: () => this.flash('Usage reported by Claude CLI · /usage for details'),
+      wsName: fr ? 'No workspace' : wsObj.name, wsPath: fr ? 'choose a folder' : wsObj.path, wsBtnBd: s.wsMenu ? 'var(--accent)' : 'var(--line)',
+      wsMenuOpen: s.wsMenu && !fr, toggleWsMenu: () => fr ? this.setState({ firstRunO: false }) : this.setState(st => ({ wsMenu: !st.wsMenu, wsHover: st.ws, palette: false })), closeWsMenu: () => this.setState({ wsMenu: false }),
+      wsList: WS.map(w => { const ss = sessions.filter(y => y.ws === w.id), hov = (s.wsHover || s.ws) === w.id, wk = ss.filter(y => y.status === 'working').length, wt = ss.filter(y => y.status === 'waiting').length;
+        return { name: w.name, path: w.path, count: ss.length, note: wt ? wt + ' waiting' : wk ? wk + ' working' : w.id === s.ws ? 'active' : '', nc: wt ? 'var(--warn)' : wk ? 'var(--ok)' : 'var(--faint)', bg: hov ? 'var(--sel)' : 'transparent', ic: w.id === s.ws ? 'var(--accent)' : 'var(--faint)',
+          hover: () => this.state.wsHover !== w.id && this.setState({ wsHover: w.id }),
+          click: () => this.setState(st => ({ ws: w.id, wsMenu: false, sel: (st.sessions.find(y => y.ws === w.id && y.open) || st.sessions.find(y => y.ws === w.id) || {}).id || st.sel })) }; }),
+      wmFilter: [{ v: 'all', l: 'All' }, { v: 'working', l: 'Working' }, { v: 'waiting', l: 'Waiting' }].map(o => ({ label: o.l, bg: s.wmFilter === o.v ? 'var(--sel)' : 'transparent', c: s.wmFilter === o.v ? 'var(--text)' : 'var(--muted)', click: () => this.setState({ wmFilter: o.v }) })),
+      wm: (() => { const w = WS.find(z => z.id === (s.wsHover || s.ws)) || wsObj; const all = sessions.filter(y => y.ws === w.id); const items = all.filter(y => s.wmFilter === 'all' || y.status === s.wmFilter); const inGrid = all.filter(y => y.open).length;
+        return { name: w.name, title: w.name + ' sessions', empty: !items.length, cap: `${inGrid} of ${Component.CAP} grid slots used · hidden sessions keep running`,
+          newHere: () => { this.setState({ wsMenu: false }); this.openNew({ ws: w.id, dir: w.path + '/' + w.dirs[0] }); },
+          items: items.map(y => ({ name: y.name, sub: (y.kind === 'shell' ? 'zsh · ' : '') + y.cwd.replace(w.path + '/', './') + ' · ⎇ ' + y.branch, glyph: glyphOf(y), c: SC[y.status], right: SL[y.status], rc: SC[y.status] === 'var(--faint)' ? 'var(--muted)' : SC[y.status], unread: y.unread,
+            bg: y.id === s.sel ? 'var(--sel)' : 'transparent', gl: y.open ? 'In grid' : 'Show', gc: y.open ? 'var(--accent)' : 'var(--muted)', gbd: y.open ? 'var(--accent)' : 'var(--line2)', tt: y.open ? 'Hide from grid (keeps running)' : 'Add to grid',
+            click: () => this.selectSession(y.id, true),
+            toggle: e => { e.stopPropagation(); if (y.open && y.ws === s.ws) this.closePane(y.id); else this.selectSession(y.id); } })) }; })(),
+      isDark: mode === 'dark', isLight: mode === 'light', modeName: mode === 'dark' ? 'Dark' : 'Light', firstRunName: fr ? 'Exit first-run' : 'First-run',
+      toggleMode: () => this.setState({ modeO: mode === 'dark' ? 'light' : 'dark' }),
+      toggleFirstRun: () => this.setState({ firstRunO: !fr }),
+      toggleSidebar: () => this.setState(st => ({ sidebar: !st.sidebar })), toggleInspector: () => this.setState(st => ({ inspector: !st.inspector, wsMenu: false })), closeInspector: () => this.setState({ inspector: false, renaming: false }),
+      insBtnName: fr ? 'Details' : selS.name, insBtnGlyph: fr ? '●' : glyphOf(selS), insBtnC: fr ? 'var(--faint)' : SC[selS.status], insBtnBd: s.inspector ? 'var(--accent)' : 'var(--line)',
+      sidebarOpen: s.sidebar, inspectorOpen: s.inspector && !fr,
+      layoutSeg: this.seg([{ v: 'grid', l: 'Grid' }, { v: 'focus', l: 'Focus' }], s.layout, v => this.setState({ layout: v, prevLayout: 'grid' })),
+      hasWaiting: waiting.length > 0 && !fr, waitingLabel: `${waiting.length} waiting`, jumpWaiting: () => this.jumpWaiting(),
+      openPalette: () => this.openPalette(), openNew: () => this.openNew(), openSettings: () => this.setState({ modal: 'settings' }),
+      addWorkspace: () => this.flash('Choose a folder to create a workspace'),
+      filterSeg, groups, noGroups: groups.every(g => !g.items.length), noGroupsText: fr ? 'No workspaces yet. Choose a project folder to get started.' : 'No sessions match this filter.',
+      sideFootTitle: fr ? 'Nothing stored yet' : 'Restored on launch', sideFootSub: '~/.claude-workspace',
+      showEmpty: fr || open.length === 0, firstRun: fr, noOpen: !fr && open.length === 0, noOpenTitle: `No panes open in ${wsObj.name}`, showGrid: !fr && open.length > 0,
+      recentFolders: WS, finishFirstRun: () => this.setState({ firstRunO: false }),
+      showTabs: !fr && s.layout === 'tabs' && open.length > 0,
+      tabs: open.map((y, i) => ({ name: y.name, glyph: glyphOf(y), c: SC[y.status], key: i < 9 ? '⌘' + (i + 1) : '', tc: y.id === (visible[0] || {}).id ? 'var(--text)' : 'var(--muted)', bd: y.id === (visible[0] || {}).id ? 'var(--line2)' : 'transparent', bg: y.id === (visible[0] || {}).id ? 'var(--pane)' : 'transparent', click: () => this.selectSession(y.id) })),
+      gridCols: `repeat(${cols}, minmax(0, 1fr))`, gridRows: `repeat(${rows}, minmax(0, 1fr))`, panes,
+      insTabs: [{ v: 'session', l: 'Session', b: '' }, { v: 'git', l: 'Git', b: x.files.length ? String(x.files.length) : '' }, { v: 'activity', l: 'Activity', b: '' }].map(o => ({ label: o.l, badge: o.b, bd: s.insTab === o.v ? 'var(--accent)' : 'transparent', c: s.insTab === o.v ? 'var(--text)' : 'var(--muted)', click: () => this.setState({ insTab: o.v }) })),
+      tabSession: s.insTab === 'session', tabGit: s.insTab === 'git', tabActivity: s.insTab === 'activity', ins, git,
+      renaming: s.renaming, notRenaming: !s.renaming, renameVal: s.renameVal,
+      startRename: () => this.lifecycle(x.id, 'rename'),
+      onRename: e => this.setState({ renameVal: e.target.value }),
+      commitRename: () => { if (!this.state.renaming) return; const v = this.state.renameVal.trim(); if (v) this.upd(x.id, () => ({ name: v })); this.setState({ renaming: false }); },
+      onRenameKey: e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') this.setState({ renaming: false }); },
+      copyPath: () => this.copy(x.cwd, 'Path copied'),
+      activity: s.activity.map(ev => { const y = sessions.find(z => z.id === ev.sid); return { t: ev.t, txt: ev.txt, c: ev.c, ws: y ? (WS.find(w => w.id === y.ws) || {}).name + ' · ' + y.cwd : '', click: () => y && this.selectSession(y.id) }; }),
+      statusLeft: fr ? 'claude · /usr/local/bin/claude' : `${wsObj.name} · ${wsObj.path}`,
+      statusRight: fr ? 'no sessions' : `${open.length}/${Component.CAP} in grid · ${claudeN} Claude sessions · ${working.length} working · ${waiting.length} waiting · CPU 18%`,
+      hasNotif: !!s.notif, notif: s.notif ? { title: s.notif.title, body: s.notif.body, click: () => { this.selectSession(s.notif.sid, true); this.setState({ notif: null }); } } : { title: '', body: '', click: () => {} },
+      paletteOpen: s.palette, pq: s.pq, pItems, pEmpty: !pf.length,
+      onPq: e => this.setState({ pq: e.target.value, pIdx: 0 }),
+      onPKey: e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ pIdx: Math.min(pIdx + 1, pf.length - 1) }); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ pIdx: Math.max(pIdx - 1, 0) }); }
+        else if (e.key === 'Enter' && pf[pIdx]) { e.preventDefault(); runC(pf[pIdx]); }
+      },
+      closeOverlay: () => this.setState({ palette: false, modal: null, menu: null }), stop: e => e.stopPropagation(),
+      newOpen: s.modal === 'new', nfTitle: nf.kind === 'Shell' ? 'New terminal' : 'New Claude session',
+      nfKind: this.seg(['Claude', 'Shell'], nf.kind, v => setNf({ kind: v })),
+      nfWs: this.seg(WS.map(w => ({ v: w.id, l: w.name })), nf.ws, v => { const w = WS.find(z => z.id === v); setNf({ ws: v, dir: w.path + '/' + w.dirs[0] }); }),
+      nfName: nf.name, onNfName: e => setNf({ name: e.target.value }), onNfKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.createSession(); } },
+      nfDir: nf.dir, onNfDir: e => setNf({ dir: e.target.value }),
+      nfDirs: nfW.dirs.map(d => ({ label: './' + d, click: () => setNf({ dir: nfW.path + '/' + d }) })),
+      nfBranch: nf.branch, onNfBranch: e => setNf({ branch: e.target.value }),
+      nfWt: this.tog(nf.worktree, () => setNf({ worktree: !nf.worktree })), nfCmds,
+      createSession: () => this.createSession(),
+      settingsOpen: s.modal === 'settings',
+      setTabs: setTabsL.map(([v, l]) => ({ label: l, bg: s.setTab === v ? 'var(--sel)' : 'transparent', c: s.setTab === v ? 'var(--text)' : 'var(--muted)', click: () => this.setState({ setTab: v }) })),
+      setTitle: setTabsL.find(t => t[0] === s.setTab)[1],
+      stGeneral: s.setTab === 'general', stAppearance: s.setTab === 'appearance', stTerminal: s.setTab === 'terminal', stKeys: s.setTab === 'keys', stCli: s.setTab === 'cli', stStorage: s.setTab === 'storage',
+      genToggles: [['restore', 'Restore workspaces on launch', 'Rebuilds panes, sizes and the active session; resumes Claude where supported.'], ['notify', 'Notify when a session finishes or is waiting', 'Native macOS notifications, based on process and terminal events.'], ['sound', 'Play a sound with notifications', 'Respects Focus modes.'], ['confirm', 'Confirm before quitting with working sessions', 'Quitting stops every running process.']]
+        .map(([k, label, sub]) => ({ label, sub, ...this.tog(G2[k], () => setSet({ [k]: !G2[k] })) })),
+      modeSeg: this.seg([{ v: 'dark', l: 'Dark' }, { v: 'light', l: 'Light' }], mode, v => this.setState({ modeO: v })),
+      fsSeg: this.seg([{ v: 11.5, l: '11.5' }, { v: 12.5, l: '12.5' }, { v: 14, l: '14' }], G2.fs, v => setSet({ fs: v })),
+      cursorSeg: this.seg(['Block', 'Bar', 'Underline'], G2.cursor, v => setSet({ cursor: v })),
+      keybinds: [['Command palette / quick switch', '⌘K'], ['New Claude session', '⌘N'], ['Go to session 1–9', '⌘1–9'], ['Focus / restore pane', '⌘↵'], ['Next waiting session', '⌘J'], ['Workspaces & sessions menu', '⌘O'], ['Toggle inspector', '⌘I'], ['Settings', '⌘,'], ['Close overlay', 'esc']].map(([label, key]) => ({ label, key })),
+      stored: ['Workspaces & project paths', 'Session names and directories', 'Claude session IDs (for resume)', 'Layouts, pane sizes, tabs', 'Window & sidebar state'],
+      notStored: ['Claude conversations or context', 'Terminal output', 'Project files', 'Git history', 'Credentials'],
+      hasToast: !!s.toast, toast: s.toast
+    };
+  }
+  copy(t, msg) { try { navigator.clipboard.writeText(t); } catch (e) {} this.flash(msg); }
+}
+</script>
+</body>
+</html>
