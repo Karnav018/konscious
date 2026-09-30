@@ -38,3 +38,18 @@ CI=true pnpm tauri build --target universal-apple-darwin --bundles dmg
 ```
 
 User data lives in `~/.kova` (config, workspaces, layouts, runtime files).
+
+## Branches
+
+- `main` — the macOS app. Always releasable.
+- `windows` — Windows port in progress. Windows-only code is behind
+  `#[cfg(windows)]` (Rust) or `IS_WINDOWS` (frontend) so the Mac build compiles
+  exactly the Mac code paths.
+
+Before merging anything into `main`, run the Mac gate:
+
+```sh
+cd app
+scripts/check-mac.sh            # tests, typecheck, clippy
+scripts/check-mac.sh --build    # …plus a release build (never touches the installed app)
+```

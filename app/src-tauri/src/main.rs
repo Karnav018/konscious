@@ -2,7 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    // Hook helper mode (Windows): exit before any UI code loads.
+    // Windows only: Claude runs `Kova.exe hook …` for status events. Exit
+    // before any UI code loads. (macOS hooks are plain `sh` commands.)
+    #[cfg(windows)]
     if let Some(code) = kova_lib::helper_main() {
         std::process::exit(code);
     }

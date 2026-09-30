@@ -17,7 +17,9 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-use portable_pty::{ChildKiller, MasterPty};
+#[cfg(windows)]
+use portable_pty::ChildKiller;
+use portable_pty::MasterPty;
 
 use crate::claude::launcher::Launch;
 use crate::error::AppResult;
@@ -69,7 +71,7 @@ pub struct Process {
     /// Released on stop/kill so the reader drains and the process can exit.
     sink: Arc<OutputSink>,
     /// Terminates the child on Windows (Unix uses killpg on the group).
-    #[cfg_attr(unix, allow(dead_code))]
+    #[cfg(windows)]
     killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
     pub started_wall_ms: u64,
 }
@@ -94,6 +96,7 @@ impl Process {
             pty::spawn(launch, cols, rows)?;
         let SpawnCtx { run_id, sink, tracker, on_exit } = ctx;
         let process_sink = Arc::clone(&sink);
+        #[cfg(windows)]
         let killer = child.clone_killer();
 
         let alive = Arc::new(Mutex::new(true));
@@ -216,6 +219,7 @@ impl Process {
             stop_requested,
             kill_requested,
             sink: process_sink,
+            #[cfg(windows)]
             killer: Mutex::new(killer),
             started_wall_ms: now_ms(),
         }))

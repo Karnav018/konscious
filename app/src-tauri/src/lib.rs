@@ -116,11 +116,12 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 }
 
 /// Windows hooks run `Kova.exe hook …` / `Kova.exe status …` (see
-/// claude::hooks). Handles those and returns the exit code before any window
-/// or runtime code loads; `None` for a normal launch.
+/// claude::win_hooks). Handles those and returns the exit code before any
+/// window or runtime code loads; `None` for a normal launch.
+#[cfg(windows)]
 pub fn helper_main() -> Option<i32> {
     let args: Vec<String> = std::env::args().collect();
-    claude::hooks::run_helper(&args, &mut std::io::stdin().lock())
+    claude::win_hooks::run_helper(&args, &mut std::io::stdin().lock())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -8,13 +8,12 @@
 //! - never print to stdout (UserPromptSubmit stdout would become context);
 //! - always exit 0 (a non-zero exit shows a "hook error" in the transcript).
 //!
-//! macOS/Linux: each hook is a tiny `sh` command. Windows: there may be no
-//! bash at all (Git for Windows is optional), so hooks use Claude's *exec
-//! form* — Claude runs `Kova.exe hook <token> <events-file>` directly, no
-//! shell — and Kova's helper mode (`run_helper`) appends the same line.
+//! macOS/Linux: each hook is a tiny `sh` command (this file). Windows has
+//! its own hook plumbing in `win_hooks.rs`, which the macOS build never
+//! compiles; only the event format and the tailer below are shared.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -34,11 +33,10 @@ pub enum HookEvent {
 }
 
 /// Notification types that mean "a person needs to act in this pane".
-const ATTENTION_MATCHER: &str =
+pub(crate) const ATTENTION_MATCHER: &str =
     "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input";
 
-#[cfg_attr(windows, allow(dead_code))]
-fn sh_quote(s: &str) -> String {
+pub(crate) fn sh_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
@@ -57,7 +55,7 @@ fn entry(command: String, matcher: Option<&str>) -> Value {
     wrap(json!({ "type": "command", "command": command, "timeout": 5 }), matcher)
 }
 
-fn wrap(hook: Value, matcher: Option<&str>) -> Value {
+pub(crate) fn wrap(hook: Value, matcher: Option<&str>) -> Value {
     match matcher {
         Some(m) => json!([{ "matcher": m, "hooks": [hook] }]),
         None => json!([{ "hooks": [hook] }]),
@@ -97,23 +95,8 @@ pub fn user_status_line(cwd: &Path, config_dir: &Path) -> Option<String> {
     None
 }
 
-/// The `--settings` document for one session. `helper` is Kova's own
-/// executable (used on Windows, where hooks run it directly).
-pub fn settings_value(events_path: &Path, status_path: &Path, chain: Option<&str>, helper: &Path) -> Value {
-    #[cfg(unix)]
-    {
-        let _ = helper;
-        unix_settings(events_path, status_path, chain)
-    }
-    #[cfg(windows)]
-    {
-        let _ = chain; // chaining a user's own status line: macOS/Linux only for now
-        windows_settings(events_path, status_path, helper)
-    }
-}
-
 #[cfg_attr(windows, allow(dead_code))]
-fn unix_settings(events_path: &Path, status_path: &Path, chain: Option<&str>) -> Value {
+pub fn settings_value(events_path: &Path, status_path: &Path, chain: Option<&str>) -> Value {
     let ev = sh_quote(&events_path.to_string_lossy());
     json!({
         "statusLine": { "type": "command", "command": status_command(status_path, chain), "padding": 0 },
@@ -131,142 +114,6 @@ fn unix_settings(events_path: &Path, status_path: &Path, chain: Option<&str>) ->
     })
 }
 
-/// Exec-form hooks (no shell): Claude spawns `helper hook <token> <events>`.
-#[cfg_attr(unix, allow(dead_code))]
-fn windows_settings(events_path: &Path, status_path: &Path, helper: &Path) -> Value {
-    let exe = helper.to_string_lossy().into_owned();
-    let ev = events_path.to_string_lossy().into_owned();
-    let hook = |token: &str, matcher: Option<&str>| {
-        wrap(json!({ "type": "command", "command": exe, "args": ["hook", token, ev], "timeout": 5 }), matcher)
-    };
-    json!({
-        "statusLine": { "type": "command", "command": windows_status_command(helper, status_path, git_bash_present()), "padding": 0 },
-        "hooks": {
-            "SessionStart": hook("start", None),
-            "UserPromptSubmit": hook("prompt", None),
-            "PreToolUse": hook("tool", None),
-            "PostToolUse": hook("tool_done", None),
-            "PostToolUseFailure": hook("tool_done", None),
-            "PermissionRequest": hook("permission", None),
-            "Notification": hook("attention", Some(ATTENTION_MATCHER)),
-            "Stop": hook("stop", None),
-            "StopFailure": hook("stop", None),
-        }
-    })
-}
-
-/// The status line has no exec form, so it goes through Claude's shell: Git
-/// Bash when installed, else PowerShell. With 8.3 short paths and forward
-/// slashes the command is plain words that both shells run unquoted; only if
-/// a path still contains unusual characters is it quoted for the shell in use.
-#[cfg_attr(unix, allow(dead_code))]
-pub fn windows_status_command(helper: &Path, status_path: &Path, git_bash: bool) -> String {
-    let fwd = |p: &Path| short_path(p).to_string_lossy().replace('\\', "/");
-    let (h, s) = (fwd(helper), fwd(status_path));
-    let plain = |x: &str| x.chars().all(|c| c.is_ascii_alphanumeric() || "_./:~-".contains(c));
-    if plain(&h) && plain(&s) {
-        format!("{h} status {s}")
-    } else if git_bash {
-        format!("{} status {}", sh_quote(&h), sh_quote(&s))
-    } else {
-        let ps = |x: &str| format!("'{}'", x.replace('\'', "''"));
-        format!("& {} status {}", ps(&h), ps(&s))
-    }
-}
-
-/// Mirrors how Claude Code picks its shell on Windows: Git Bash if found.
-#[cfg_attr(unix, allow(dead_code))]
-fn git_bash_present() -> bool {
-    if std::env::var_os("CLAUDE_CODE_GIT_BASH_PATH").is_some() {
-        return true;
-    }
-    let path = std::env::var("PATH").unwrap_or_default();
-    crate::env::which("git.exe", &path)
-        .and_then(|git| git.parent()?.parent().map(|root| root.join("bin").join("bash.exe")))
-        .is_some_and(|bash| bash.is_file())
-        || Path::new(r"C:\Program Files\Git\bin\bash.exe").is_file()
-}
-
-#[cfg(windows)]
-fn short_path(p: &Path) -> PathBuf {
-    use std::os::windows::ffi::{OsStrExt, OsStringExt};
-    use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
-    // The file itself may not exist yet: shorten the existing parent.
-    let (dir, name) = match (p.parent(), p.file_name()) {
-        (Some(d), Some(n)) if !p.exists() => (d, Some(n)),
-        _ => (p, None),
-    };
-    let wide: Vec<u16> = dir.as_os_str().encode_wide().chain(Some(0)).collect();
-    let mut buf = vec![0u16; 1024];
-    let n = unsafe { GetShortPathNameW(wide.as_ptr(), buf.as_mut_ptr(), buf.len() as u32) } as usize;
-    if n == 0 || n >= buf.len() {
-        return p.to_path_buf();
-    }
-    let short = PathBuf::from(std::ffi::OsString::from_wide(&buf[..n]));
-    match name {
-        Some(n) => short.join(n),
-        None => short,
-    }
-}
-
-#[cfg(not(windows))]
-fn short_path(p: &Path) -> PathBuf {
-    p.to_path_buf()
-}
-
-/* ── helper mode (Windows hooks) ─────────────────────────────────── */
-
-const HOOK_TOKENS: &[&str] = &["start", "prompt", "tool", "tool_done", "permission", "attention", "stop"];
-const MAX_STDIN: u64 = 4 * 1024 * 1024;
-
-/// `Kova hook <token> <file.events>` / `Kova status <file.status.json>`.
-/// Returns the exit code when `args` is a helper invocation (always 0: a
-/// failing hook would show an error in Claude), `None` for a normal launch.
-pub fn run_helper(args: &[String], stdin: &mut dyn Read) -> Option<i32> {
-    match args.get(1).map(String::as_str) {
-        Some("hook") => {
-            if let (Some(token), Some(events)) = (args.get(2), args.get(3)) {
-                let _ = append_event(token, Path::new(events), stdin);
-            }
-            Some(0)
-        }
-        Some("status") => {
-            if let Some(path) = args.get(2) {
-                let _ = save_status(Path::new(path), stdin);
-            }
-            Some(0)
-        }
-        _ => None,
-    }
-}
-
-fn append_event(token: &str, events: &Path, stdin: &mut dyn Read) -> std::io::Result<()> {
-    // Only our own event files, only known tokens.
-    if !HOOK_TOKENS.contains(&token) || events.extension().is_none_or(|e| e != "events") {
-        return Ok(());
-    }
-    let mut input = Vec::new();
-    stdin.take(MAX_STDIN).read_to_end(&mut input)?; // drain, so Claude never sees a broken pipe
-    let line = if token == "start" {
-        let json = String::from_utf8_lossy(&input).replace(['\n', '\r'], "");
-        format!("start\t{json}\n")
-    } else {
-        format!("{token}\n") // prompts and tool inputs are never written to disk
-    };
-    OpenOptions::new().create(true).append(true).open(events)?.write_all(line.as_bytes())
-}
-
-fn save_status(path: &Path, stdin: &mut dyn Read) -> std::io::Result<()> {
-    if !path.to_string_lossy().ends_with(".status.json") {
-        return Ok(());
-    }
-    let mut input = Vec::new();
-    stdin.take(MAX_STDIN).read_to_end(&mut input)?;
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, &input)?;
-    fs::rename(&tmp, path)
-}
-
 /// Paths for one session's hook plumbing.
 pub struct HookFiles {
     pub settings: PathBuf,
@@ -275,14 +122,21 @@ pub struct HookFiles {
 }
 
 /// Writes the settings file and truncates the events file for a new run.
-pub fn prepare(run_dir: &Path, session_id: &str, chain: Option<&str>, helper: &Path) -> std::io::Result<HookFiles> {
+pub fn prepare(run_dir: &Path, session_id: &str, chain: Option<&str>) -> std::io::Result<HookFiles> {
     fs::create_dir_all(run_dir)?;
     #[cfg(unix)]
     fs::set_permissions(run_dir, fs::Permissions::from_mode(0o700))?;
     let settings = run_dir.join(format!("{session_id}.settings.json"));
     let events = run_dir.join(format!("{session_id}.events"));
     let status = run_dir.join(format!("{session_id}.status.json"));
-    fs::write(&settings, serde_json::to_vec_pretty(&settings_value(&events, &status, chain, helper))?)?;
+    #[cfg(not(windows))]
+    let doc = settings_value(&events, &status, chain);
+    #[cfg(windows)]
+    let doc = {
+        let _ = chain; // chaining the user's own status line: macOS/Linux only
+        super::win_hooks::settings_value(&events, &status)
+    };
+    fs::write(&settings, serde_json::to_vec_pretty(&doc)?)?;
     let mut open = OpenOptions::new();
     open.create(true).write(true).truncate(true);
     #[cfg(unix)]
@@ -417,7 +271,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn settings_cover_status_events_and_quote_paths() {
-        let v = settings_value(Path::new("/tmp/it's here/x.events"), Path::new("/tmp/s.json"), None, Path::new("/k"));
+        let v = settings_value(Path::new("/tmp/it's here/x.events"), Path::new("/tmp/s.json"), None);
         let hooks = v["hooks"].as_object().unwrap();
         for ev in ["SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest", "Notification", "Stop"] {
             assert!(hooks.contains_key(ev), "{ev} missing");
@@ -433,7 +287,7 @@ mod tests {
     #[test]
     fn hook_commands_append_parseable_lines_and_never_fail() {
         let dir = tempfile::tempdir().unwrap();
-        let files = prepare(dir.path(), "s1", None, Path::new("/k")).unwrap();
+        let files = prepare(dir.path(), "s1", None).unwrap();
         let v: Value = serde_json::from_slice(&fs::read(&files.settings).unwrap()).unwrap();
         let run = |event: &str, stdin: &str| {
             let cmd = v["hooks"][event][0]["hooks"][0]["command"].as_str().unwrap();
@@ -528,52 +382,6 @@ mod tests {
         assert_eq!(user_status_line(&cwd, &cfg).as_deref(), Some("user.sh"));
         fs::write(cwd.join(".claude/settings.json"), r#"{"statusLine":{"type":"command","command":"proj.sh"}}"#).unwrap();
         assert_eq!(user_status_line(&cwd, &cfg).as_deref(), Some("proj.sh"));
-    }
-
-    fn helper(args: &[&str], stdin: &str) -> Option<i32> {
-        let args: Vec<String> = std::iter::once("Kova").chain(args.iter().copied()).map(String::from).collect();
-        run_helper(&args, &mut stdin.as_bytes())
-    }
-
-    #[test]
-    fn helper_mode_appends_the_same_events_as_the_shell_hooks() {
-        let dir = tempfile::tempdir().unwrap();
-        let ev = dir.path().join("s1.events");
-        let ev_s = ev.to_str().unwrap();
-        assert_eq!(helper(&["hook", "start", ev_s], "{\"session_id\":\"abc\",\n\"source\":\"startup\"}"), Some(0));
-        assert_eq!(helper(&["hook", "prompt", ev_s], "{\"prompt\":\"secret prompt\"}"), Some(0));
-        assert_eq!(helper(&["hook", "stop", ev_s], "{}"), Some(0));
-        assert!(!fs::read_to_string(&ev).unwrap().contains("secret prompt"), "prompts never reach disk");
-        assert_eq!(
-            EventTail::new(ev.clone()).read_new(),
-            vec![HookEvent::Start { session_id: Some("abc".into()), source: Some("startup".into()) }, HookEvent::Prompt, HookEvent::Stop]
-        );
-    }
-
-    #[test]
-    fn helper_mode_saves_status_and_rejects_foreign_paths() {
-        let dir = tempfile::tempdir().unwrap();
-        let st = dir.path().join("s1.status.json");
-        assert_eq!(helper(&["status", st.to_str().unwrap()], "{\"model\":{}}"), Some(0));
-        assert_eq!(fs::read_to_string(&st).unwrap(), "{\"model\":{}}");
-        let other = dir.path().join("notes.txt");
-        assert_eq!(helper(&["status", other.to_str().unwrap()], "x"), Some(0));
-        assert_eq!(helper(&["hook", "evil", dir.path().join("a.events").to_str().unwrap()], "x"), Some(0));
-        assert!(!other.exists() && !dir.path().join("a.events").exists(), "only our own files, only known tokens");
-        assert_eq!(helper(&["hook"], ""), Some(0), "malformed calls still exit 0");
-        assert_eq!(helper(&[], ""), None, "a normal launch is not a helper call");
-    }
-
-    #[test]
-    fn windows_status_command_is_shell_neutral_when_it_can_be() {
-        let p = |s: &str| PathBuf::from(s);
-        assert_eq!(
-            windows_status_command(&p("C:/Users/kar/AppData/Local/Kova/Kova.exe"), &p("C:/Users/kar/.kova/run/s1.status.json"), false),
-            "C:/Users/kar/AppData/Local/Kova/Kova.exe status C:/Users/kar/.kova/run/s1.status.json"
-        );
-        let (h, s) = (p("C:/Users/John O'Hara/Kova.exe"), p("C:/x/s.status.json"));
-        assert_eq!(windows_status_command(&h, &s, true), "'C:/Users/John O'\\''Hara/Kova.exe' status 'C:/x/s.status.json'");
-        assert_eq!(windows_status_command(&h, &s, false), "& 'C:/Users/John O''Hara/Kova.exe' status 'C:/x/s.status.json'");
     }
 
     #[test]

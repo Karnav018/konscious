@@ -152,11 +152,17 @@ fn user_shell() -> String {
         })
 }
 
-/// The user's home directory (`HOME`, or `USERPROFILE` on Windows).
+/// The user's home directory.
+#[cfg(unix)]
 pub fn home_dir() -> String {
-    std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .unwrap_or_else(|_| "/".into())
+    std::env::var("HOME").unwrap_or_else(|_| "/".into())
+}
+
+#[cfg(windows)]
+pub fn home_dir() -> String {
+    std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .unwrap_or_else(|_| r"C:\".into())
 }
 
 /// Case-insensitive on Windows, where the PATH variable is usually `Path`.

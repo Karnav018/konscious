@@ -213,9 +213,8 @@ impl SessionManager {
                     .unwrap_or_else(Uuid::new_v4);
                 s.spec.locked().claude_session_id = Some(uuid.to_string());
                 let resume = launcher::transcript_exists(&env.claude_config_dir(), &uuid);
-                let chain = if cfg!(windows) { None } else { hooks::user_status_line(&cwd, &env.claude_config_dir()) };
-                let helper = std::env::current_exe().unwrap_or_default();
-                let files = hooks::prepare(&self.run_dir, &spec.id, chain.as_deref(), &helper)?;
+                let chain = hooks::user_status_line(&cwd, &env.claude_config_dir());
+                let files = hooks::prepare(&self.run_dir, &spec.id, chain.as_deref())?;
                 let args = launcher::claude_args(&spec.name, &files.settings, &uuid, resume, spec.fork);
                 let (program, args) = launcher::runnable(PathBuf::from(claude), args);
                 (program, args, resume, Some(files.events), Some(files.status))

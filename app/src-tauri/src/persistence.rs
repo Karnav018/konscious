@@ -14,6 +14,8 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -104,8 +106,10 @@ impl Store {
         let Ok(file) = OpenOptions::new().create(true).truncate(false).write(true).open(self.base.join(".lock")) else {
             return false;
         };
-        // flock on Unix, LockFileEx on Windows (std's cross-platform lock).
-        let ok = file.try_lock().is_ok();
+        #[cfg(unix)]
+        let ok = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0;
+        #[cfg(windows)]
+        let ok = file.try_lock().is_ok(); // LockFileEx
         if ok {
             *self.lock_file.locked() = Some(file);
         }

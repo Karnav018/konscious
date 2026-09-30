@@ -50,18 +50,25 @@ pub fn shell_args() -> Vec<String> {
 
 /// Windows can't start a `.cmd`/`.bat` (e.g. an npm `claude.cmd` shim)
 /// directly; run it through `cmd.exe /d /c`. Everything else is unchanged.
+#[cfg(windows)]
 pub fn runnable(program: PathBuf, args: Vec<String>) -> (PathBuf, Vec<String>) {
     let is_script = program
         .extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case("cmd") || e.eq_ignore_ascii_case("bat"));
-    if cfg!(windows) && is_script {
+    if is_script {
         let mut wrapped = vec!["/d".into(), "/c".into(), program.to_string_lossy().into_owned()];
         wrapped.extend(args);
         (PathBuf::from("cmd.exe"), wrapped)
     } else {
         (program, args)
     }
+}
+
+/// macOS/Linux: the program runs as is.
+#[cfg(not(windows))]
+pub fn runnable(program: PathBuf, args: Vec<String>) -> (PathBuf, Vec<String>) {
+    (program, args)
 }
 
 /// True when `<config>/projects/*/<id>.jsonl` exists and is non-empty.
