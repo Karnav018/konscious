@@ -7,6 +7,10 @@
   --color-surface: var(--surface);
   --color-raised: var(--raised);
   --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-working: var(--working);
+  --color-waiting: var(--waiting);
+  --color-idle: var(--idle);
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
@@ -31,4 +35,16 @@ body {
   font-family: var(--ui);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

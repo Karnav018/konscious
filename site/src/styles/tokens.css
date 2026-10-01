@@ -1,12 +1,14 @@
-/* Placeholder theme until the landing design arrives: the app's palette
-   (#FBF5E5 · #C890A7 · #A35C7A · #212121). Dark by default; light follows
-   the visitor's system setting. Replace these values, not the names. */
+/* Konscious brand, taken from the app (app/src/styles/tokens.css):
+   charcoal #212121 · cream #FBF5E5 · rose #C890A7 · plum #A35C7A.
+   Status colours mean exactly what they mean in the app — working, waiting,
+   idle — and are used only for that. Dark by default; light follows the
+   visitor's system setting. */
 
 :root {
   --ui: 'IBM Plex Sans', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
   --head: 'IBM Plex Sans', system-ui, sans-serif;
-  --r: 10px;
+  --r: 12px;
   --rs: 6px;
   --pill: 999px;
 
@@ -14,12 +16,17 @@
   --surface: #292626;
   --raised: #312d2d;
   --line: #383232;
+  --line2: #4a4141;
   --text: #fbf5e5;
   --muted: #c9bdb4;
   --faint: #8c807b;
   --accent: #c890a7;
   --accentSoft: rgba(200, 144, 167, 0.16);
   --accentInk: #212121;
+  --working: #8fce9f;
+  --waiting: #e9bc6a;
+  --idle: #b3a3d6;
+  --shadow: rgba(0, 0, 0, 0.55);
   color-scheme: dark;
 }
 
@@ -29,12 +36,17 @@
     --surface: #fffcf5;
     --raised: #fffcf5;
     --line: #ece2cb;
+    --line2: #dccbc9;
     --text: #212121;
     --muted: #5e5654;
-    --faint: #9c8f8b;
+    --faint: #8a7d79;
     --accent: #a35c7a;
     --accentSoft: rgba(163, 92, 122, 0.1);
     --accentInk: #ffffff;
+    --working: #3f8f5e;
+    --waiting: #b7791f;
+    --idle: #7a6fa3;
+    --shadow: rgba(60, 40, 30, 0.28);
     color-scheme: light;
   }
 }

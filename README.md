@@ -26,6 +26,7 @@ build. A change meant for both platforms has to be made in both folders.
 | macOS | `scripts/build-mac.sh` | `release/mac/Konscious-<version>-universal.dmg` |
 | Windows | `scripts/build-windows.sh` | `release/win/Konscious_<version>_x64-setup.exe` |
 | Website | `scripts/build-site.sh` | `site/dist/` (static files) |
+| Website, live | `scripts/deploy-site.sh` | https://konscious.hawkapp.in (Vercel) |
 
 `build-mac.sh` runs the Mac checks (tests, typecheck, clippy) first and
 never touches the installed `/Applications/Konscious.app`. `build-windows.sh`

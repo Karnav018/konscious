@@ -15,6 +15,13 @@ pnpm preview      # serve dist/ on :1431 to check the real build
 
 Or from the repo root: `scripts/build-site.sh`.
 
+## Live site
+
+https://konscious.hawkapp.in — the Vercel project `konscious` (scope
+`karnav018s-projects`). Deploy with `scripts/deploy-site.sh` from the repo root;
+build settings and asset caching are in `vercel.json`. DNS for `hawkapp.in` is
+at GoDaddy: the subdomain is an `A` record `konscious → 76.76.21.21`.
+
 ## Layout
 
 | Path | What |
@@ -42,9 +49,17 @@ The dev server shows any HTML file without step 3, so a page you forget to
 register works in `pnpm dev` and is missing from the build — check with
 `pnpm build && ls dist`.
 
+## How the landing page is built
+
+Every picture is the real app: `public/app-window.png` (a 2x screenshot) is
+shown whole in the hero, and each feature row shows a crop of it through
+`<Crop region={…}>` in `src/components/Shot.tsx`. A region is in the PNG's own
+pixels; `scale` 0.5 means actual on-screen size. Replacing the screenshot
+means re-measuring the regions in `src/components/Features.tsx`.
+
+Download buttons link straight to the installers committed under `release/`
+in the public GitHub repo; their versions and sizes live in `src/site.ts`.
+
 ## Still to do
 
-- Apply the real design (tokens, sections, screenshot).
-- Download links in `src/site.ts` point at `#download` until there is a host
-  for the DMG and installer.
-- Pick a host and set up deploys; add `og:image` once there is artwork.
+- Update the sizes in `src/site.ts` when the installers change.
