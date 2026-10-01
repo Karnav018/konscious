@@ -8,8 +8,9 @@ dist/
 # Release builds are committed; pre-rename Kova builds stay local
 release/*/Kova*
 
-# Design handoff archives stay local (the extracted design is in docs/design/)
+# Design files stay local
 *handoff*.zip
+docs/design/
 
 # AI-assistant instruction files stay out of the repo
 CLAUDE.md
