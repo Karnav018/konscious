@@ -9,7 +9,7 @@ mod suggest;
 mod sync;
 mod terminal;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
@@ -34,18 +34,56 @@ fn window_flags() -> StateFlags {
     StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
 }
 
-/// `~/.kova` (override: KOVA_HOME; CLAUDE_WORKSPACE_HOME still honoured).
-/// Data from the pre-rename `~/.claude-workspace` is moved over once.
+/// `~/.konscious` (override: KONSCIOUS_HOME; the older KOVA_HOME and
+/// CLAUDE_WORKSPACE_HOME still work). Data from the app's earlier names —
+/// `~/.kova`, before that `~/.claude-workspace` — is moved over once. If an
+/// older build is still running (it holds `.lock`), its folder stays where
+/// it is and is used as is, so the lock screen shows instead of two apps
+/// resuming the same sessions.
 fn base_dir() -> PathBuf {
-    if let Some(p) = std::env::var_os("KOVA_HOME").or_else(|| std::env::var_os("CLAUDE_WORKSPACE_HOME")) {
-        return PathBuf::from(p);
+    for var in ["KONSCIOUS_HOME", "KOVA_HOME", "CLAUDE_WORKSPACE_HOME"] {
+        if let Some(p) = std::env::var_os(var) {
+            return PathBuf::from(p);
+        }
     }
-    let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into()));
-    let (kova, legacy) = (home.join(".kova"), home.join(".claude-workspace"));
-    if !kova.exists() && legacy.is_dir() {
-        let _ = std::fs::rename(&legacy, &kova);
+    data_dir_in(&PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into())))
+}
+
+fn data_dir_in(home: &Path) -> PathBuf {
+    let current = home.join(".konscious");
+    if current.exists() {
+        return current;
     }
-    kova
+    for legacy in [home.join(".kova"), home.join(".claude-workspace")] {
+        if !legacy.is_dir() {
+            continue;
+        }
+        if locked(&legacy) || std::fs::rename(&legacy, &current).is_err() {
+            return legacy;
+        }
+        break;
+    }
+    current
+}
+
+/// True while another running instance holds `<dir>/.lock`.
+fn locked(dir: &Path) -> bool {
+    std::fs::File::open(dir.join(".lock")).is_ok_and(|f| f.try_lock().is_err())
+}
+
+/// The window-state plugin keeps size and position under the app identifier,
+/// which changed with the rename; carry the file over once so the window
+/// opens where it was.
+fn carry_window_state(identifier: &str) {
+    // Tauri's app config dir on macOS.
+    let base = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"));
+    let Some(base) = base else { return };
+    let file = tauri_plugin_window_state::DEFAULT_FILENAME;
+    let (old, new) = (base.join("dev.karnav.kova").join(file), base.join(identifier).join(file));
+    if !new.exists() && old.is_file() {
+        let _ = std::fs::create_dir_all(base.join(identifier));
+        let _ = std::fs::copy(&old, &new);
+    }
 }
 
 /// GUI apps start with a soft limit of 256 fds; each PTY session uses several.
@@ -69,10 +107,10 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let sep = || PredefinedMenuItem::separator(app);
     let app_menu = Submenu::with_items(
         app,
-        "Kova",
+        "Konscious",
         true,
         &[
-            &PredefinedMenuItem::about(app, Some("About Kova"), None)?,
+            &PredefinedMenuItem::about(app, Some("About Konscious"), None)?,
             &sep()?,
             &PredefinedMenuItem::services(app, None)?,
             &sep()?,
@@ -113,6 +151,8 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     raise_fd_limit();
+    let context = tauri::generate_context!();
+    carry_window_state(&context.config().identifier);
     let store = Arc::new(Store::new(base_dir()));
     let lock_ok = store.acquire_lock();
     let env = EnvHandle::new();
@@ -156,8 +196,8 @@ pub fn run() {
             commands::fs_suggest_folders,
             commands::fs_is_dir,
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building Kova");
+        .build(context)
+        .expect("error while building Konscious");
 
     app.run(|app, event| {
         // ⌘Q / Dock Quit on macOS deliver only `Exit` (never `ExitRequested`),
@@ -169,4 +209,53 @@ pub fn run() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dir_with_marker(p: &Path) {
+        std::fs::create_dir_all(p).unwrap();
+        std::fs::write(p.join("workspaces.json"), "{}").unwrap();
+    }
+
+    #[test]
+    fn fresh_install_uses_konscious() {
+        let home = tempfile::tempdir().unwrap();
+        assert_eq!(data_dir_in(home.path()), home.path().join(".konscious"));
+    }
+
+    #[test]
+    fn kova_data_moves_over_once() {
+        let home = tempfile::tempdir().unwrap();
+        dir_with_marker(&home.path().join(".kova"));
+        let dir = data_dir_in(home.path());
+        assert_eq!(dir, home.path().join(".konscious"));
+        assert!(dir.join("workspaces.json").is_file(), "sessions came along");
+        assert!(!home.path().join(".kova").exists());
+        assert_eq!(data_dir_in(home.path()), dir, "second launch: nothing to move");
+    }
+
+    #[test]
+    fn running_kova_keeps_its_folder() {
+        let home = tempfile::tempdir().unwrap();
+        let kova = home.path().join(".kova");
+        dir_with_marker(&kova);
+        let lock = std::fs::File::create(kova.join(".lock")).unwrap();
+        lock.try_lock().unwrap(); // what a running Kova holds
+        assert_eq!(data_dir_in(home.path()), kova, "not moved from under a running app");
+        assert!(kova.join("workspaces.json").is_file());
+        drop(lock);
+        assert_eq!(data_dir_in(home.path()), home.path().join(".konscious"), "moved once it quits");
+    }
+
+    #[test]
+    fn existing_konscious_wins_over_legacy() {
+        let home = tempfile::tempdir().unwrap();
+        dir_with_marker(&home.path().join(".konscious"));
+        dir_with_marker(&home.path().join(".kova"));
+        assert_eq!(data_dir_in(home.path()), home.path().join(".konscious"));
+        assert!(home.path().join(".kova").exists(), "never overwrites or merges");
+    }
 }

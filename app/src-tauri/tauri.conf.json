@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Kova",
+  "productName": "Konscious",
   "version": "0.1.0",
-  "identifier": "dev.karnav.kova",
+  "identifier": "dev.karnav.konscious",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Kova",
+        "title": "Konscious",
         "width": 1440,
         "height": 900,
         "minWidth": 1080,
@@ -53,5 +53,5 @@
       "icons/icon.ico"
     ]
   },
-  "mainBinaryName": "Kova"
+  "mainBinaryName": "Konscious"
 }

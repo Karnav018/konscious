@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Build Kova for Windows (x64) on this Mac by cross-compiling.
+# Build Konscious for Windows (x64) on this Mac by cross-compiling.
 #
-#   scripts/build-windows.sh    → release/Kova_<version>_x64-setup.exe
+#   scripts/build-windows.sh    → release/win/Konscious_<version>_x64-setup.exe
 #
 # Builds from windows/ only; the macOS app in app/ is not involved.
 # One-time setup: brew install llvm nsis
@@ -38,8 +38,8 @@ export CARGO_TARGET_DIR="$win/src-tauri/target"
 pnpm -s tauri build --runner cargo-xwin --target "$target" --bundles nsis
 
 exe=$(ls -t "$CARGO_TARGET_DIR/$target"/release/bundle/nsis/*-setup.exe | head -1)
-mkdir -p "$root/release"
-out="$root/release/Kova_${version}_x64-setup.exe"
+mkdir -p "$root/release/win"
+out="$root/release/win/Konscious_${version}_x64-setup.exe"
 cp "$exe" "$out"
 
 step "done"

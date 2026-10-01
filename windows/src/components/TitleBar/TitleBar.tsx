@@ -47,6 +47,7 @@ export function TitleBar() {
 
       <div
         onClick={() => toggleWorkspaceMenu(ws?.id ?? null)}
+        data-ws-trigger
         title={`Workspaces & sessions (${kbd('O')})`}
         className="h-[30px] flex items-center gap-2 pl-[10px] pr-2 rounded-rs border bg-pane cursor-pointer flex-[0_1_auto] min-w-0 max-w-[170px] hover:border-line2"
         style={{ borderColor: wsMenu ? 'var(--accent)' : 'var(--line)' }}

@@ -2,11 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    // Windows only: Claude runs `Kova.exe hook …` for status events. Exit
+    // Windows only: Claude runs `Konscious.exe hook …` for status events. Exit
     // before any UI code loads. (macOS hooks are plain `sh` commands.)
     #[cfg(windows)]
-    if let Some(code) = kova_lib::helper_main() {
+    if let Some(code) = konscious_lib::helper_main() {
         std::process::exit(code);
     }
-    kova_lib::run()
+    konscious_lib::run()
 }

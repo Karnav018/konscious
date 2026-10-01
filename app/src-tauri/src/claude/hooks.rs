@@ -52,7 +52,7 @@ fn entry(command: String, matcher: Option<&str>) -> Value {
 }
 
 /// Status-line command: saves Claude's status JSON for the app (atomically)
-/// and displays nothing — Kova shows context, model and plan usage in its own
+/// and displays nothing — Konscious shows context, model and plan usage in its own
 /// chrome. If the user configured a status line of their own, that one is
 /// shown unchanged. Never fails (a failing status line shows an error).
 pub fn status_command(status_path: &Path, chain: Option<&str>) -> String {
@@ -66,7 +66,7 @@ pub fn status_command(status_path: &Path, chain: Option<&str>) -> String {
 }
 
 /// The status line the user configured for this directory, if any
-/// (local > project > user settings), so Kova can show it unchanged.
+/// (local > project > user settings), so Konscious can show it unchanged.
 pub fn user_status_line(cwd: &Path, config_dir: &Path) -> Option<String> {
     let files = [
         cwd.join(".claude").join("settings.local.json"),
@@ -319,7 +319,7 @@ mod tests {
         let path = dir.path().join("s.status.json");
         let (ok, out) = run_status(&status_command(&path, None), STATUS_JSON);
         assert!(ok);
-        assert_eq!(out, "", "Claude's status row stays empty; Kova shows the data itself");
+        assert_eq!(out, "", "Claude's status row stays empty; Konscious shows the data itself");
         let saved: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         let (usage, limits) = parse_status("s", &saved);
         assert_eq!(usage.pct, Some(79.4));

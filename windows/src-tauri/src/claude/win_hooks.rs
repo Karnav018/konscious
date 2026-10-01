@@ -2,10 +2,10 @@
 //! any platform) — the macOS/Linux app never contains this code.
 //!
 //! There may be no bash on Windows (Git for Windows is optional), so hooks
-//! use Claude Code's *exec form*: Claude runs `Kova.exe hook <token>
+//! use Claude Code's *exec form*: Claude runs `Konscious.exe hook <token>
 //! <events-file>` directly, with no shell, and `run_helper` appends the same
 //! event lines the Unix `sh` hooks write. The status line has no exec form,
-//! so it runs `Kova.exe status <file>` through whichever shell Claude uses.
+//! so it runs `Konscious.exe status <file>` through whichever shell Claude uses.
 
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
@@ -109,7 +109,7 @@ fn short_path(p: &Path) -> PathBuf {
 const HOOK_TOKENS: &[&str] = &["start", "prompt", "tool", "tool_done", "permission", "attention", "stop"];
 const MAX_STDIN: u64 = 4 * 1024 * 1024;
 
-/// `Kova hook <token> <file.events>` / `Kova status <file.status.json>`.
+/// `Konscious hook <token> <file.events>` / `Konscious status <file.status.json>`.
 /// Returns the exit code when `args` is a helper invocation (always 0: a
 /// failing hook would show an error in Claude), `None` for a normal launch.
 pub fn run_helper(args: &[String], stdin: &mut dyn Read) -> Option<i32> {
@@ -163,7 +163,7 @@ mod tests {
     use crate::claude::hooks::{EventTail, HookEvent};
 
     fn helper(args: &[&str], stdin: &str) -> Option<i32> {
-        let args: Vec<String> = std::iter::once("Kova").chain(args.iter().copied()).map(String::from).collect();
+        let args: Vec<String> = std::iter::once("Konscious").chain(args.iter().copied()).map(String::from).collect();
         run_helper(&args, &mut stdin.as_bytes())
     }
 
@@ -200,21 +200,21 @@ mod tests {
     fn windows_status_command_is_shell_neutral_when_it_can_be() {
         let p = |s: &str| PathBuf::from(s);
         assert_eq!(
-            status_command(&p("C:/Users/kar/AppData/Local/Kova/Kova.exe"), &p("C:/Users/kar/.kova/run/s1.status.json"), false),
-            "C:/Users/kar/AppData/Local/Kova/Kova.exe status C:/Users/kar/.kova/run/s1.status.json"
+            status_command(&p("C:/Users/kar/AppData/Local/Konscious/Konscious.exe"), &p("C:/Users/kar/.konscious/run/s1.status.json"), false),
+            "C:/Users/kar/AppData/Local/Konscious/Konscious.exe status C:/Users/kar/.konscious/run/s1.status.json"
         );
-        let (h, s) = (p("C:/Users/John O'Hara/Kova.exe"), p("C:/x/s.status.json"));
-        assert_eq!(status_command(&h, &s, true), "'C:/Users/John O'\\''Hara/Kova.exe' status 'C:/x/s.status.json'");
-        assert_eq!(status_command(&h, &s, false), "& 'C:/Users/John O''Hara/Kova.exe' status 'C:/x/s.status.json'");
+        let (h, s) = (p("C:/Users/John O'Hara/Konscious.exe"), p("C:/x/s.status.json"));
+        assert_eq!(status_command(&h, &s, true), "'C:/Users/John O'\\''Hara/Konscious.exe' status 'C:/x/s.status.json'");
+        assert_eq!(status_command(&h, &s, false), "& 'C:/Users/John O''Hara/Konscious.exe' status 'C:/x/s.status.json'");
     }
 
     #[test]
     fn settings_use_exec_form_hooks_with_no_shell() {
-        let v = settings_with(Path::new("C:/k/Kova.exe"), Path::new("C:/r/s1.events"), Path::new("C:/r/s1.status.json"), false);
+        let v = settings_with(Path::new("C:/k/Konscious.exe"), Path::new("C:/r/s1.events"), Path::new("C:/r/s1.status.json"), false);
         let h = &v["hooks"]["Stop"][0]["hooks"][0];
-        assert_eq!(h["command"], "C:/k/Kova.exe");
+        assert_eq!(h["command"], "C:/k/Konscious.exe");
         assert_eq!(h["args"], json!(["hook", "stop", "C:/r/s1.events"]));
         assert_eq!(v["hooks"]["Notification"][0]["matcher"], ATTENTION_MATCHER);
-        assert_eq!(v["statusLine"]["command"], "C:/k/Kova.exe status C:/r/s1.status.json");
+        assert_eq!(v["statusLine"]["command"], "C:/k/Konscious.exe status C:/r/s1.status.json");
     }
 }

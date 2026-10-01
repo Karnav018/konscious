@@ -1,5 +1,7 @@
 // ⌘O popover (design lines 316–365): workspaces on the left, the hovered
 // workspace's sessions on the right with In grid / Show toggles.
+import { useMemo } from 'react'
+
 import {
   hidePane,
   openNewSession,
@@ -52,6 +54,12 @@ export function WorkspaceMenu() {
   const runtime = useRuntimes()
   const layouts = useLayouts()
   const now = useNow()
+  // Opens under the workspace button, wherever the wordmark and the window
+  // chrome (traffic lights, fullscreen) put it.
+  const left = useMemo(
+    () => document.querySelector<HTMLElement>('[data-ws-trigger]')?.getBoundingClientRect().left ?? 170,
+    [],
+  )
 
   const shown = workspaces.find((w) => w.id === (wsHover ?? activeId)) ?? workspaces[0]
   if (!shown) return null
@@ -63,7 +71,8 @@ export function WorkspaceMenu() {
     <div onMouseDown={closeWorkspaceMenu} className="absolute inset-0 z-[22]">
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="absolute top-[42px] left-[170px] w-[640px] max-w-[calc(100%-190px)] max-h-[calc(100%-80px)] flex bg-raised border border-line2 rounded-r shadow-pop overflow-hidden"
+        style={{ left, maxWidth: `calc(100% - ${left + 20}px)` }}
+        className="absolute top-[42px] w-[640px] max-h-[calc(100%-80px)] flex bg-raised border border-line2 rounded-r shadow-pop overflow-hidden"
       >
         <div className="w-[220px] flex-none border-r border-line p-2 flex flex-col gap-[2px] bg-side overflow-auto">
           <div className={`px-2 pt-1.5 pb-2 ${label}`}>Workspaces</div>

@@ -1,4 +1,4 @@
-// Store ⇄ ~/.kova, schema-first.
+// Store ⇄ ~/.konscious, schema-first.
 //
 // Load:  raw JSON ─► migrate (versioned, stepwise) ─► zod validate per item
 //        (bad items are dropped and counted, never fatal) ─► invariant repair
@@ -40,7 +40,7 @@ export class NewerSchemaError extends Error {
     readonly file: FileKind,
     readonly version: number,
   ) {
-    super(`${file} was written by a newer version of Kova (schema v${version}; this build reads v${SCHEMA_VERSION})`)
+    super(`${file} was written by a newer version of Konscious (schema v${version}; this build reads v${SCHEMA_VERSION})`)
   }
 }
 

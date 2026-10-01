@@ -1,12 +1,12 @@
-// The Kova wordmark: "k", an accent ring for the "o", "va" (design: title bar
+// The Konscious wordmark: "k", an accent ring for the "o", "nscious" (title bar
 // at 17px, first-run hero at 40px). Sized in em so the ring always sits on the
 // baseline at x-height, whatever the font size.
 export function Wordmark({ size = 17, className = '' }: { size?: number; className?: string }) {
   return (
     <span
       role="img"
-      aria-label="Kova"
-      title="Kova"
+      aria-label="Konscious"
+      title="Konscious"
       className={`inline-flex items-baseline font-head font-bold leading-none text-text ${className}`}
       style={{ fontSize: size, letterSpacing: '-0.04em' }}
     >
@@ -22,7 +22,7 @@ export function Wordmark({ size = 17, className = '' }: { size?: number; classNa
           margin: '0 0.06em 0 0.07em',
         }}
       />
-      <span aria-hidden="true">va</span>
+      <span aria-hidden="true">nscious</span>
     </span>
   )
 }

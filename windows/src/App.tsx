@@ -98,7 +98,7 @@ function LockScreen() {
   return (
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="flex flex-col items-center gap-3 text-center max-w-[420px]">
-        <div className="font-head text-[20px] font-semibold">Kova is already running</div>
+        <div className="font-head text-[20px] font-semibold">Konscious is already running</div>
         <div className="text-muted leading-[1.5]">
           Another instance is using <span className="font-mono text-[12px] text-text">{base}</span>. Two copies would
           resume the same Claude sessions twice, so this window stays idle. Quit the other copy and reopen this one.

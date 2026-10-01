@@ -1,4 +1,4 @@
-//! Lightweight metadata under `~/.kova/` (PRD §26). Rust treats
+//! Lightweight metadata under `~/.konscious/` (PRD §26). Rust treats
 //! the JSON as opaque apart from a required `version` field — the schema
 //! lives with the frontend that owns UI state.
 //!

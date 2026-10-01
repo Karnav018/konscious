@@ -16,14 +16,14 @@ if [[ "${1:-}" == "--build" ]]; then
   export CARGO_TARGET_DIR="$PWD/src-tauri/target-next.noindex"   # never the installed app
   step "release build (.app)"
   CI=true pnpm -s tauri build --bundles app
-  bin="$CARGO_TARGET_DIR/release/Kova"
+  bin="$CARGO_TARGET_DIR/release/Konscious"
   step "binary checks"
   # The Mac binary must not contain the Windows hook helper.
   if nm "$bin" | grep -q "win_hooks"; then echo "✗ Windows code found in the Mac binary"; exit 1; fi
   echo "✓ no Windows code in $bin"
-  app="$CARGO_TARGET_DIR/release/bundle/macos/Kova.app"
+  app="$CARGO_TARGET_DIR/release/bundle/macos/Konscious.app"
   codesign --verify --deep --strict "$app" && echo "✓ signature valid"
-  # Build copies would show up as extra "Kova" apps in Spotlight/Launchpad.
+  # Build copies would show up as extra "Konscious" apps in Spotlight/Launchpad.
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$app" 2>/dev/null || true
   rm -rf "$app"
 fi

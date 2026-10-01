@@ -231,7 +231,7 @@ pub fn scrub(vars: &mut BTreeMap<String, String>) {
 fn apply_defaults(vars: &mut BTreeMap<String, String>, shell: &str) {
     vars.insert("TERM".into(), "xterm-256color".into());
     vars.insert("COLORTERM".into(), "truecolor".into());
-    vars.insert("TERM_PROGRAM".into(), "Kova".into());
+    vars.insert("TERM_PROGRAM".into(), "Konscious".into());
     vars.insert("TERM_PROGRAM_VERSION".into(), env!("CARGO_PKG_VERSION").into());
     vars.entry("SHELL".into()).or_insert_with(|| shell.into());
     vars.entry("PATH".into()).or_insert_with(|| FALLBACK_PATH.into());
@@ -336,7 +336,7 @@ mod tests {
         let mut vars = BTreeMap::new();
         apply_defaults(&mut vars, "/bin/zsh");
         assert_eq!(vars["TERM"], "xterm-256color");
-        assert_eq!(vars["TERM_PROGRAM"], "Kova");
+        assert_eq!(vars["TERM_PROGRAM"], "Konscious");
         assert_eq!(vars["LANG"], "en_US.UTF-8");
         assert_eq!(vars["PATH"], FALLBACK_PATH);
     }

@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
   <key>NSDesktopFolderUsageDescription</key>
-  <string>Kova runs Claude and your shell in project folders you choose on your Desktop.</string>
+  <string>Konscious runs Claude and your shell in project folders you choose on your Desktop.</string>
   <key>NSDocumentsFolderUsageDescription</key>
-  <string>Kova runs Claude and your shell in project folders you choose in Documents.</string>
+  <string>Konscious runs Claude and your shell in project folders you choose in Documents.</string>
   <key>NSDownloadsFolderUsageDescription</key>
-  <string>Kova runs Claude and your shell in project folders you choose in Downloads.</string>
+  <string>Konscious runs Claude and your shell in project folders you choose in Downloads.</string>
 </dict>
 </plist>

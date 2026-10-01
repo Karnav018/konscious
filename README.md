@@ -1,4 +1,4 @@
-# Kova
+# Konscious
 
 A desktop workspace for running many terminal-based coding-agent sessions and
 shells side by side: a grid of up to six live panes, focus mode, per-session
@@ -23,11 +23,11 @@ build. A change meant for both platforms has to be made in both folders.
 
 | Platform | Command | Output |
 |---|---|---|
-| macOS | `scripts/build-mac.sh` | `release/Kova-<version>-universal.dmg` |
-| Windows | `scripts/build-windows.sh` | `release/Kova_<version>_x64-setup.exe` |
+| macOS | `scripts/build-mac.sh` | `release/mac/Konscious-<version>-universal.dmg` |
+| Windows | `scripts/build-windows.sh` | `release/win/Konscious_<version>_x64-setup.exe` |
 
 `build-mac.sh` runs the Mac checks (tests, typecheck, clippy) first and
-never touches the installed `/Applications/Kova.app`. `build-windows.sh`
+never touches the installed `/Applications/Konscious.app`. `build-windows.sh`
 cross-compiles on this Mac. One-time setup for it:
 `brew install llvm nsis`, `cargo install --locked cargo-xwin`.
 
@@ -45,6 +45,7 @@ scripts/check-mac.sh    # everything the Mac build requires to pass
 ```
 
 While developing, point the app at a scratch data folder so it never touches
-your real sessions: `KOVA_HOME=/tmp/kova-dev pnpm tauri dev`.
+your real sessions: `KONSCIOUS_HOME=/tmp/konscious-dev pnpm tauri dev`.
 
-User data lives in `~/.kova` (config, workspaces, layouts, runtime files).
+User data lives in `~/.konscious` (config, workspaces, layouts, runtime files).
+Data from the app's earlier name (`~/.kova`) is moved there on first launch.

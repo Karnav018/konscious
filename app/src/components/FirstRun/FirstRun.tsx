@@ -56,7 +56,7 @@ export function FirstRun() {
           title: 'Claude CLI not found',
           sub: (
             <span className="text-[12px] text-muted">
-              {envError ?? 'Install Claude Code, or set "claudePath" in ~/.kova/config.json. Terminal panes still work.'}
+              {envError ?? 'Install Claude Code, or set "claudePath" in ~/.konscious/config.json. Terminal panes still work.'}
             </span>
           ),
         }

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build Kova for macOS: universal DMG (Apple silicon + Intel), ad-hoc signed.
+# Build Konscious for macOS: universal DMG (Apple silicon + Intel), ad-hoc signed.
 #
-#   scripts/build-mac.sh        → release/Kova-<version>-universal.dmg
+#   scripts/build-mac.sh        → release/mac/Konscious-<version>-universal.dmg
 #
-# Builds from app/ only. Never touches /Applications/Kova.app or ~/.kova.
+# Builds from app/ only. Never touches the installed app or its data.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 app="$root/app"
@@ -18,18 +18,18 @@ version=$(node -p "require('./src-tauri/tauri.conf.json').version")
 
 step "build universal DMG"
 # Absolute path ending in .noindex: Spotlight skips it, so build copies of
-# Kova.app never appear next to the installed one.
+# Konscious.app never appear next to the installed one.
 export CARGO_TARGET_DIR="$app/src-tauri/target-next.noindex"
 CI=true pnpm -s tauri build --target universal-apple-darwin --bundles dmg
 
 out_dir="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle"
 dmg=$(ls -t "$out_dir"/dmg/*.dmg | head -1)
-mkdir -p "$root/release"
-out="$root/release/Kova-$version-universal.dmg"
+mkdir -p "$root/release/mac"
+out="$root/release/mac/Konscious-$version-universal.dmg"
 cp "$dmg" "$out"
 
 lsreg=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-for bundle in "$out_dir"/macos/Kova.app; do
+for bundle in "$out_dir"/macos/Konscious.app; do
   [[ -d "$bundle" ]] || continue
   "$lsreg" -u "$bundle" 2>/dev/null || true
   rm -rf "$bundle"
