@@ -3,9 +3,12 @@
 import { CAP } from '../lib/grid'
 import { errorMessage, ipc, type SessionSpec } from '../lib/ipc'
 import { terminals } from '../lib/terminals'
+import { DEFAULT_K, effectiveK, isWarm, kelvinAt, paintWarmth } from '../lib/warmth'
 import {
   hidePane as hideLayoutPane,
   layoutOf,
+  movePaneOnto as moveLayoutPaneOnto,
+  nudgePane as nudgeLayoutPane,
   openPane,
   selectPane,
   setMode as setLayoutMode,
@@ -20,6 +23,7 @@ import {
   openNewSessionDraft,
   setPaneMenu,
   setThemeValue,
+  setWarmValue,
 } from '../state/commands/ui'
 import {
   addSession,
@@ -242,6 +246,32 @@ export function focusPane(id: string) {
 
 export const hidePane = (id: string) => hideLayoutPane(id)
 
+/* ── reordering panes ────────────────────────────────────────────── */
+
+/** Reordering moves the pane's DOM node, which blurs whatever was focused
+ *  inside it; the terminal gets its keyboard focus back. */
+function keepingFocus(id: string, reorder: () => void) {
+  const refocus = terminals.isFocused(id)
+  reorder()
+  if (refocus) requestAnimationFrame(() => terminals.focus(id))
+}
+
+/** Dropped on another pane: take its slot, the panes in between shift along. */
+export function movePaneOnto(id: string, targetId: string) {
+  if (id === targetId) return
+  keepingFocus(id, () => moveLayoutPaneOnto(id, targetId))
+}
+
+/** "Move left" / "Move right". Nothing to reorder while one pane fills the
+ *  stage, and the ends don't wrap. */
+export function movePane(id: string | null | undefined, delta: number) {
+  const s = getState()
+  const meta = id ? s.workspace.sessions[id] : undefined
+  if (!meta) return
+  if (layoutOf(s.layout.byWorkspace, meta.workspaceId).mode === 'focus') return
+  keepingFocus(meta.id, () => nudgeLayoutPane(meta.id, delta))
+}
+
 export function toggleFocus(id?: string) {
   const s = getState()
   const wsId = s.workspace.activeId
@@ -375,10 +405,33 @@ export async function openTerminalHere(fromSessionId?: string | null) {
 
 /* ── appearance & misc ───────────────────────────────────────────── */
 
+/** Repaints the window for the theme and colour temperature now in state. */
+function repaint() {
+  const { theme, warm, warmth } = getState().ui
+  const kelvin = effectiveK(warm, warmth)
+  paintWarmth(theme, kelvin)
+  terminals.setAppearance({ theme, warmth: kelvin })
+}
+
 export function setTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme
   setThemeValue(theme)
-  terminals.setAppearance({ theme })
+  repaint()
+}
+
+/** The title-bar lamp: warm colours on or off, at the temperature chosen. A
+ *  slider left at neutral would make "on" invisible, so it starts at default. */
+export function toggleWarm() {
+  const { warm, warmth } = getState().ui
+  const on = !warm
+  setWarmValue(on, on && !isWarm(warmth) ? DEFAULT_K : warmth)
+  repaint()
+}
+
+/** The slider: 0 is neutral, 100 is amber. Moving it switches warmth on. */
+export function setWarmthPercent(percent: number) {
+  setWarmValue(true, kelvinAt(percent))
+  repaint()
 }
 
 export async function copyText(text: string, msg = 'Copied') {

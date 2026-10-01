@@ -1,9 +1,10 @@
 // React read hooks. Selectors return stable references (store objects are
 // immutable and structurally shared), or use useShallow for derived objects,
 // so components re-render only when what they read changes.
+import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { Status } from '../types'
+import type { Status, Workspace } from '../types'
 import { layoutOf } from './commands/layout'
 import { runtimeOf } from './commands/runtime'
 import { type UiState, useApp } from './store'
@@ -11,6 +12,18 @@ import { type UiState, useApp } from './store'
 export const useUi = <T>(select: (ui: UiState) => T): T => useApp((s) => select(s.ui))
 
 export const useWorkspacesList = () => useApp((s) => s.workspace.workspaces)
+
+/** Most recently used first; the one untouched the longest sinks to the end.
+ *  Ties keep the order the workspaces were added in (sort is stable). */
+export const byLastUsed = (list: readonly Workspace[]): Workspace[] =>
+  [...list].sort((a, b) => b.updatedAt - a.updatedAt)
+
+/** The order every workspace list shows. Memoised: the store's array only
+ *  changes when a workspace is added, removed or used. */
+export const useWorkspacesByUse = (): Workspace[] => {
+  const list = useWorkspacesList()
+  return useMemo(() => byLastUsed(list), [list])
+}
 export const useSessions = () => useApp((s) => s.workspace.sessions)
 export const useActiveWorkspaceId = () => useApp((s) => s.workspace.activeId)
 export const useHasWorkspaces = () => useApp((s) => s.workspace.workspaces.length > 0)

@@ -3,6 +3,7 @@ import type { SessionMeta, Workspace } from '../../types'
 import { act } from '../act'
 import { getState } from '../store'
 import { layoutOf } from './layout'
+import { touchWorkspace } from './touch'
 
 const slug = (s: string) =>
   s
@@ -39,7 +40,9 @@ export function addWorkspace(path: string): Workspace {
 
 export function setActiveWorkspace(id: string) {
   act('workspace/setActive', (d) => {
-    if (d.workspace.workspaces.some((w) => w.id === id)) d.workspace.activeId = id
+    if (!d.workspace.workspaces.some((w) => w.id === id)) return
+    d.workspace.activeId = id
+    touchWorkspace(d, id)
   })
 }
 

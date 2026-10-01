@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 import {
   jumpWaiting,
+  movePane,
   openNewSession,
   openPaneMenu,
   openTerminalHere,
@@ -28,6 +29,7 @@ import { matchShortcut } from './lib/shortcuts'
 import {
   cancelDeleteSession,
   closeOverlays,
+  closeWarmMenu,
   flash,
   setBooted,
   setRenaming,
@@ -38,7 +40,7 @@ import { useActiveLayout, useHasWorkspaces, useUi } from './state/selectors'
 import { getState, type UiState } from './state/store'
 
 const anyOverlayOpen = (ui: UiState) =>
-  ui.wsMenu || ui.inspector || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
+  ui.wsMenu || ui.inspector || ui.warmMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
 
 /** Capture phase: runs before xterm's own key handling. */
 function onKeyDown(e: KeyboardEvent) {
@@ -67,6 +69,8 @@ function onKeyDown(e: KeyboardEvent) {
         return toggleFocus()
       case 'selectPane':
         return selectPaneIndex(sc.index)
+      case 'movePane':
+        return movePane(layoutOf(s.layout.byWorkspace, s.workspace.activeId).selected, sc.delta)
       case 'fontSize': {
         const sel = layoutOf(s.layout.byWorkspace, s.workspace.activeId).selected
         return sc.delta === 0 ? resetPaneFontSize(sel) : stepPaneFontSize(sel, sc.delta)
@@ -131,10 +135,13 @@ export default function App() {
   const layout = useActiveLayout()
 
   useEffect(() => {
-    const closePaneMenu = (e: MouseEvent) => {
-      if (getState().ui.paneMenu && !(e.target as HTMLElement).closest?.('[data-pane-menu]')) openPaneMenu(null)
+    const closePopovers = (e: MouseEvent) => {
+      const el = e.target as HTMLElement
+      const ui = getState().ui
+      if (ui.paneMenu && !el.closest?.('[data-pane-menu]')) openPaneMenu(null)
+      if (ui.warmMenu && !el.closest?.('[data-warm-menu],[data-warm-button]')) closeWarmMenu()
     }
-    window.addEventListener('mousedown', closePaneMenu)
+    window.addEventListener('mousedown', closePopovers)
     window.addEventListener('keydown', onKeyDown, true)
     // WebView2's page menu (Back, Refresh, Print…) makes no sense in an app;
     // text fields keep theirs for cut/copy/paste.
@@ -150,7 +157,7 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
       window.removeEventListener('contextmenu', noPageMenu)
-      window.removeEventListener('mousedown', closePaneMenu)
+      window.removeEventListener('mousedown', closePopovers)
     }
   }, [])
 

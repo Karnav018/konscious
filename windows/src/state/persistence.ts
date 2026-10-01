@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 import { CAP } from '../lib/grid'
 import { ipc } from '../lib/ipc'
+import { DEFAULT_K, NEUTRAL_K, WARMEST_K } from '../lib/warmth'
 import type { Layout, Limits, SessionMeta, Snapshot, Theme, Workspace } from '../types'
 import { act } from './act'
 import { setPersistStatus } from './commands/ui'
@@ -88,6 +89,9 @@ const LimitWindowV = z.object({ pct: z.number().min(0).max(1000), resetsAt: z.nu
 const ConfigFileV1 = z.object({
   version: z.literal(SCHEMA_VERSION),
   theme: z.enum(['dark', 'light']).catch('dark'),
+  /** Warm colours for late sessions, and the temperature they warm to. */
+  warm: z.boolean().catch(false).optional(),
+  warmth: z.number().min(WARMEST_K).max(NEUTRAL_K).catch(DEFAULT_K).optional(),
   /** Last known plan usage, shown (faded) until the next live update. */
   limits: z.object({ fiveHour: LimitWindowV, sevenDay: LimitWindowV }).nullable().catch(null).optional(),
   limitsAt: z.number().nullable().catch(null).optional(),
@@ -108,6 +112,8 @@ export interface Decoded {
   activeId: string | null
   layouts: Record<string, Layout>
   theme: Theme
+  warm: boolean
+  warmth: number
   fontSize: number
   limits: Limits | null
   limitsAt: number | null
@@ -173,6 +179,8 @@ export function decode(snap: Snapshot): Decoded {
     layouts,
     activeId: cfg?.activeWorkspace ?? null,
     theme: cfg?.theme ?? 'dark',
+    warm: cfg?.warm ?? false,
+    warmth: cfg?.warmth ?? DEFAULT_K,
     fontSize: cfg?.fontSize ?? DEFAULT_FONT,
     limits: cfg?.limits ?? null,
     limitsAt: cfg?.limitsAt ?? null,
@@ -189,6 +197,8 @@ export function hydrate(dec: Decoded) {
     d.workspace.activeId = dec.activeId
     d.layout.byWorkspace = dec.layouts
     d.ui.theme = dec.theme
+    d.ui.warm = dec.warm
+    d.ui.warmth = dec.warmth
     d.ui.fontSize = dec.fontSize
     d.ui.limits = dec.limits
     d.ui.limitsAt = dec.limitsAt
@@ -210,6 +220,8 @@ export function serialize(s: AppState = getState()) {
     config: {
       version: SCHEMA_VERSION,
       theme: s.ui.theme,
+      warm: s.ui.warm,
+      warmth: s.ui.warmth,
       fontSize: s.ui.fontSize,
       activeWorkspace: activeId,
       limits: s.ui.limits,
@@ -277,7 +289,7 @@ export function startPersistence(dec: Pick<Decoded, 'readonly'>) {
   if (dec.readonly) setPersistStatus({ state: 'readonly', message: dec.readonly })
   for (const [target, data] of targets(getState())) written.set(target, JSON.stringify(data))
   useApp.subscribe(
-    (s) => [s.workspace, s.layout, s.ui.theme, s.ui.fontSize, s.ui.limits] as const,
+    (s) => [s.workspace, s.layout, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.fontSize, s.ui.limits] as const,
     schedule,
     { equalityFn: (a, b) => a.every((x, i) => x === b[i]) },
   )

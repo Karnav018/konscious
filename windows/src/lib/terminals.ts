@@ -23,6 +23,7 @@ import type { Kind, Theme } from '../types'
 import { Channel, ipc } from './ipc'
 import { IS_WINDOWS } from './platform'
 import { isAppShortcut } from './shortcuts'
+import { NEUTRAL_K, warmColor } from './warmth'
 
 const ACK_BATCH = 32 * 1024
 const MIN_COLS = 20
@@ -146,6 +147,9 @@ export const onStartRequest = (fn: (id: string) => void) => {
 }
 export const requestStart = (id: string) => startHook?.(id)
 let theme: Theme = 'dark'
+// Colour temperature for the hardcoded colours below; the ones that come from
+// CSS variables are already warmed by lib/warmth's pass over them.
+let warmth = NEUTRAL_K
 
 function parking(): HTMLDivElement {
   if (!g.__cwParking || !g.__cwParking.isConnected) {
@@ -183,17 +187,18 @@ function xtermTheme(): ITheme {
         brightBlack: '#9c8f8b', brightRed: '#d9534f', brightGreen: '#4ea570', brightYellow: '#c08a2a',
         brightBlue: '#4f7fc0', brightMagenta: '#b8708f', brightCyan: '#3a959d', brightWhite: '#212121',
       }
+  const warm = (c: string) => warmColor(c, warmth)
   return {
-    background: css('--pane') || (dark ? '#292626' : '#fffcf5'),
+    background: css('--pane') || warm(dark ? '#292626' : '#fffcf5'),
     foreground: css('--text'),
     cursor: css('--accent'),
     cursorAccent: css('--pane'),
     // Selection is a #C890A7 tint: clearly "selected", never read as an error.
-    selectionBackground: dark ? 'rgba(200,144,167,0.32)' : 'rgba(200,144,167,0.35)',
-    scrollbarSliderBackground: dark ? 'rgba(251,245,229,0.12)' : 'rgba(33,33,33,0.12)',
-    scrollbarSliderHoverBackground: dark ? 'rgba(251,245,229,0.2)' : 'rgba(33,33,33,0.18)',
-    scrollbarSliderActiveBackground: dark ? 'rgba(251,245,229,0.28)' : 'rgba(33,33,33,0.24)',
-    ...ansi,
+    selectionBackground: warm(dark ? 'rgba(200,144,167,0.32)' : 'rgba(200,144,167,0.35)'),
+    scrollbarSliderBackground: warm(dark ? 'rgba(251,245,229,0.12)' : 'rgba(33,33,33,0.12)'),
+    scrollbarSliderHoverBackground: warm(dark ? 'rgba(251,245,229,0.2)' : 'rgba(33,33,33,0.18)'),
+    scrollbarSliderActiveBackground: warm(dark ? 'rgba(251,245,229,0.28)' : 'rgba(33,33,33,0.24)'),
+    ...(Object.fromEntries(Object.entries(ansi).map(([k, v]) => [k, warm(v)])) as typeof ansi),
   }
 }
 
@@ -507,10 +512,12 @@ export const terminals = {
     entries.delete(id)
   },
 
-  /** Theme and base font size (the auto size is derived per pane in fit()). */
-  setAppearance(next: { theme?: Theme; fontSize?: number }) {
+  /** Theme, colour temperature and base font size (the auto size is derived
+   *  per pane in fit()). */
+  setAppearance(next: { theme?: Theme; fontSize?: number; warmth?: number }) {
     if (next.theme) theme = next.theme
     if (next.fontSize) fontSize = next.fontSize
+    if (next.warmth !== undefined) warmth = next.warmth
     measureCharRatio()
     const t = xtermTheme()
     for (const e of entries.values()) {

@@ -8,6 +8,7 @@ export type Shortcut =
   | { type: 'jumpWaiting' }
   | { type: 'toggleFocus' }
   | { type: 'selectPane'; index: number }
+  | { type: 'movePane'; delta: 1 | -1 }
   | { type: 'fontSize'; delta: 1 | -1 | 0 }
 
 export function matchShortcut(e: KeyboardEvent): Shortcut | null {
@@ -19,6 +20,10 @@ export function matchShortcut(e: KeyboardEvent): Shortcut | null {
   if (k === 'i' && !e.shiftKey) return { type: 'inspector' }
   if (k === 'j' && !e.shiftKey) return { type: 'jumpWaiting' }
   if (k === 'enter') return { type: 'toggleFocus' }
+  // ⌘⇧← / ⌘⇧→ — move the selected pane one slot in the grid.
+  if (e.shiftKey && (k === 'arrowleft' || k === 'arrowright')) {
+    return { type: 'movePane', delta: k === 'arrowleft' ? -1 : 1 }
+  }
   if (k === '=' || k === '+') return { type: 'fontSize', delta: 1 }
   if (k === '-' || k === '_') return { type: 'fontSize', delta: -1 }
   if (k === '0') return { type: 'fontSize', delta: 0 }

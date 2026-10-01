@@ -23,7 +23,7 @@ import {
   useRuntimes,
   useSessions,
   useUi,
-  useWorkspacesList,
+  useWorkspacesByUse,
 } from '../../state/selectors'
 import type { WsFilter } from '../../state/store'
 import type { SessionMeta } from '../../types'
@@ -48,7 +48,7 @@ export function WorkspaceMenu() {
   const wsFilter = useUi((u) => u.wsFilter)
   const home = useUi((u) => u.init?.home)
   const shellTag = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : 'zsh'))
-  const workspaces = useWorkspacesList()
+  const workspaces = useWorkspacesByUse()
   const sessions = useSessions()
   const activeId = useActiveWorkspaceId()
   const runtime = useRuntimes()

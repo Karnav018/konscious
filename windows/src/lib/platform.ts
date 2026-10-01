@@ -14,6 +14,11 @@ export function kbd(key: string, win = IS_WINDOWS): string {
   return `Ctrl+Shift+${key === '↵' ? 'Enter' : key}`
 }
 
+/** Hint for a shortcut that also needs Shift (⌘⇧← / Ctrl+Shift+← move a pane). */
+export function kbdShift(key: string, win = IS_WINDOWS): string {
+  return win ? `Ctrl+Shift+${key}` : `⌘⇧${key}`
+}
+
 /**
  * WebView2 browser keys (reload, print, find, dev tools, history) that would
  * act on the app page itself. Only the browser default is cancelled — xterm
