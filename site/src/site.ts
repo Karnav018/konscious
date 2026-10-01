@@ -2,8 +2,10 @@
 // so a rename or a new release is a one-file change.
 const version = '0.1.0'
 const repo = 'https://github.com/Karnav018/konscious'
-// Installers are committed to the repo under release/; GitHub serves them.
-const file = (path: string) => `${repo}/raw/main/release/${path}`
+// Installers are committed to the repo under release/. The site serves them
+// itself at /download/<name> (vite.config.ts copies them in at build time):
+// same origin, so the browser downloads instead of navigating away.
+const installer = (path: string) => ({ release: path, name: path.split('/').pop() as string })
 
 export const site = {
   name: 'Konscious',
@@ -18,14 +20,14 @@ export const site = {
       label: 'Download for macOS',
       detail: 'Apple silicon and Intel, macOS 13 or later',
       size: '7.9 MB',
-      href: file(`mac/Konscious-${version}-universal.dmg`),
+      ...installer(`mac/Konscious-${version}-universal.dmg`),
     },
     windows: {
       os: 'Windows',
       label: 'Download for Windows',
       detail: '64-bit, Windows 10 or 11',
       size: '3.2 MB',
-      href: file(`win/Konscious_${version}_x64-setup.exe`),
+      ...installer(`win/Konscious_${version}_x64-setup.exe`),
     },
   },
   // Claude Code's own installers (docs.claude.com/claude-code).
@@ -42,6 +44,13 @@ export const site = {
 
 export type Download = (typeof site.downloads)[keyof typeof site.downloads]
 
+/** Where the site serves an installer. */
+export const downloadUrl = (d: Download) => `/download/${d.name}`
+
+const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+
 /** The visitor's platform decides which download leads. */
-export const visitorOs: 'mac' | 'windows' =
-  typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent) ? 'windows' : 'mac'
+export const visitorOs: 'mac' | 'windows' = /Windows/i.test(ua) ? 'windows' : 'mac'
+
+/** Phones and tablets can't run the app: show them the section, not a file. */
+export const onPhone = /iPhone|iPad|Android/i.test(ua)

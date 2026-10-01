@@ -57,8 +57,14 @@ shown whole in the hero, and each feature row shows a crop of it through
 pixels; `scale` 0.5 means actual on-screen size. Replacing the screenshot
 means re-measuring the regions in `src/components/Features.tsx`.
 
-Download buttons link straight to the installers committed under `release/`
-in the public GitHub repo; their versions and sizes live in `src/site.ts`.
+Download buttons download from the site itself (`/download/<file>`): a small
+Vite plugin in `vite.config.ts` reads the installers from `../release` at build
+time (and serves them in `pnpm dev`), so they're never copied into `site/`.
+Same-origin files plus the `download` attribute and a `Content-Disposition`
+header (`vercel.json`) make every browser save the file instead of opening a
+page. The build fails if an installer named in `src/site.ts` is missing —
+which is also why deploys build locally (`scripts/deploy-site.sh`) rather than
+on Vercel, whose servers only receive `site/`.
 
 ## Still to do
 

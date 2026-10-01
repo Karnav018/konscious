@@ -1,4 +1,5 @@
 import { site, visitorOs, type Download as File } from '../site'
+import { DownloadLink } from './DownloadLink'
 
 const steps = {
   mac: [
@@ -42,13 +43,13 @@ export function Download() {
 function Platform({ file, steps, claude }: { file: File; steps: readonly string[]; claude: string }) {
   return (
     <div className="min-w-0">
-      <a
-        href={file.href}
+      <DownloadLink
+        file={file}
         className="inline-flex items-baseline gap-3 rounded-pill bg-accent px-6 py-3 text-[17px] font-medium text-accent-ink hover:opacity-90"
       >
         {file.label}
         <span className="text-sm font-normal opacity-75">{file.size}</span>
-      </a>
+      </DownloadLink>
       <p className="mt-3 text-sm text-faint">{file.detail}</p>
       <h3 className="mt-9 font-semibold">First launch</h3>
       <ol className="mt-3 list-decimal space-y-2 pl-5 leading-relaxed text-muted marker:text-faint">

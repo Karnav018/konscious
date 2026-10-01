@@ -1,5 +1,8 @@
-import { site } from '../site'
+import { onPhone, site, visitorOs } from '../site'
+import { DownloadLink } from './DownloadLink'
 import { Wordmark } from './Wordmark'
+
+const button = 'rounded-pill bg-accent px-4 py-2 font-medium text-accent-ink hover:opacity-90'
 
 export function Header() {
   return (
@@ -14,12 +17,15 @@ export function Header() {
               {n.label}
             </a>
           ))}
-          <a
-            href="#download"
-            className="rounded-pill bg-accent px-4 py-2 font-medium text-accent-ink hover:opacity-90"
-          >
-            Download
-          </a>
+          {onPhone ? (
+            <a href="#download" className={button}>
+              Download
+            </a>
+          ) : (
+            <DownloadLink file={site.downloads[visitorOs]} className={button}>
+              Download
+            </DownloadLink>
+          )}
         </nav>
       </div>
     </header>
