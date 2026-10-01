@@ -31,6 +31,17 @@ never touches the installed `/Applications/Konscious.app`. `build-windows.sh`
 cross-compiles on this Mac. One-time setup for it:
 `brew install llvm nsis`, `cargo install --locked cargo-xwin`.
 
+## Install and update
+
+Installing over an existing copy updates it in place; sessions and settings
+are kept, and an install of Kova (the app's earlier name) is replaced.
+
+| Platform | How |
+|---|---|
+| macOS (this Mac) | `scripts/install-mac.sh` — quits the running app cleanly, installs the newest DMG from `release/mac/`, removes `Kova.app`, reopens. `--dry-run` shows what it would do. |
+| macOS (other Macs) | Open the DMG and drag Konscious to Applications; choose **Replace** if asked. |
+| Windows | Run the installer. It offers to close the running app, upgrades an older Konscious, and removes Kova. |
+
 ## Develop (macOS)
 
 Requires Node 22+, pnpm, and Rust (stable).

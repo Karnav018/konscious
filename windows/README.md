@@ -21,6 +21,11 @@ What differs from the Mac app:
 | Window | Native title bar; WebView2 reload/print/find keys disabled |
 | Installer | NSIS, per-user install (no admin) |
 
+Updating: run a newer installer over an existing install — it closes the
+running app, replaces the old version and keeps all data. An existing **Kova**
+install is uninstalled silently first (`src-tauri/installer-hooks.nsh`); its
+sessions move to `.konscious` on first start.
+
 Requirements on the Windows PC: Claude Code installed and logged in
 (`irm https://claude.ai/install.ps1 | iex`). Git for Windows is optional.
 The installer is unsigned, so SmartScreen shows "Windows protected your PC" —
