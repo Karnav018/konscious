@@ -1,0 +1,52 @@
+[package]
+name = "kova"
+version = "0.1.0"
+description = "Kova — every Claude session, one calm place"
+authors = ["karnav"]
+edition = "2021"
+
+[lib]
+# The `_lib` suffix keeps the lib name distinct from the bin name (cargo#8519).
+name = "kova_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# The executable is "Kova": macOS labels an unbundled process (tauri dev) in
+# the Dock by its binary name.
+[[bin]]
+name = "Kova"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# Pinned to the npm @tauri-apps/plugin-opener minor (tauri build refuses a mismatch).
+tauri-plugin-opener = "~2.6"
+tauri-plugin-dialog = "2"
+tauri-plugin-window-state = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+portable-pty = "0.9"
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+# GetShortPathNameW: shell-neutral paths for the status-line command.
+windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+# unwind (not abort): a panic in one session's thread must not take down the
+# app and every other session with it.
+# No strip: on this macOS, stripped Mach-O files fail to load ("mis-aligned
+# LINKEDIT string pool") — it broke every proc-macro dylib in release builds.
+strip = false

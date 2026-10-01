@@ -15,9 +15,7 @@ pub struct GitInfo {
 }
 
 fn git(cwd: &Path, env: &BTreeMap<String, String>, args: &[&str]) -> Option<String> {
-    let mut cmd = Command::new("git");
-    crate::env::no_window(&mut cmd);
-    let out = cmd
+    let out = Command::new("git")
         .arg("-C")
         .arg(cwd)
         .args(args)

@@ -1,8 +1,8 @@
 .DS_Store
 node_modules/
 dist/
-app/src-tauri/target/
-app/src-tauri/gen/
+*/src-tauri/target/
+*/src-tauri/gen/
 *.log
-app/src-tauri/target-next.noindex/
+*/src-tauri/target-next.noindex/
 release/

@@ -12,11 +12,8 @@ mod terminal;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
-#[cfg(target_os = "macos")]
-use tauri::{AppHandle, Wry};
-use tauri::{Emitter, Manager, RunEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Wry};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use env::EnvHandle;
@@ -43,7 +40,7 @@ fn base_dir() -> PathBuf {
     if let Some(p) = std::env::var_os("KOVA_HOME").or_else(|| std::env::var_os("CLAUDE_WORKSPACE_HOME")) {
         return PathBuf::from(p);
     }
-    let home = PathBuf::from(env::home_dir());
+    let home = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into()));
     let (kova, legacy) = (home.join(".kova"), home.join(".claude-workspace"));
     if !kova.exists() && legacy.is_dir() {
         let _ = std::fs::rename(&legacy, &kova);
@@ -52,7 +49,6 @@ fn base_dir() -> PathBuf {
 }
 
 /// GUI apps start with a soft limit of 256 fds; each PTY session uses several.
-#[cfg(unix)]
 fn raise_fd_limit() {
     unsafe {
         let mut rl = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
@@ -69,7 +65,6 @@ fn raise_fd_limit() {
 /// The default macOS menu binds ⌘W to "Close Window", which would end every
 /// session. Ours keeps Copy/Paste (xterm needs the native Edit actions) and
 /// leaves ⌘A to the frontend so it can select the terminal buffer.
-#[cfg(target_os = "macos")]
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let sep = || PredefinedMenuItem::separator(app);
     let app_menu = Submenu::with_items(
@@ -115,18 +110,8 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     Menu::with_items(app, &[&app_menu, &edit, &window])
 }
 
-/// Windows hooks run `Kova.exe hook …` / `Kova.exe status …` (see
-/// claude::win_hooks). Handles those and returns the exit code before any
-/// window or runtime code loads; `None` for a normal launch.
-#[cfg(windows)]
-pub fn helper_main() -> Option<i32> {
-    let args: Vec<String> = std::env::args().collect();
-    claude::win_hooks::run_helper(&args, &mut std::io::stdin().lock())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    #[cfg(unix)]
     raise_fd_limit();
     let store = Arc::new(Store::new(base_dir()));
     let lock_ok = store.acquire_lock();
@@ -145,9 +130,6 @@ pub fn run() {
             let sessions = SessionManager::new(emit, Arc::clone(&env), store.run_dir());
             sessions.start_ticker();
             app.manage(AppState { env, sessions, store, lock_ok });
-            // macOS has an app menu bar (Copy/Paste live there); Windows windows
-            // get no menu bar — WebView2 handles clipboard keys natively.
-            #[cfg(target_os = "macos")]
             app.set_menu(build_menu(app.handle())?)?;
             Ok(())
         })

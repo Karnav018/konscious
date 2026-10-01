@@ -216,8 +216,7 @@ impl SessionManager {
                 let chain = hooks::user_status_line(&cwd, &env.claude_config_dir());
                 let files = hooks::prepare(&self.run_dir, &spec.id, chain.as_deref())?;
                 let args = launcher::claude_args(&spec.name, &files.settings, &uuid, resume, spec.fork);
-                let (program, args) = launcher::runnable(PathBuf::from(claude), args);
-                (program, args, resume, Some(files.events), Some(files.status))
+                (PathBuf::from(claude), args, resume, Some(files.events), Some(files.status))
             }
             Kind::Shell => (PathBuf::from(&env.info.shell), launcher::shell_args(), false, None, None),
         };
@@ -478,7 +477,7 @@ impl SessionManager {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::env::{EnvInfo, ResolvedEnv};

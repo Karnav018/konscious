@@ -9,14 +9,9 @@
 //! We capture the user's *login* environment once by running `$SHELL -ilc`
 //! from a cleared environment, then scrub terminal- and Claude-session-specific
 //! variables so every PTY starts as if opened in a fresh terminal.
-//!
-//! Windows has no login-shell step: a GUI app already gets the user's full
-//! environment from the registry. Terminal panes run PowerShell, `claude.exe`
-//! is found on `Path` (note the casing) or in the native installer's folder.
 
 use std::collections::BTreeMap;
 use std::io::Read;
-#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -29,11 +24,8 @@ use crate::sync::{wait_timeout_while, Lock};
 
 const BEGIN: &str = "__CW_ENV_BEGIN__";
 const END: &str = "__CW_ENV_END__";
-#[cfg(unix)]
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(5);
-#[cfg(unix)]
 const FALLBACK_PATH: &str = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
-const PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
 
 /// Variables that describe the *parent* terminal or Claude session rather than
 /// the user's configuration. Only exact names: other `CLAUDE_CODE_*` variables
@@ -131,7 +123,6 @@ impl EnvHandle {
     }
 }
 
-#[cfg(unix)]
 fn user_shell() -> String {
     std::env::var("SHELL")
         .ok()
@@ -139,70 +130,17 @@ fn user_shell() -> String {
         .unwrap_or_else(|| "/bin/zsh".into())
 }
 
-/// Terminal panes on Windows: PowerShell 7 if installed, else Windows PowerShell.
-#[cfg(windows)]
-fn user_shell() -> String {
-    let path = std::env::var("PATH").unwrap_or_default();
-    which("pwsh.exe", &path)
-        .or_else(|| which("powershell.exe", &path))
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|| {
-            let root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
-            format!(r"{root}\System32\WindowsPowerShell\v1.0\powershell.exe")
-        })
-}
-
-/// The user's home directory.
-#[cfg(unix)]
-pub fn home_dir() -> String {
+fn home_dir() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".into())
-}
-
-#[cfg(windows)]
-pub fn home_dir() -> String {
-    std::env::var("USERPROFILE")
-        .or_else(|_| std::env::var("HOME"))
-        .unwrap_or_else(|_| r"C:\".into())
-}
-
-/// Case-insensitive on Windows, where the PATH variable is usually `Path`.
-pub fn var<'a>(vars: &'a BTreeMap<String, String>, name: &str) -> Option<&'a String> {
-    if cfg!(windows) {
-        vars.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)).map(|(_, v)| v)
-    } else {
-        vars.get(name)
-    }
-}
-
-/// Helper processes (`claude --version`, `git`) must not flash a console
-/// window when started from a GUI app on Windows.
-pub fn no_window(cmd: &mut Command) -> &mut Command {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
-    cmd
-}
-
-#[cfg(unix)]
-fn platform_env(shell: &str, home: &str) -> (BTreeMap<String, String>, &'static str) {
-    match capture_login_env(shell, home) {
-        Some(v) => (v, "login-shell"),
-        None => (std::env::vars().collect(), "fallback"),
-    }
-}
-
-#[cfg(windows)]
-fn platform_env(_shell: &str, _home: &str) -> (BTreeMap<String, String>, &'static str) {
-    (std::env::vars().collect(), "windows")
 }
 
 pub fn resolve(claude_override: Option<&str>) -> ResolvedEnv {
     let shell = user_shell();
     let home = home_dir();
-    let (mut vars, source) = platform_env(&shell, &home);
+    let (mut vars, source) = match capture_login_env(&shell, &home) {
+        Some(v) => (v, "login-shell"),
+        None => (std::env::vars().collect(), "fallback"),
+    };
     scrub(&mut vars);
     apply_defaults(&mut vars, &shell);
 
@@ -221,7 +159,6 @@ pub fn resolve(claude_override: Option<&str>) -> ResolvedEnv {
 }
 
 /// `$SHELL -ilc 'printf BEGIN; env -0; printf END'` from a minimal environment.
-#[cfg(unix)]
 fn capture_login_env(shell: &str, home: &str) -> Option<BTreeMap<String, String>> {
     let script = format!("printf '\\n{BEGIN}\\n'; env -0; printf '\\n{END}\\n'");
     let mut cmd = Command::new(shell);
@@ -291,44 +228,31 @@ pub fn scrub(vars: &mut BTreeMap<String, String>) {
     });
 }
 
-#[cfg_attr(windows, allow(unused_variables))]
 fn apply_defaults(vars: &mut BTreeMap<String, String>, shell: &str) {
     vars.insert("TERM".into(), "xterm-256color".into());
     vars.insert("COLORTERM".into(), "truecolor".into());
     vars.insert("TERM_PROGRAM".into(), "Kova".into());
     vars.insert("TERM_PROGRAM_VERSION".into(), env!("CARGO_PKG_VERSION").into());
-    // Unix only: on Windows a SHELL variable could make Claude look for bash,
-    // and PATH already exists (as "Path") — adding "PATH" would duplicate it.
-    #[cfg(unix)]
-    {
-        vars.entry("SHELL".into()).or_insert_with(|| shell.into());
-        vars.entry("PATH".into()).or_insert_with(|| FALLBACK_PATH.into());
-        if !vars.contains_key("LANG") && !vars.contains_key("LC_ALL") {
-            vars.insert("LANG".into(), "en_US.UTF-8".into());
-        }
+    vars.entry("SHELL".into()).or_insert_with(|| shell.into());
+    vars.entry("PATH".into()).or_insert_with(|| FALLBACK_PATH.into());
+    if !vars.contains_key("LANG") && !vars.contains_key("LC_ALL") {
+        vars.insert("LANG".into(), "en_US.UTF-8".into());
     }
 }
 
-#[cfg(unix)]
 fn is_executable(p: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
     p.metadata().map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0).unwrap_or(false)
 }
 
-#[cfg(windows)]
-fn is_executable(p: &Path) -> bool {
-    p.is_file()
-}
-
 pub fn which(program: &str, path_var: &str) -> Option<PathBuf> {
     path_var
-        .split(PATH_SEP)
+        .split(':')
         .filter(|d| !d.is_empty())
         .map(|d| Path::new(d).join(program))
         .find(|p| is_executable(p))
 }
 
-#[cfg(unix)]
 fn find_claude(
     override_path: Option<&str>,
     vars: &BTreeMap<String, String>,
@@ -337,55 +261,29 @@ fn find_claude(
     if let Some(p) = override_path.map(PathBuf::from).filter(|p| is_executable(p)) {
         return Some(p);
     }
-    if let Some(p) = var(vars, "PATH").and_then(|path| which("claude", path)) {
+    if let Some(p) = vars.get("PATH").and_then(|path| which("claude", path)) {
         return Some(p);
     }
     let local = format!("{home}/.local/bin:{home}/.claude/local");
     which("claude", &format!("{FALLBACK_PATH}:{local}"))
 }
 
-/// Native installer: `%USERPROFILE%\.local\bin\claude.exe`; WinGet links;
-/// last, an npm `claude.cmd` shim (launched through cmd.exe).
-#[cfg(windows)]
-fn find_claude(
-    override_path: Option<&str>,
-    vars: &BTreeMap<String, String>,
-    home: &str,
-) -> Option<PathBuf> {
-    if let Some(p) = override_path.map(PathBuf::from).filter(|p| is_executable(p)) {
-        return Some(p);
-    }
-    let path = var(vars, "PATH").cloned().unwrap_or_default();
-    let local_app = var(vars, "LOCALAPPDATA").cloned().unwrap_or_default();
-    let known = format!(r"{home}\.local\bin;{local_app}\Microsoft\WinGet\Links");
-    which("claude.exe", &path)
-        .or_else(|| which("claude.exe", &known))
-        .or_else(|| which("claude.cmd", &path))
-}
-
 fn claude_version(path: &Path, vars: &BTreeMap<String, String>) -> Option<String> {
-    let mut cmd = Command::new(path);
-    cmd.arg("--version")
+    let mut child = Command::new(path)
+        .arg("--version")
         .env_clear()
         .envs(vars)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    #[cfg(unix)]
-    cmd.process_group(0);
-    no_window(&mut cmd);
-    let mut child = cmd.spawn().ok()?;
-    #[cfg(unix)]
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .ok()?;
     let pid = child.id() as i32;
     let deadline = Instant::now() + Duration::from_secs(5);
     while child.try_wait().ok()?.is_none() {
         if Instant::now() > deadline {
-            #[cfg(unix)]
-            unsafe {
-                libc::killpg(pid, libc::SIGKILL)
-            };
-            #[cfg(windows)]
-            let _ = child.kill();
+            unsafe { libc::killpg(pid, libc::SIGKILL) };
             let _ = child.wait();
             return None;
         }
@@ -433,7 +331,6 @@ mod tests {
         assert_eq!(kept, ["ANTHROPIC_MODEL", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CONFIG_DIR", "PATH"]);
     }
 
-    #[cfg(unix)]
     #[test]
     fn defaults_set_terminal_identity_and_lang() {
         let mut vars = BTreeMap::new();
@@ -445,7 +342,7 @@ mod tests {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod live {
     /// `env -i HOME=$HOME USER=$USER cargo test -- --ignored live` simulates a
     /// Finder launch: no PATH beyond the system default, no LANG.

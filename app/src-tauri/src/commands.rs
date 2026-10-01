@@ -38,7 +38,7 @@ pub async fn app_init(state: State<'_, AppState>) -> AppResult<InitInfo> {
     Ok(InitInfo {
         lock_ok: state.lock_ok,
         base_dir: state.store.base().to_string_lossy().into_owned(),
-        home: crate::env::home_dir(),
+        home: std::env::var("HOME").unwrap_or_default(),
         version: env!("CARGO_PKG_VERSION").into(),
     })
 }
@@ -170,7 +170,7 @@ pub async fn fs_subdirs(path: String) -> AppResult<Vec<String>> {
 #[tauri::command]
 pub async fn fs_suggest_folders() -> AppResult<Vec<Suggestion>> {
     blocking(|| {
-        let home = crate::env::home_dir();
+        let home = std::env::var("HOME").unwrap_or_default();
         Ok(suggest::folders(std::path::Path::new(&home), 6))
     })
     .await
@@ -178,5 +178,6 @@ pub async fn fs_suggest_folders() -> AppResult<Vec<Suggestion>> {
 
 #[tauri::command]
 pub async fn fs_is_dir(path: String) -> AppResult<bool> {
-    Ok(crate::claude::launcher::validate_cwd(&path, &crate::env::home_dir()).is_ok())
+    let home = std::env::var("HOME").unwrap_or_default();
+    Ok(crate::claude::launcher::validate_cwd(&path, &home).is_ok())
 }

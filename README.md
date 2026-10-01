@@ -10,11 +10,28 @@ Built with Tauri 2, React 19 + TypeScript, and a Rust PTY engine.
 
 | Path | What |
 |---|---|
-| `app/` | The application (frontend in `app/src`, Rust engine in `app/src-tauri`) |
+| `app/` | The macOS app (frontend in `app/src`, Rust engine in `app/src-tauri`) |
+| `windows/` | The Windows app — a separate copy with the Windows port ([notes](windows/README.md)) |
+| `scripts/` | One build command per platform |
 | `docs/design/` | Design reference |
 | `claude_workspace_desktop_prd.md` | Product requirements |
 
-## Develop
+`app/` contains no Windows code, and nothing in `windows/` is part of the Mac
+build. A change meant for both platforms has to be made in both folders.
+
+## Build
+
+| Platform | Command | Output |
+|---|---|---|
+| macOS | `scripts/build-mac.sh` | `release/Kova-<version>-universal.dmg` |
+| Windows | `scripts/build-windows.sh` | `release/Kova_<version>_x64-setup.exe` |
+
+`build-mac.sh` runs the Mac checks (tests, typecheck, clippy) first and
+never touches the installed `/Applications/Kova.app`. `build-windows.sh`
+cross-compiles on this Mac. One-time setup for it:
+`brew install llvm nsis`, `cargo install --locked cargo-xwin`.
+
+## Develop (macOS)
 
 Requires Node 22+, pnpm, and Rust (stable).
 
@@ -24,32 +41,10 @@ pnpm install
 pnpm tauri dev          # run with hot reload
 pnpm test               # frontend tests
 cargo test --manifest-path src-tauri/Cargo.toml --lib   # engine tests
+scripts/check-mac.sh    # everything the Mac build requires to pass
 ```
 
 While developing, point the app at a scratch data folder so it never touches
 your real sessions: `KOVA_HOME=/tmp/kova-dev pnpm tauri dev`.
 
-## Build
-
-```sh
-cd app
-# macOS universal DMG (ad-hoc signed)
-CI=true pnpm tauri build --target universal-apple-darwin --bundles dmg
-```
-
 User data lives in `~/.kova` (config, workspaces, layouts, runtime files).
-
-## Branches
-
-- `main` — the macOS app. Always releasable.
-- `windows` — Windows port in progress. Windows-only code is behind
-  `#[cfg(windows)]` (Rust) or `IS_WINDOWS` (frontend) so the Mac build compiles
-  exactly the Mac code paths.
-
-Before merging anything into `main`, run the Mac gate:
-
-```sh
-cd app
-scripts/check-mac.sh            # tests, typecheck, clippy
-scripts/check-mac.sh --build    # …plus a release build (never touches the installed app)
-```
