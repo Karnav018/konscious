@@ -6,3 +6,6 @@ dist/
 *.log
 */src-tauri/target-next.noindex/
 release/
+
+# Design handoff archives stay local (the extracted design is in docs/design/)
+*handoff*.zip
