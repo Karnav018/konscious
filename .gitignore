@@ -9,3 +9,8 @@ release/
 
 # Design handoff archives stay local (the extracted design is in docs/design/)
 *handoff*.zip
+
+# AI-assistant instruction files stay out of the repo
+CLAUDE.md
+AGENTS.md
+.claude/
