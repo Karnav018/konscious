@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Tokens as Tailwind utilities: bg-surface, text-muted, border-line, … */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accentSoft);
+  --color-accent-ink: var(--accentInk);
+  --font-ui: var(--ui);
+  --font-mono: var(--mono);
+  --font-head: var(--head);
+  --radius-r: var(--r);
+  --radius-rs: var(--rs);
+  --radius-pill: var(--pill);
+}
+
+html {
+  background: var(--bg);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--ui);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}

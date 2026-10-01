@@ -12,7 +12,8 @@ Built with Tauri 2, React 19 + TypeScript, and a Rust PTY engine.
 |---|---|
 | `app/` | The macOS app (frontend in `app/src`, Rust engine in `app/src-tauri`) |
 | `windows/` | The Windows app — a separate copy with the Windows port ([notes](windows/README.md)) |
-| `scripts/` | One build command per platform |
+| `site/` | The website — landing page and future pages ([notes](site/README.md)) |
+| `scripts/` | One build command per platform, plus one for the site |
 | `docs/design/` | Design reference |
 | `claude_workspace_desktop_prd.md` | Product requirements |
 
@@ -25,6 +26,7 @@ build. A change meant for both platforms has to be made in both folders.
 |---|---|---|
 | macOS | `scripts/build-mac.sh` | `release/mac/Konscious-<version>-universal.dmg` |
 | Windows | `scripts/build-windows.sh` | `release/win/Konscious_<version>_x64-setup.exe` |
+| Website | `scripts/build-site.sh` | `site/dist/` (static files) |
 
 `build-mac.sh` runs the Mac checks (tests, typecheck, clippy) first and
 never touches the installed `/Applications/Konscious.app`. `build-windows.sh`

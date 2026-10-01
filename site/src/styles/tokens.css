@@ -1,0 +1,40 @@
+/* Placeholder theme until the landing design arrives: the app's palette
+   (#FBF5E5 · #C890A7 · #A35C7A · #212121). Dark by default; light follows
+   the visitor's system setting. Replace these values, not the names. */
+
+:root {
+  --ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --head: 'IBM Plex Sans', system-ui, sans-serif;
+  --r: 10px;
+  --rs: 6px;
+  --pill: 999px;
+
+  --bg: #212121;
+  --surface: #292626;
+  --raised: #312d2d;
+  --line: #383232;
+  --text: #fbf5e5;
+  --muted: #c9bdb4;
+  --faint: #8c807b;
+  --accent: #c890a7;
+  --accentSoft: rgba(200, 144, 167, 0.16);
+  --accentInk: #212121;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #fbf5e5;
+    --surface: #fffcf5;
+    --raised: #fffcf5;
+    --line: #ece2cb;
+    --text: #212121;
+    --muted: #5e5654;
+    --faint: #9c8f8b;
+    --accent: #a35c7a;
+    --accentSoft: rgba(163, 92, 122, 0.1);
+    --accentInk: #ffffff;
+    color-scheme: light;
+  }
+}
