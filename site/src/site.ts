@@ -1,6 +1,6 @@
 // Product facts shared by every page. Keep copy here, not inside components,
 // so a rename or a new release is a one-file change.
-const version = '0.1.0'
+const version = '0.2.0'
 const repo = 'https://github.com/Karnav018/konscious'
 // Installers are committed to the repo under release/. The site serves them
 // itself at /download/<name> (vite.config.ts copies them in at build time):

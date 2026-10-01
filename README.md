@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://konscious.hawkapp.in/download/Konscious-0.1.0-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
-  <a href="https://konscious.hawkapp.in/download/Konscious_0.1.0_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
+  <a href="https://konscious.hawkapp.in/download/Konscious-0.2.0-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
+  <a href="https://konscious.hawkapp.in/download/Konscious_0.2.0_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
   <a href="https://konscious.hawkapp.in"><img src="https://img.shields.io/badge/Website-konscious.hawkapp.in-FBF5E5?style=for-the-badge&labelColor=212121" alt="Website"></a>
 </p>
 
@@ -38,7 +38,7 @@ Konscious runs your own Claude Code, so install it and sign in first.
 
 | | macOS | Windows |
 |---|---|---|
-| **Download** | [Konscious-0.1.0-universal.dmg](https://konscious.hawkapp.in/download/Konscious-0.1.0-universal.dmg) | [Konscious_0.1.0_x64-setup.exe](https://konscious.hawkapp.in/download/Konscious_0.1.0_x64-setup.exe) |
+| **Download** | [Konscious-0.2.0-universal.dmg](https://konscious.hawkapp.in/download/Konscious-0.2.0-universal.dmg) | [Konscious_0.2.0_x64-setup.exe](https://konscious.hawkapp.in/download/Konscious_0.2.0_x64-setup.exe) |
 | **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit |
 | **Install** | Open the DMG and drag Konscious to Applications | Run the installer (for your account, no admin needed) |
 | **First launch** | macOS stops it once because the app isn’t notarized yet: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** |

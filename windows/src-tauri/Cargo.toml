@@ -1,6 +1,6 @@
 [package]
 name = "konscious"
-version = "0.1.0"
+version = "0.2.0"
 description = "Konscious — every Claude session, one calm place"
 authors = ["karnav"]
 edition = "2021"
