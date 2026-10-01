@@ -22,9 +22,9 @@ What differs from the Mac app:
 | Installer | NSIS, per-user install (no admin) |
 
 Updating: run a newer installer over an existing install — it closes the
-running app, replaces the old version and keeps all data. An existing **Kova**
-install is uninstalled silently first (`src-tauri/installer-hooks.nsh`); its
-sessions move to `.konscious` on first start.
+running app, replaces the old version and keeps all data. An install of the
+previous version is uninstalled silently first (`src-tauri/installer-hooks.nsh`);
+its sessions move to `.konscious` on first start.
 
 Requirements on the Windows PC: Claude Code installed and logged in
 (`irm https://claude.ai/install.ps1 | iex`). Git for Windows is optional.

@@ -6,11 +6,11 @@
 #   scripts/install-mac.sh --delay 60      wait before quitting the running app
 #   scripts/install-mac.sh --dry-run       show what would happen, change nothing
 #
-# Already installed? It updates in place: the running app (Konscious, or Kova
-# from before the rename) is quit cleanly — sessions are saved and marked to
-# resume — the new build replaces it, the old Kova.app is removed, and
-# Konscious is opened again. Data stays in ~/.konscious (Kova's ~/.kova moves
-# there on first launch).
+# Already installed? It updates in place: the running app (Konscious, or the
+# previous version) is quit cleanly — sessions are saved and marked to resume —
+# the new build replaces it, the previous version's app is removed, and
+# Konscious is opened again. Data stays in ~/.konscious (the previous
+# version's data moves there on first launch).
 #
 # It runs detached from the terminal that started it, because that terminal is
 # often a pane inside the very app being quit. Progress goes to the log below.
@@ -32,18 +32,19 @@ done
 dmg="$(cd "$(dirname "$dmg")" && pwd)/$(basename "$dmg")"
 
 dest=/Applications/Konscious.app
-legacy=/Applications/Kova.app
-apps=("$dest/Contents/MacOS/Konscious" "$legacy/Contents/MacOS/Kova")
+previous=Kova   # the previous version's app name
+legacy="/Applications/$previous.app"
+apps=("$dest/Contents/MacOS/Konscious" "$legacy/Contents/MacOS/$previous")
 lsreg=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 pids_of() { ps -axo pid=,command= | awk -v exe="$1" '$2 == exe { print $1 }'; }
 running() { local exe; for exe in "${apps[@]}"; do pids_of "$exe"; done; }
-# Every Kova/Konscious bundle LaunchServices knows about (Spotlight, Launchpad,
+# Every Konscious or previous-version bundle LaunchServices knows about (Spotlight, Launchpad,
 # Dock and "Open With" all list from here), plus copies in the Applications folders.
 copies() {
-  { "$lsreg" -dump 2>/dev/null | grep -E '^path: +.*/(Kova|Konscious)\.app( \(0x[0-9a-f]+\))?$' |
+  { "$lsreg" -dump 2>/dev/null | grep -E "^path: +.*/($previous|Konscious)\\.app( \\(0x[0-9a-f]+\\))?\$" |
       sed -E 's/^path: +//; s/ \(0x[0-9a-f]+\)$//' || true
-    ls -d /Applications/{Kova,Konscious}.app "$HOME"/Applications/{Kova,Konscious}.app 2>/dev/null || true
+    ls -d /Applications/{$previous,Konscious}.app "$HOME"/Applications/{$previous,Konscious}.app 2>/dev/null || true
   } | sort -u
 }
 
@@ -67,7 +68,7 @@ echo "$(date '+%F %T') install $dmg"
 sleep "$delay"
 
 # Eject DMGs of earlier builds first (they also count as extra app copies).
-for vol in /Volumes/Konscious* /Volumes/Kova*; do
+for vol in /Volumes/Konscious* "/Volumes/$previous"*; do
   [[ -d "$vol" ]] && { hdiutil detach -quiet "$vol" 2>/dev/null || true; }
 done
 
@@ -81,7 +82,7 @@ codesign --verify --deep --strict "$mnt/Konscious.app"
 # SIGTERM = a normal quit: the app stops its sessions (marked to resume) and
 # saves state. Wait for it to be fully gone so its data lock is released.
 for pid in $(running); do echo "quitting pid $pid"; kill -TERM "$pid"; done
-# (Kova and Konscious save their state on SIGTERM and mark sessions to resume.)
+# (Both versions save their state on SIGTERM and mark sessions to resume.)
 for _ in $(seq 1 60); do [[ -z "$(running)" ]] && break; sleep 0.5; done
 [[ -z "$(running)" ]] || { echo "✗ the app did not quit within 30s; nothing changed"; exit 1; }
 
@@ -92,7 +93,7 @@ ditto "$mnt/Konscious.app" "$tmp"
 [[ -d "$dest" ]] && { "$lsreg" -u "$dest" 2>/dev/null || true; rm -rf "$dest"; }
 mv "$tmp" "$dest"
 
-# Exactly one app afterwards: delete other copies (old Kova, stray Konscious
+# Exactly one app afterwards: delete other copies (the previous version, stray Konscious
 # in ~/Applications, build outputs), eject mounted DMGs, and drop stale
 # registrations for bundles that no longer exist.
 while IFS= read -r p; do

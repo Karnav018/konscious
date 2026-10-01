@@ -29,6 +29,8 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> AppResult<T> + Send + '
 pub struct InitInfo {
     lock_ok: bool,
     base_dir: String,
+    /// The data folder belongs to the previous version, which still runs.
+    previous_version: bool,
     home: String,
     version: String,
 }
@@ -38,6 +40,7 @@ pub async fn app_init(state: State<'_, AppState>) -> AppResult<InitInfo> {
     Ok(InitInfo {
         lock_ok: state.lock_ok,
         base_dir: state.store.base().to_string_lossy().into_owned(),
+        previous_version: crate::is_previous_data_dir(state.store.base()),
         home: crate::env::home_dir(),
         version: env!("CARGO_PKG_VERSION").into(),
     })

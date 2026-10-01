@@ -14,7 +14,6 @@ Built with Tauri 2, React 19 + TypeScript, and a Rust PTY engine.
 | `windows/` | The Windows app — a separate copy with the Windows port ([notes](windows/README.md)) |
 | `site/` | The website — landing page and future pages ([notes](site/README.md)) |
 | `scripts/` | One build command per platform, plus one for the site |
-| `docs/design/` | Design reference |
 | `claude_workspace_desktop_prd.md` | Product requirements |
 
 `app/` contains no Windows code, and nothing in `windows/` is part of the Mac
@@ -36,13 +35,13 @@ cross-compiles on this Mac. One-time setup for it:
 ## Install and update
 
 Installing over an existing copy updates it in place; sessions and settings
-are kept, and an install of Kova (the app's earlier name) is replaced.
+are kept, and an install of the previous version is replaced.
 
 | Platform | How |
 |---|---|
-| macOS (this Mac) | `scripts/install-mac.sh` — quits the running app cleanly, installs the newest DMG from `release/mac/`, removes `Kova.app`, reopens. `--dry-run` shows what it would do. |
+| macOS (this Mac) | `scripts/install-mac.sh` — quits the running app cleanly, installs the newest DMG from `release/mac/`, removes the previous version, reopens. `--dry-run` shows what it would do. |
 | macOS (other Macs) | Open the DMG and drag Konscious to Applications; choose **Replace** if asked. |
-| Windows | Run the installer. It offers to close the running app, upgrades an older Konscious, and removes Kova. |
+| Windows | Run the installer. It offers to close the running app, upgrades an older Konscious, and replaces the previous version. |
 
 ## Develop (macOS)
 
@@ -61,4 +60,4 @@ While developing, point the app at a scratch data folder so it never touches
 your real sessions: `KONSCIOUS_HOME=/tmp/konscious-dev pnpm tauri dev`.
 
 User data lives in `~/.konscious` (config, workspaces, layouts, runtime files).
-Data from the app's earlier name (`~/.kova`) is moved there on first launch.
+Data from the previous version is moved there on first launch.

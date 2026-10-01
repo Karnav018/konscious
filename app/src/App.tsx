@@ -91,19 +91,19 @@ function onKeyDown(e: KeyboardEvent) {
 
 function LockScreen() {
   const base = useUi((u) => u.init?.baseDir)
-  // Kova (the previous name) still holds its data folder: Konscious only
-  // moves it over once that app has quit.
-  const oldVersion = !!base && /[\\/]\.kova$/.test(base)
+  // The previous version still holds its data folder: Konscious only moves
+  // it over once that app has quit.
+  const oldVersion = useUi((u) => u.init?.previousVersion ?? false)
   return (
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="flex flex-col items-center gap-3 text-center max-w-[420px]">
         <div className="font-head text-[20px] font-semibold">
-          {oldVersion ? 'Kova is still running' : 'Konscious is already running'}
+          {oldVersion ? 'The previous version is still running' : 'Konscious is already running'}
         </div>
         {oldVersion ? (
           <div className="text-muted leading-[1.5]">
-            Your sessions are open in Kova, the previous version. Quit Kova, then reopen Konscious — your sessions move
-            over and resume on their own.
+            Your sessions are still open in the previous version of this app. Quit it, then reopen Konscious — your
+            sessions move over and resume on their own.
           </div>
         ) : (
           <div className="text-muted leading-[1.5]">

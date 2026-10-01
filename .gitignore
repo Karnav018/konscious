@@ -5,8 +5,6 @@ dist/
 */src-tauri/gen/
 *.log
 */src-tauri/target-next.noindex/
-# Release builds are committed; pre-rename Kova builds stay local
-release/*/Kova*
 
 # Design files stay local
 *handoff*.zip

@@ -117,6 +117,8 @@ export interface EnvInfo {
 export interface InitInfo {
   lockOk: boolean
   baseDir: string
+  /** The data folder belongs to the previous version, which still runs. */
+  previousVersion: boolean
   home: string
   version: string
 }

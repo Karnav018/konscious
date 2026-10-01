@@ -37,14 +37,18 @@ fn window_flags() -> StateFlags {
     StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
 }
 
-/// `~/.konscious` (override: KONSCIOUS_HOME; the older KOVA_HOME and
-/// CLAUDE_WORKSPACE_HOME still work). Data from the app's earlier names —
-/// `~/.kova`, before that `~/.claude-workspace` — is moved over once. If an
-/// older build is still running (it holds `.lock`), its folder stays where
-/// it is and is used as is, so the lock screen shows instead of two apps
-/// resuming the same sessions.
+/// Data folder and app identifier of the previous version. Only read on
+/// first launch, to carry existing sessions and the window position over.
+const PREVIOUS_DATA_DIR: &str = ".kova";
+const PREVIOUS_IDENTIFIER: &str = "dev.karnav.kova";
+
+/// `~/.konscious` (override: KONSCIOUS_HOME; CLAUDE_WORKSPACE_HOME still
+/// works). Data from earlier versions is moved over once. If an earlier
+/// version is still running (it holds `.lock`), its folder stays where it is
+/// and is used as is, so the lock screen shows instead of two apps resuming
+/// the same sessions.
 fn base_dir() -> PathBuf {
-    for var in ["KONSCIOUS_HOME", "KOVA_HOME", "CLAUDE_WORKSPACE_HOME"] {
+    for var in ["KONSCIOUS_HOME", "CLAUDE_WORKSPACE_HOME"] {
         if let Some(p) = std::env::var_os(var) {
             return PathBuf::from(p);
         }
@@ -57,7 +61,7 @@ fn data_dir_in(home: &Path) -> PathBuf {
     if current.exists() {
         return current;
     }
-    for legacy in [home.join(".kova"), home.join(".claude-workspace")] {
+    for legacy in [home.join(PREVIOUS_DATA_DIR), home.join(".claude-workspace")] {
         if !legacy.is_dir() {
             continue;
         }
@@ -67,6 +71,12 @@ fn data_dir_in(home: &Path) -> PathBuf {
         break;
     }
     current
+}
+
+/// True for an earlier version's data folder (it is only still in use while
+/// that version runs); the lock screen then asks to quit it.
+pub(crate) fn is_previous_data_dir(dir: &Path) -> bool {
+    dir.file_name().is_some_and(|n| n == PREVIOUS_DATA_DIR || n == ".claude-workspace")
 }
 
 /// True while another running instance holds `<dir>/.lock`.
@@ -85,7 +95,7 @@ fn carry_window_state(identifier: &str) {
     let base = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"));
     let Some(base) = base else { return };
     let file = tauri_plugin_window_state::DEFAULT_FILENAME;
-    let (old, new) = (base.join("dev.karnav.kova").join(file), base.join(identifier).join(file));
+    let (old, new) = (base.join(PREVIOUS_IDENTIFIER).join(file), base.join(identifier).join(file));
     if !new.exists() && old.is_file() {
         let _ = std::fs::create_dir_all(base.join(identifier));
         let _ = std::fs::copy(&old, &new);
@@ -248,35 +258,42 @@ mod tests {
     }
 
     #[test]
-    fn kova_data_moves_over_once() {
+    fn previous_version_data_moves_over_once() {
         let home = tempfile::tempdir().unwrap();
-        dir_with_marker(&home.path().join(".kova"));
+        dir_with_marker(&home.path().join(PREVIOUS_DATA_DIR));
         let dir = data_dir_in(home.path());
         assert_eq!(dir, home.path().join(".konscious"));
         assert!(dir.join("workspaces.json").is_file(), "sessions came along");
-        assert!(!home.path().join(".kova").exists());
+        assert!(!home.path().join(PREVIOUS_DATA_DIR).exists());
         assert_eq!(data_dir_in(home.path()), dir, "second launch: nothing to move");
     }
 
     #[test]
-    fn running_kova_keeps_its_folder() {
+    fn running_previous_version_keeps_its_folder() {
         let home = tempfile::tempdir().unwrap();
-        let kova = home.path().join(".kova");
-        dir_with_marker(&kova);
-        let lock = std::fs::File::create(kova.join(".lock")).unwrap();
-        lock.try_lock().unwrap(); // what a running Kova holds
-        assert_eq!(data_dir_in(home.path()), kova, "not moved from under a running app");
-        assert!(kova.join("workspaces.json").is_file());
+        let old = home.path().join(PREVIOUS_DATA_DIR);
+        dir_with_marker(&old);
+        let lock = std::fs::File::create(old.join(".lock")).unwrap();
+        lock.try_lock().unwrap(); // what a running previous version holds
+        assert_eq!(data_dir_in(home.path()), old, "not moved from under a running app");
+        assert!(old.join("workspaces.json").is_file());
         drop(lock);
         assert_eq!(data_dir_in(home.path()), home.path().join(".konscious"), "moved once it quits");
+    }
+
+    #[test]
+    fn recognises_earlier_data_folders() {
+        assert!(is_previous_data_dir(&Path::new("/u").join(PREVIOUS_DATA_DIR)));
+        assert!(is_previous_data_dir(Path::new("/u/.claude-workspace")));
+        assert!(!is_previous_data_dir(Path::new("/u/.konscious")));
     }
 
     #[test]
     fn existing_konscious_wins_over_legacy() {
         let home = tempfile::tempdir().unwrap();
         dir_with_marker(&home.path().join(".konscious"));
-        dir_with_marker(&home.path().join(".kova"));
+        dir_with_marker(&home.path().join(PREVIOUS_DATA_DIR));
         assert_eq!(data_dir_in(home.path()), home.path().join(".konscious"));
-        assert!(home.path().join(".kova").exists(), "never overwrites or merges");
+        assert!(home.path().join(PREVIOUS_DATA_DIR).exists(), "never overwrites or merges");
     }
 }
