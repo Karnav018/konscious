@@ -2,12 +2,14 @@
 //   init → load + decode (migrate, validate, heal) → hydrate → theme → fonts
 //   → show window → subscribe to Rust events → resolve env → re-attach live
 //   sessions → auto-resume everything that was running at quit (staggered).
+//   Background updates start here too (lib/update.ts).
 import { errorMessage, ipc } from '../lib/ipc'
 import { onStartRequest, terminals } from '../lib/terminals'
 import { layoutOf } from '../state/commands/layout'
 import { setContext } from '../state/commands/runtime'
 import { flash, setBooted, setEnv, setEnvError, setFullscreen, setInit, setLimits, setSuggestions } from '../state/commands/ui'
 import { forksNeeded } from '../lib/restore'
+import { startUpdateChecks } from '../lib/update'
 import { decode, hydrate, startPersistence } from '../state/persistence'
 import { getState } from '../state/store'
 import { onInfo, reattachSession, refreshGit, setClaudeSessionId, setTheme, startSession } from './actions'
@@ -57,6 +59,9 @@ export async function bootstrap() {
   else if (dec.readonly) flash('Your data is from a newer version — changes will not be saved')
   else if (dec.skipped) flash(`${dec.skipped} invalid saved entr${dec.skipped === 1 ? 'y was' : 'ies were'} skipped`)
   void ipc.fsSuggestFolders().then(setSuggestions)
+  // Timers only; registered before the resume work so a slow resume cannot
+  // delay them.
+  startUpdateChecks()
 
   try {
     setEnv(await ipc.appEnv())

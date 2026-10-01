@@ -15,6 +15,7 @@ import {
 import { FlameIcon, FolderIcon, MoonIcon, PlusIcon, SunIcon, TerminalIcon } from '../common/Icon'
 import { Segmented } from '../common/Segmented'
 import { StatusGlyph } from '../common/StatusGlyph'
+import { UpdateChip } from '../common/UpdateChip'
 import { UsageBar } from '../common/Usage'
 import { Wordmark } from '../common/Wordmark'
 
@@ -139,6 +140,8 @@ export function TitleBar() {
           {counts.waiting} waiting
         </div>
       )}
+
+      <UpdateChip />
 
       <div data-tauri-drag-region className="flex-1 self-stretch" />
 

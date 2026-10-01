@@ -100,3 +100,9 @@ export const CheckIcon = ({ size = 13, ...p }: P) => (
     <path d="M20 6 9 17l-5-5" />
   </svg>
 )
+
+export const DownloadIcon = ({ size = 13, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.7} {...p}>
+    <path d="M12 3v12M7 10l5 5 5-5M4 20h16" />
+  </svg>
+)

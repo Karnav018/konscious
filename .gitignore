@@ -15,9 +15,11 @@ CLAUDE.md
 AGENTS.md
 .claude/
 
-# Always tracked: build scripts and release installers. Keep this block last
-# so no rule above can ignore them.
+# Built installers are published to GitHub releases, not committed: release/
+# is just where a local build drops them.
+release/
+
+# Always tracked: build scripts. Keep this block last so no rule above can
+# ignore them.
 !scripts/
 !scripts/**
-!release/
-!release/**

@@ -16,6 +16,17 @@ export interface NewSessionDraft {
   dir: string
 }
 
+/**
+ * A background update (lib/update.ts). `ready` means a newer version is
+ * downloaded and waiting: installing closes the app, so the restart is the
+ * user's call, not ours.
+ */
+export type UpdateState =
+  | { state: 'none' }
+  | { state: 'downloading'; version: string; percent: number | null }
+  | { state: 'ready'; version: string }
+  | { state: 'installing'; version: string }
+
 export type PersistStatus =
   | { state: 'ok' }
   | { state: 'error'; message: string }
@@ -58,6 +69,8 @@ export interface UiState {
   newSession: NewSessionDraft | null
   toast: string | null
   persist: PersistStatus
+  /** A newer version downloaded in the background, waiting for a restart. */
+  update: UpdateState
   /** Claude plan usage (5h / 7d), from the status-line feed. */
   limits: Limits | null
   /** When `limits` was observed (ms), and whether it came live this launch. */
@@ -99,6 +112,7 @@ export const initialState = (): AppState => ({
     newSession: null,
     toast: null,
     persist: { state: 'ok' },
+    update: { state: 'none' },
     limits: null,
     limitsAt: null,
     limitsLive: false,

@@ -21,10 +21,15 @@ What differs from the Mac app:
 | Window | Native title bar; WebView2 reload/print/find keys disabled |
 | Installer | NSIS, per-user install (no admin) |
 
-Updating: run a newer installer over an existing install — it closes the
-running app, replaces the old version and keeps all data. An install of the
-previous version is uninstalled silently first (`src-tauri/installer-hooks.nsh`);
-its sessions move to `.konscious` on first start.
+Updating is automatic: the app checks this repo's GitHub releases hourly,
+downloads a new version in the background and offers **Restart to update** in
+the title bar (`src/lib/update.ts`). The restart runs the downloaded NSIS
+installer in passive mode, which closes the app, replaces the old version and
+reopens it; all data is kept and the sessions that were running resume.
+Running a newer installer by hand still works the same way. An install of the
+*previous* app (Kova) is uninstalled silently first
+(`src-tauri/installer-hooks.nsh`); its sessions move to `.konscious` on first
+start.
 
 Requirements on the Windows PC: Claude Code installed and logged in
 (`irm https://claude.ai/install.ps1 | iex`). Git for Windows is optional.

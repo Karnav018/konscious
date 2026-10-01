@@ -2,10 +2,11 @@
 // so a rename or a new release is a one-file change.
 const version = '0.2.0'
 const repo = 'https://github.com/Karnav018/konscious'
-// Installers are committed to the repo under release/. The site serves them
-// itself at /download/<name> (vite.config.ts copies them in at build time):
-// same origin, so the browser downloads instead of navigating away.
-const installer = (path: string) => ({ release: path, name: path.split('/').pop() as string })
+// Installers live on the GitHub release for this version: CI builds them,
+// signs them for the in-app updater and publishes them (see
+// .github/workflows/release.yml). The site only links to them, so shipping a
+// new version is a tag — not a site rebuild with the binaries inside it.
+const installer = (name: string) => ({ name, url: `${repo}/releases/download/v${version}/${name}` })
 
 export const site = {
   name: 'Konscious',
@@ -20,14 +21,14 @@ export const site = {
       label: 'Download for macOS',
       detail: 'Apple silicon and Intel, macOS 13 or later',
       size: '7.9 MB',
-      ...installer(`mac/Konscious-${version}-universal.dmg`),
+      ...installer(`Konscious-${version}-universal.dmg`),
     },
     windows: {
       os: 'Windows',
       label: 'Download for Windows',
       detail: '64-bit, Windows 10 or 11',
       size: '3.2 MB',
-      ...installer(`win/Konscious_${version}_x64-setup.exe`),
+      ...installer(`Konscious_${version}_x64-setup.exe`),
     },
   },
   // Claude Code's own installers (docs.claude.com/claude-code).
@@ -44,8 +45,8 @@ export const site = {
 
 export type Download = (typeof site.downloads)[keyof typeof site.downloads]
 
-/** Where the site serves an installer. */
-export const downloadUrl = (d: Download) => `/download/${d.name}`
+/** Where an installer is downloaded from. */
+export const downloadUrl = (d: Download) => d.url
 
 const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
 

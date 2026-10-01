@@ -1,7 +1,7 @@
 // UI commands: named, so the action log reads like what the user did.
 import type { EnvInfo, InitInfo, Limits, Suggestion, Theme } from '../../types'
 import { act } from '../act'
-import type { NewSessionDraft, PersistStatus, WsFilter } from '../store'
+import type { NewSessionDraft, PersistStatus, UpdateState, WsFilter } from '../store'
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -42,6 +42,7 @@ export function setLimits(limits: Limits, observedAt = Date.now(), live = true) 
   })
 }
 export const setPersistStatus = (p: PersistStatus) => act(`persist/${p.state}`, (d) => void (d.ui.persist = p))
+export const setUpdate = (update: UpdateState) => act(`update/${update.state}`, (d) => void (d.ui.update = update))
 
 export function toggleWorkspaceMenu(hover: string | null) {
   act('ui/workspaceMenu', (d) => {

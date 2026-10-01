@@ -1,0 +1,193 @@
+name: Release
+
+# A tag is the whole release. Pushing v0.2.0 builds both apps, signs them for
+# the updater and publishes one GitHub release — which is where every installed
+# copy of Konscious looks for its next version (app/src/lib/update.ts).
+#
+#   scripts/release.sh 0.2.0     bumps every version, commits, tags, pushes
+#
+# Secrets this needs (Settings › Secrets and variables › Actions):
+#   TAURI_SIGNING_PRIVATE_KEY           the private half of the updater keypair
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  only if that key has a password; left
+#                                       unset it passes "", which is what a
+#                                       key generated without one wants (and
+#                                       passing it explicitly is what keeps
+#                                       the signer from prompting and hanging)
+# Without the key the build fails rather than publishing updates nobody can install.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and publish (e.g. v0.2.0)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+jobs:
+  macos:
+    name: macOS (universal)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      # The tag and the version in the app must agree, or the updater would
+      # offer a version the manifest does not name.
+      - name: Check the tag matches the app version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          tag=${{ inputs.tag || github.ref_name }}
+          [ "v$version" = "$tag" ] || { echo "✗ tag $tag but version $version — run scripts/release.sh"; exit 1; }
+          echo "version=$version" >> "$GITHUB_ENV"
+
+      - name: Checks (tests, types, engine, clippy)
+        run: scripts/check-mac.sh
+
+      - name: Build universal app + DMG
+        run: CI=true pnpm -s tauri build --target universal-apple-darwin --bundles app,dmg
+
+      # Named the way the website and the manifest expect; see
+      # scripts/updater-manifest.mjs.
+      - name: Collect
+        run: |
+          out="$GITHUB_WORKSPACE/assets"
+          mkdir -p "$out"
+          b=src-tauri/target/universal-apple-darwin/release/bundle
+          cp "$(ls -t "$b"/dmg/*.dmg | head -1)" "$out/Konscious-${version}-universal.dmg"
+          cp "$b/macos/Konscious.app.tar.gz" "$out/Konscious_${version}_universal.app.tar.gz"
+          cp "$b/macos/Konscious.app.tar.gz.sig" "$out/Konscious_${version}_universal.app.tar.gz.sig"
+          ls -lh "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: assets/
+          if-no-files-found: error
+
+  windows:
+    name: Windows (x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: windows/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the tag matches the app version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          tag=${{ inputs.tag || github.ref_name }}
+          [ "v$version" = "$tag" ] || { echo "✗ tag $tag but version $version — run scripts/release.sh"; exit 1; }
+          echo "version=$version" >> "$GITHUB_ENV"
+
+      - name: Checks (tests, types, engine, clippy)
+        run: scripts/check-windows.sh
+
+      - name: Build NSIS installer
+        run: pnpm -s tauri build --bundles nsis
+
+      - name: Collect
+        run: |
+          out="$GITHUB_WORKSPACE/assets"
+          mkdir -p "$out"
+          exe=$(ls -t src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)
+          cp "$exe" "$out/Konscious_${version}_x64-setup.exe"
+          cp "$exe.sig" "$out/Konscious_${version}_x64-setup.exe.sig"
+          ls -lh "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: assets/
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      # One manifest for both platforms, written only once both builds are in:
+      # a release with a half-filled latest.json would silently stop updates
+      # for the missing platform.
+      - name: Write latest.json
+        run: |
+          version=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          node scripts/updater-manifest.mjs assets "$version" > assets/latest.json
+          cat assets/latest.json
+
+      # Not a draft and not a prerelease: the apps poll
+      # releases/latest/download/latest.json, which only ever serves a
+      # published, non-prerelease release. Re-running the workflow on a tag
+      # replaces the assets instead of failing on the existing release.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=${{ inputs.tag || github.ref_name }}
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" assets/* --clobber
+          else
+            gh release create "$tag" \
+              --title "Konscious ${tag#v}" \
+              --generate-notes \
+              --latest \
+              assets/*
+          fi

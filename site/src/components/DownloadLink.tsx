@@ -3,8 +3,9 @@ import type { ReactNode } from 'react'
 import { downloadUrl, type Download } from '../site'
 
 /**
- * A link that downloads the installer (same-origin file + `download`, so the
- * browser saves it under its real name instead of navigating away).
+ * A link to the installer on the GitHub release. GitHub serves release assets
+ * as attachments, so the browser saves the file instead of navigating away;
+ * `download` is ignored cross-origin and would only be misleading here.
  */
 export function DownloadLink({
   file,
@@ -18,7 +19,7 @@ export function DownloadLink({
   children: ReactNode
 }) {
   return (
-    <a href={downloadUrl(file)} download={file.name} onClick={onStart} className={className}>
+    <a href={downloadUrl(file)} onClick={onStart} className={className}>
       {children}
     </a>
   )

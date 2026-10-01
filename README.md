@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://konscious.hawkapp.in/download/Konscious-0.2.0-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
-  <a href="https://konscious.hawkapp.in/download/Konscious_0.2.0_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.0/Konscious-0.2.0-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.0/Konscious_0.2.0_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
   <a href="https://konscious.hawkapp.in"><img src="https://img.shields.io/badge/Website-konscious.hawkapp.in-FBF5E5?style=for-the-badge&labelColor=212121" alt="Website"></a>
 </p>
 
@@ -38,13 +38,15 @@ Konscious runs your own Claude Code, so install it and sign in first.
 
 | | macOS | Windows |
 |---|---|---|
-| **Download** | [Konscious-0.2.0-universal.dmg](https://konscious.hawkapp.in/download/Konscious-0.2.0-universal.dmg) | [Konscious_0.2.0_x64-setup.exe](https://konscious.hawkapp.in/download/Konscious_0.2.0_x64-setup.exe) |
+| **Download** | [Konscious-0.2.0-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.2.0/Konscious-0.2.0-universal.dmg) | [Konscious_0.2.0_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.2.0/Konscious_0.2.0_x64-setup.exe) |
 | **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit |
 | **Install** | Open the DMG and drag Konscious to Applications | Run the installer (for your account, no admin needed) |
 | **First launch** | macOS stops it once because the app isn’t notarized yet: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** |
 | **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | `irm https://claude.ai/install.ps1 \| iex` |
 
-**Updating** is installing again: drag the new version over the old one (choose **Replace**) on macOS, or run the new installer on Windows — it offers to close the running app. Sessions, layouts and settings are kept, and an install of the previous version is replaced.
+**Updating takes care of itself.** Konscious checks this repo's releases shortly after launch and every hour after that, and downloads a new version in the background. It never installs behind your back: installing closes the app, and that stops every live session — so the title bar offers **Restart to update** and waits for you. On the way back up, every session that was running resumes its conversation, which is what makes the restart cheap. Sessions, layouts and settings are kept.
+
+Updates are verified against a signing key built into the app, so only releases published by this repo's workflow can install themselves. You can still install a version by hand at any time — downloading and running the installer over an existing install works exactly as before.
 
 ## Keyboard shortcuts
 
@@ -82,7 +84,7 @@ Requires Node 22+, pnpm and Rust (stable).
 | [`windows/`](windows) | The Windows app, a separate copy with the Windows port ([notes](windows/README.md)) |
 | [`site/`](site) | The website, [konscious.hawkapp.in](https://konscious.hawkapp.in) ([notes](site/README.md)) |
 | [`scripts/`](scripts) | One command per build, install and deploy |
-| [`release/`](release) | The built installers the website serves |
+| `release/` | Where a local build drops its installer (not in the repo) |
 | [`claude_workspace_desktop_prd.md`](claude_workspace_desktop_prd.md) | Product requirements |
 
 `app/` contains no Windows code, and nothing in `windows/` is part of the Mac build — a change meant for both platforms is made in both folders.
@@ -91,7 +93,14 @@ Requires Node 22+, pnpm and Rust (stable).
 - **`scripts/build-windows.sh`** — cross-compiles on a Mac into `release/win/Konscious_<version>_x64-setup.exe`. One-time setup: `brew install llvm nsis` and `cargo install --locked cargo-xwin`.
 - **`scripts/install-mac.sh`** — installs the newest DMG on this Mac, quitting and reopening the running app. `--dry-run` shows what it would do.
 - **`scripts/build-site.sh`** — builds the website into `site/dist/`.
-- **`scripts/deploy-site.sh`** — builds the website with the installers and deploys it to Vercel.
+- **`scripts/deploy-site.sh`** — builds the website and deploys it to Vercel.
+- **`scripts/release.sh <version>`** — bumps the version everywhere, commits, tags and pushes. The tag is the release.
+
+## Releasing
+
+A release is a tag. `scripts/release.sh 0.2.0` writes the version into both apps, the website and this README, then pushes `v0.2.0`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS and the installer on Windows, runs each platform's checks, signs both for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour. Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
+
+The updater only installs what the matching private key signed. That keypair is not in the repo: the public half is in both `tauri.conf.json` files, and the workflow reads the private half from the repository secret `TAURI_SIGNING_PRIVATE_KEY` (plus `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, only if the key has a password). Keep the private key safe — losing it means no installed copy can accept an update, and the only way out is asking people to install by hand again.
 
 To work on the Mac app with hot reload, point it at a scratch data folder so it never touches your real sessions:
 
