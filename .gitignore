@@ -14,3 +14,10 @@ docs/design/
 CLAUDE.md
 AGENTS.md
 .claude/
+
+# Always tracked: build scripts and release installers. Keep this block last
+# so no rule above can ignore them.
+!scripts/
+!scripts/**
+!release/
+!release/**
