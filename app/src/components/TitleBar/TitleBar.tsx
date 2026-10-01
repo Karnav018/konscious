@@ -1,7 +1,8 @@
 // 46px title bar (design lines 26–69). Native traffic lights overlay the
 // left inset; the usage-limit meters are deferred (no supported data source).
-import { jumpWaiting, openNewSession, openTerminalHere, setMode, setTheme } from '../../app/actions'
-import { toggleInspector, toggleWorkspaceMenu } from '../../state/commands/ui'
+import { jumpWaiting, openNewSession, openTerminalHere, setMode, setTheme, setWarmthPercent, toggleWarm } from '../../app/actions'
+import { isWarm, percentAt } from '../../lib/warmth'
+import { toggleInspector, toggleWarmMenu, toggleWorkspaceMenu } from '../../state/commands/ui'
 import {
   useActiveLayout,
   useActiveWorkspace,
@@ -11,14 +12,64 @@ import {
   useStatusCounts,
   useUi,
 } from '../../state/selectors'
-import { FolderIcon, MoonIcon, PlusIcon, SunIcon, TerminalIcon } from '../common/Icon'
+import { FlameIcon, FolderIcon, MoonIcon, PlusIcon, SunIcon, TerminalIcon } from '../common/Icon'
 import { Segmented } from '../common/Segmented'
 import { StatusGlyph } from '../common/StatusGlyph'
 import { UsageBar } from '../common/Usage'
 import { Wordmark } from '../common/Wordmark'
 
+/** The lamp's popover: on/off and how warm. Warming is a comfort setting, so
+ *  it stays a slider rather than a schedule — you warm it when your eyes ask. */
+function WarmthMenu() {
+  const warm = useUi((u) => u.warm)
+  const warmth = useUi((u) => u.warmth)
+  const on = warm && isWarm(warmth)
+  return (
+    <div
+      data-warm-menu
+      className="absolute top-[42px] right-[10px] w-[244px] p-2.5 bg-raised border border-line2 rounded-rs shadow-pop z-[25] flex flex-col gap-2"
+    >
+      <div className="flex items-center gap-2">
+        <span className="flex-1 text-[12.5px] font-medium">Warm colours</span>
+        <div
+          onClick={toggleWarm}
+          className="h-6 px-2 flex items-center rounded-rs border text-[11px] cursor-pointer"
+          style={{
+            borderColor: on ? 'var(--accent)' : 'var(--line2)',
+            color: on ? 'var(--accent)' : 'var(--faint)',
+          }}
+        >
+          {on ? 'On' : 'Off'}
+        </div>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={percentAt(warmth)}
+        onChange={(e) => setWarmthPercent(Number(e.target.value))}
+        title="How warm"
+        className="w-full cursor-pointer"
+        style={{ accentColor: 'var(--accent)' }}
+      />
+      <div className="flex items-center justify-between font-mono text-[10.5px] text-faint">
+        <span>Neutral</span>
+        <span style={{ color: on ? 'var(--accent)' : 'var(--faint)' }}>{warmth}K</span>
+        <span>Amber</span>
+      </div>
+      <div className="text-[11px] text-muted leading-[1.4]">
+        Warms this window only, not the screen. Status colours stay true.
+      </div>
+    </div>
+  )
+}
+
 export function TitleBar() {
   const theme = useUi((u) => u.theme)
+  const warm = useUi((u) => u.warm)
+  const warmth = useUi((u) => u.warmth)
+  const warmMenu = useUi((u) => u.warmMenu)
   const limits = useUi((u) => u.limits)
   const limitsAt = useUi((u) => u.limitsAt)
   const limitsLive = useUi((u) => u.limitsLive)
@@ -95,6 +146,15 @@ export function TitleBar() {
 
       <div className="flex gap-[2px] items-center">
         <div
+          data-warm-button
+          onClick={toggleWarmMenu}
+          title="Warm colours for late sessions"
+          className="w-7 h-7 grid place-items-center rounded-rs cursor-pointer hover:bg-hover hover:text-text"
+          style={{ color: warm && isWarm(warmth) ? 'var(--accent)' : 'var(--muted)' }}
+        >
+          <FlameIcon />
+        </div>
+        <div
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           title="Toggle theme"
           className="w-7 h-7 grid place-items-center rounded-rs text-muted cursor-pointer hover:bg-hover hover:text-text"
@@ -126,6 +186,8 @@ export function TitleBar() {
           New session
         </div>
       </div>
+
+      {warmMenu && <WarmthMenu />}
     </div>
   )
 }

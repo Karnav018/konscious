@@ -21,7 +21,7 @@ import {
   useRuntimes,
   useSessions,
   useUi,
-  useWorkspacesList,
+  useWorkspacesByUse,
 } from '../../state/selectors'
 import type { WsFilter } from '../../state/store'
 import type { SessionMeta } from '../../types'
@@ -45,7 +45,7 @@ export function WorkspaceMenu() {
   const wsHover = useUi((u) => u.wsHover)
   const wsFilter = useUi((u) => u.wsFilter)
   const home = useUi((u) => u.init?.home)
-  const workspaces = useWorkspacesList()
+  const workspaces = useWorkspacesByUse()
   const sessions = useSessions()
   const activeId = useActiveWorkspaceId()
   const runtime = useRuntimes()

@@ -20,6 +20,20 @@ export const setEnvError = (message: string) => act('app/envError', (d) => void 
 export const setSuggestions = (s: Suggestion[]) => act('app/suggestions', (d) => void (d.ui.suggestions = s))
 export const setFullscreen = (on: boolean) => act('window/fullscreen', (d) => void (d.ui.fullscreen = on))
 export const setThemeValue = (theme: Theme) => act('ui/theme', (d) => void (d.ui.theme = theme))
+/** The warm-colours setting. `kelvin` is kept while it is switched off, so the
+ *  slider comes back where it was left. */
+export const setWarmValue = (on: boolean, kelvin?: number) =>
+  act('ui/warmth', (d) => {
+    d.ui.warm = on
+    if (kelvin !== undefined) d.ui.warmth = kelvin
+  })
+export const toggleWarmMenu = () =>
+  act('ui/warmMenu', (d) => {
+    d.ui.warmMenu = !d.ui.warmMenu
+    d.ui.wsMenu = false
+    d.ui.paneMenu = null
+  })
+export const closeWarmMenu = () => act('ui/closeWarmMenu', (d) => void (d.ui.warmMenu = false))
 export function setLimits(limits: Limits, observedAt = Date.now(), live = true) {
   act(live ? 'usage/limits' : 'usage/limitsRestored', (d) => {
     d.ui.limits = limits
@@ -35,6 +49,7 @@ export function toggleWorkspaceMenu(hover: string | null) {
     d.ui.wsHover = hover
     d.ui.inspector = false
     d.ui.paneMenu = null
+    d.ui.warmMenu = false
   })
 }
 export const hoverWorkspace = (id: string) => act('ui/hoverWorkspace', (d) => void (d.ui.wsHover = id))
@@ -47,6 +62,7 @@ export function setInspector(open: boolean, renaming = false) {
     d.ui.renaming = open && renaming
     d.ui.wsMenu = false
     d.ui.paneMenu = null
+    d.ui.warmMenu = false
   })
 }
 export const toggleInspector = (open: boolean) => setInspector(!open)
@@ -82,6 +98,7 @@ export function closeOverlays() {
     d.ui.wsMenu = false
     d.ui.inspector = false
     d.ui.paneMenu = null
+    d.ui.warmMenu = false
     d.ui.newSession = null
     d.ui.renaming = false
   })

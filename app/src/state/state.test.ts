@@ -1,15 +1,17 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { forksNeeded } from '../lib/restore'
+import { DEFAULT_K } from '../lib/warmth'
 import type { SessionInfo, SessionMeta } from '../types'
 import { act, actionLog, onInvariantViolation } from './act'
 import { hidePane, layoutOf, openPane, toggleFocus } from './commands/layout'
 import { applyInfo, markStarting } from './commands/runtime'
-import { openNewSessionDraft, setPaneMenu } from './commands/ui'
-import { addSession, addWorkspace, removeSession, updateSession } from './commands/workspace'
+import { openNewSessionDraft, setPaneMenu, setWarmValue } from './commands/ui'
+import { addSession, addWorkspace, removeSession, setActiveWorkspace, updateSession } from './commands/workspace'
 import { checkInvariants } from './invariants'
 import { decide } from './machine'
 import { decode, hydrate, migrate, NewerSchemaError, serialize } from './persistence'
+import { byLastUsed } from './selectors'
 import { getState, initialState, useApp } from './store'
 
 let violations: string[] = []
@@ -127,6 +129,52 @@ describe('commands', () => {
   })
 })
 
+describe('workspaces order themselves by use', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  const added = (path: string, at: number) => {
+    vi.setSystemTime(at)
+    return addWorkspace(path)
+  }
+  const order = () => byLastUsed(getState().workspace.workspaces).map((w) => w.id)
+
+  it('puts the one just used first and the longest-untouched last', () => {
+    const a = added('/p/a', 1_000)
+    const b = added('/p/b', 2_000)
+    const c = added('/p/c', 3_000)
+    vi.setSystemTime(4_000)
+    setActiveWorkspace(a.id)
+    expect(order()).toEqual([a.id, c.id, b.id])
+    expect(violations).toEqual([])
+  })
+
+  it('counts opening a pane as using that workspace', () => {
+    const a = added('/p/a', 1_000)
+    const b = added('/p/b', 2_000)
+    addSession(meta('s1', a.id))
+    vi.setSystemTime(5_000)
+    openPane('s1') // activates a without going through setActiveWorkspace
+    expect(getState().workspace.activeId).toBe(a.id)
+    expect(order()).toEqual([a.id, b.id])
+    expect(violations).toEqual([])
+  })
+
+  it('leaves equally stale workspaces in the order they were added', () => {
+    const a = added('/p/a', 1_000)
+    const b = added('/p/b', 1_000)
+    expect(order()).toEqual([a.id, b.id])
+  })
+
+  it('never reorders the stored list — only what the lists show', () => {
+    const a = added('/p/a', 1_000)
+    added('/p/b', 2_000)
+    vi.setSystemTime(3_000)
+    setActiveWorkspace(a.id)
+    expect(getState().workspace.workspaces.map((w) => w.id)).toEqual([a.id, 'b'])
+  })
+})
+
 describe('lifecycle machine', () => {
   it('rejects stale runs and late reports for an exited run', () => {
     seed(1)
@@ -165,6 +213,25 @@ describe('persistence', () => {
     const after = getState()
     expect(after.workspace).toEqual(before.workspace)
     expect(after.layout).toEqual(before.layout)
+    expect(violations).toEqual([])
+  })
+
+  it('round-trips the warm-colours setting, and defaults it for older configs', () => {
+    seed(1)
+    setWarmValue(true, 2800)
+    const files = serialize()
+    expect(files.config).toMatchObject({ warm: true, warmth: 2800 })
+    useApp.setState(initialState(), true)
+    hydrate(decode({ config: files.config, workspaces: files.workspaces, layouts: files.layouts, corrupt: [], restored: [] }))
+    expect(getState().ui).toMatchObject({ warm: true, warmth: 2800 })
+
+    // A config written before warmth existed loads with it switched off.
+    const old = decode({ config: { version: 2, theme: 'dark' }, workspaces: null, layouts: {}, corrupt: [], restored: [] })
+    expect(old.warm).toBe(false)
+    expect(old.warmth).toBe(DEFAULT_K)
+    // So does a nonsense temperature.
+    const bad = decode({ config: { version: 2, theme: 'dark', warmth: 99 }, workspaces: null, layouts: {}, corrupt: [], restored: [] })
+    expect(bad.warmth).toBe(DEFAULT_K)
     expect(violations).toEqual([])
   })
 

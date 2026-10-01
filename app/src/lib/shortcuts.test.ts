@@ -19,6 +19,14 @@ describe('macOS shortcuts', () => {
     expect(matchShortcut(key('N'))).toEqual({ type: 'newSession' })
   })
 
+  it('moves the selected pane with ⌘⇧← / ⌘⇧→', () => {
+    expect(matchShortcut(key('ArrowLeft', { shiftKey: true }))).toEqual({ type: 'movePane', delta: -1 })
+    expect(matchShortcut(key('ArrowRight', { shiftKey: true }))).toEqual({ type: 'movePane', delta: 1 })
+    // Without Shift the arrows stay with Claude (history, cursor movement).
+    expect(matchShortcut(key('ArrowLeft'))).toBeNull()
+    expect(matchShortcut(key('ArrowRight'))).toBeNull()
+  })
+
   it('selects panes with ⌘1–9', () => {
     expect(matchShortcut(key('1'))).toEqual({ type: 'selectPane', index: 0 })
     expect(matchShortcut(key('9'))).toEqual({ type: 'selectPane', index: 8 })

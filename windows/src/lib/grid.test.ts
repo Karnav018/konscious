@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { CAP, emptyLayout, gridDims, hidePane, openPane, toggleFocus, visiblePanes } from './grid'
+import {
+  CAP,
+  emptyLayout,
+  gridDims,
+  hidePane,
+  movePane,
+  movePaneOnto,
+  nudgePane,
+  openPane,
+  toggleFocus,
+  visiblePanes,
+} from './grid'
 
 const openMany = (ids: string[]) =>
   ids.reduce((l, id) => openPane(l, id).layout, emptyLayout())
@@ -59,5 +70,44 @@ describe('focus and hide', () => {
     expect(l.mode).toBe('grid')
     expect(l.open).toEqual(['a'])
     expect(l.selected).toBe('a')
+  })
+})
+
+describe('reordering panes', () => {
+  it('insert-and-shift: the dragged pane takes the slot, the rest slide along', () => {
+    const l = openMany(['a', 'b', 'c', 'd', 'e', 'f'])
+    expect(movePaneOnto(l, 'a', 'c').open).toEqual(['b', 'c', 'a', 'd', 'e', 'f'])
+    expect(movePaneOnto(l, 'f', 'a').open).toEqual(['f', 'a', 'b', 'c', 'd', 'e'])
+  })
+
+  it('keeps selection and recency — only the display order changes', () => {
+    const l = openMany(['a', 'b', 'c'])
+    const moved = movePaneOnto(l, 'c', 'a')
+    expect(moved.selected).toBe(l.selected)
+    expect(moved.recent).toEqual(l.recent)
+    expect([...moved.open].sort()).toEqual(['a', 'b', 'c'])
+  })
+
+  it('clamps out-of-range targets and no-ops when nothing moves', () => {
+    const l = openMany(['a', 'b', 'c'])
+    expect(movePane(l, 'a', -5).open).toEqual(['a', 'b', 'c'])
+    expect(movePane(l, 'a', 99).open).toEqual(['b', 'c', 'a'])
+    expect(movePane(l, 'b', 1)).toBe(l)
+    expect(movePaneOnto(l, 'b', 'b')).toBe(l)
+  })
+
+  it('ignores panes that are not open', () => {
+    const l = openMany(['a', 'b'])
+    expect(movePane(l, 'zz', 0)).toBe(l)
+    expect(movePaneOnto(l, 'a', 'zz')).toBe(l)
+    expect(nudgePane(l, 'zz', 1)).toBe(l)
+  })
+
+  it('nudges one slot and stops at the ends', () => {
+    const l = openMany(['a', 'b', 'c'])
+    expect(nudgePane(l, 'b', 1).open).toEqual(['a', 'c', 'b'])
+    expect(nudgePane(l, 'b', -1).open).toEqual(['b', 'a', 'c'])
+    expect(nudgePane(l, 'a', -1)).toBe(l)
+    expect(nudgePane(l, 'c', 1)).toBe(l)
   })
 })

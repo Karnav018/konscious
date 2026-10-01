@@ -6,6 +6,7 @@ import {
   focusPane,
   hidePane,
   killSession,
+  movePane,
   openNewSession,
   openPaneMenu,
   requestDeleteSession,
@@ -24,9 +25,13 @@ import { isEnded } from '../../state/machine'
 import { useRuntimeOf, useSession, useUi } from '../../state/selectors'
 import { getState } from '../../state/store'
 import type { Runtime, SessionMeta } from '../../types'
-import { CloseIcon, DotsIcon, MaximizeIcon, MinimizeIcon } from '../common/Icon'
+import { CloseIcon, DotsIcon, GripIcon, MaximizeIcon, MinimizeIcon } from '../common/Icon'
 import { StatusGlyph } from '../common/StatusGlyph'
 import { ContextRing, ModelBadge } from '../common/Usage'
+import { noDrag, type PaneReorder, paneCell } from '../SessionGrid/usePaneDrag'
+
+/** ⌘⇧← / ⌘⇧→ also move the selected pane. */
+const MOVE_HINT = 'Drag to move this pane (⌘⇧← / ⌘⇧→)'
 
 interface MenuItem {
   label: string
@@ -35,10 +40,12 @@ interface MenuItem {
   run: () => void
 }
 
-function menuFor(meta: SessionMeta, rt: Runtime): MenuItem[] {
+function menuFor(meta: SessionMeta, rt: Runtime, reorder: PaneReorder | null): MenuItem[] {
   const items: MenuItem[] = [
     { label: 'Session details', key: '⌘I', run: () => setInspector(true) },
     { label: 'Rename…', run: () => setInspector(true, true) },
+    ...(reorder?.canLeft ? [{ label: 'Move left', key: '⌘⇧←', run: () => movePane(meta.id, -1) }] : []),
+    ...(reorder?.canRight ? [{ label: 'Move right', key: '⌘⇧→', run: () => movePane(meta.id, 1) }] : []),
     {
       label: 'New session in this folder',
       run: () => void openNewSession({ workspaceId: meta.workspaceId, dir: meta.cwd, kind: meta.kind }),
@@ -61,6 +68,7 @@ function HeaderButton(props: { title: string; onClick: () => void; children: Rea
   return (
     <div
       title={props.title}
+      {...noDrag}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation()
@@ -139,7 +147,20 @@ function EndedBar({ meta, rt }: { meta: SessionMeta; rt: Runtime }) {
   )
 }
 
-export function SessionPane({ id, selected, multi, focused }: { id: string; selected: boolean; multi: boolean; focused: boolean }) {
+export function SessionPane({
+  id,
+  selected,
+  multi,
+  focused,
+  reorder,
+}: {
+  id: string
+  selected: boolean
+  multi: boolean
+  focused: boolean
+  /** Set when this pane can be moved to another slot; null when it can't. */
+  reorder: PaneReorder | null
+}) {
   const meta = useSession(id)
   const rt = useRuntimeOf(id)
   const menuOpen = useUi((u) => u.paneMenu === id)
@@ -161,19 +182,36 @@ export function SessionPane({ id, selected, multi, focused }: { id: string; sele
 
   if (!meta) return null
   const ended = isEnded(rt.status)
-  const items = menuOpen ? menuFor(meta, rt) : []
+  const items = menuOpen ? menuFor(meta, rt, reorder) : []
 
   return (
     <div
+      {...paneCell(id)}
       onMouseDown={() => {
         if (!selected) focusPane(id)
         requestStart(id)
         if (getState().ui.paneMenu && !menuOpen) openPaneMenu(null)
       }}
-      className="flex flex-col min-w-0 min-h-0 bg-pane border rounded-r overflow-hidden relative"
-      style={{ borderColor: selected && multi ? 'var(--accent)' : 'var(--line)' }}
+      className="group/pane flex flex-col min-w-0 min-h-0 bg-pane border rounded-r overflow-hidden relative"
+      style={{
+        borderColor: reorder?.dropTarget || (selected && multi) ? 'var(--accent)' : 'var(--line)',
+        // The pane being carried fades; the one under the cursor stays lit.
+        opacity: reorder?.dragging ? 0.45 : 1,
+      }}
     >
-      <div className="h-9 flex-none flex items-center gap-2 pl-3 pr-1.5 border-b border-line">
+      <div
+        {...reorder?.handle}
+        className={`h-9 flex-none flex items-center gap-2 ${reorder ? 'pl-1.5' : 'pl-3'} pr-1.5 border-b border-line`}
+      >
+        {reorder && (
+          <div
+            title={MOVE_HINT}
+            className="w-3.5 h-6 flex-none grid place-items-center text-faint hover:text-text opacity-0 group-hover/pane:opacity-100"
+            style={reorder.dragging ? { opacity: 1, cursor: 'grabbing' } : { cursor: 'grab' }}
+          >
+            <GripIcon size={12} />
+          </div>
+        )}
         <StatusGlyph status={rt.status} />
         <span className="font-semibold text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis min-w-0 flex-[0_0_auto] max-w-[55%]">
           {meta.name}
@@ -230,6 +268,15 @@ export function SessionPane({ id, selected, multi, focused }: { id: string; sele
               <span className="font-mono text-[10.5px] text-faint">{m.key ?? ''}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {reorder?.dropTarget && (
+        <div
+          className="absolute inset-0 z-[4] grid place-items-center pointer-events-none"
+          style={{ background: 'var(--accentSoft)' }}
+        >
+          <span className="px-2.5 py-1 rounded-rs bg-raised border border-accent shadow-pop text-[12px]">Move here</span>
         </div>
       )}
 

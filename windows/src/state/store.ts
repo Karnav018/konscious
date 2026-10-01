@@ -4,6 +4,7 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 
+import { DEFAULT_K } from '../lib/warmth'
 import type { EnvInfo, InitInfo, Kind, Layout, Limits, Runtime, SessionMeta, Suggestion, Theme, Workspace } from '../types'
 
 export type WsFilter = 'all' | 'working' | 'waiting'
@@ -41,6 +42,10 @@ export interface UiState {
   env: EnvInfo | null
   envError: string | null
   theme: Theme
+  /** Warm colours for late sessions, and the temperature chosen for them. */
+  warm: boolean
+  warmth: number
+  warmMenu: boolean
   fontSize: number
   fullscreen: boolean
   suggestions: Suggestion[]
@@ -79,6 +84,9 @@ export const initialState = (): AppState => ({
     env: null,
     envError: null,
     theme: 'dark',
+    warm: false,
+    warmth: DEFAULT_K,
+    warmMenu: false,
     fontSize: 12,
     fullscreen: false,
     suggestions: [],

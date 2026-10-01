@@ -6,7 +6,7 @@ import { tildify } from '../../lib/format'
 import { ipc } from '../../lib/ipc'
 import { isRoot, join, parent, trimSep } from '../../lib/path'
 import { closeNewSession, updateNewSessionDraft } from '../../state/commands/ui'
-import { useUi, useWorkspacesList } from '../../state/selectors'
+import { useUi, useWorkspacesByUse } from '../../state/selectors'
 import type { NewSessionDraft } from '../../state/store'
 import type { Kind } from '../../types'
 import { Dropdown } from '../common/Dropdown'
@@ -20,7 +20,7 @@ const input =
 export function NewSessionModal() {
   const draft = useUi((u) => u.newSession) as NewSessionDraft
   const home = useUi((u) => u.init?.home)
-  const workspaces = useWorkspacesList()
+  const workspaces = useWorkspacesByUse()
   const [dir, setDir] = useState(() => tildify(draft.dir, home))
   const [dirOk, setDirOk] = useState(true)
   // Real subfolders of the directory currently entered (not just the workspace root).

@@ -19,6 +19,14 @@ describe('macOS shortcuts', () => {
     expect(matchShortcut(key('N'))).toEqual({ type: 'newSession' })
   })
 
+  it('moves the selected pane with ⌘⇧← / ⌘⇧→', () => {
+    expect(matchShortcut(key('ArrowLeft', { shiftKey: true }))).toEqual({ type: 'movePane', delta: -1 })
+    expect(matchShortcut(key('ArrowRight', { shiftKey: true }))).toEqual({ type: 'movePane', delta: 1 })
+    // Without Shift the arrows stay with Claude (history, cursor movement).
+    expect(matchShortcut(key('ArrowLeft'))).toBeNull()
+    expect(matchShortcut(key('ArrowRight'))).toBeNull()
+  })
+
   it('selects panes with ⌘1–9', () => {
     expect(matchShortcut(key('1'))).toEqual({ type: 'selectPane', index: 0 })
     expect(matchShortcut(key('9'))).toEqual({ type: 'selectPane', index: 8 })
@@ -56,6 +64,9 @@ describe('Windows shortcuts', () => {
     expect(win('KeyJ', 'J')).toEqual({ type: 'jumpWaiting' })
     expect(win('Enter', 'Enter')).toEqual({ type: 'toggleFocus' })
     expect(win('Digit1', '!')).toEqual({ type: 'selectPane', index: 0 })
+    expect(win('ArrowLeft', 'ArrowLeft')).toEqual({ type: 'movePane', delta: -1 })
+    expect(win('ArrowRight', 'ArrowRight')).toEqual({ type: 'movePane', delta: 1 })
+    expect(win('ArrowLeft', 'ArrowLeft', { shiftKey: false })).toBeNull() // Ctrl+← is a word jump
     expect(win('KeyO', 'o', { shiftKey: false })).toBeNull() // Ctrl+O belongs to the TUI
     expect(win('KeyC', 'c', { shiftKey: false })).toBeNull()
     expect(win('KeyN', 'N', { ctrlKey: false })).toBeNull()

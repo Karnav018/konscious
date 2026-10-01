@@ -30,6 +30,14 @@ export const SunIcon = ({ size = 16, ...p }: P) => (
   </svg>
 )
 
+/** Warm colours for late sessions. */
+export const FlameIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.5} {...p}>
+    <path d="M12 2.8c3 3.2 4.6 5.6 4.6 8.4a4.6 4.6 0 0 1-9.2 0c0-2.8 1.6-5.2 4.6-8.4Z" />
+    <path d="M12 18.4a2 2 0 0 0 2-2c0-1.2-2-2.7-2-2.7s-2 1.5-2 2.7a2 2 0 0 0 2 2Z" />
+  </svg>
+)
+
 export const PlusIcon = ({ size = 14, ...p }: P) => (
   <svg {...base(size)} strokeWidth={2} {...p}>
     <path d="M5 12h14M12 5v14" />
@@ -41,6 +49,18 @@ export const DotsIcon = ({ size = 14, ...p }: P) => (
     <circle cx="5" cy="12" r="1.5" />
     <circle cx="12" cy="12" r="1.5" />
     <circle cx="19" cy="12" r="1.5" />
+  </svg>
+)
+
+/** Drag handle — the pane can be moved to another slot in the grid. */
+export const GripIcon = ({ size = 13, ...p }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <circle cx="9" cy="5" r="1.6" />
+    <circle cx="15" cy="5" r="1.6" />
+    <circle cx="9" cy="12" r="1.6" />
+    <circle cx="15" cy="12" r="1.6" />
+    <circle cx="9" cy="19" r="1.6" />
+    <circle cx="15" cy="19" r="1.6" />
   </svg>
 )
 

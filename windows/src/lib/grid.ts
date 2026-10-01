@@ -39,6 +39,30 @@ export function selectPane(layout: Layout, id: string): Layout {
   return { ...layout, selected: id, recent: touch(layout.recent, id) }
 }
 
+/** Moves an open pane to `to`, sliding the panes in between along (the panes
+ *  keep their slots; only the order changes). Out-of-range `to` is clamped. */
+export function movePane(layout: Layout, id: string, to: number): Layout {
+  const from = layout.open.indexOf(id)
+  if (from < 0) return layout
+  const target = Math.min(layout.open.length - 1, Math.max(0, to))
+  if (target === from) return layout
+  const open = layout.open.filter((x) => x !== id)
+  open.splice(target, 0, id)
+  return { ...layout, open }
+}
+
+/** Dropping `id` on `targetId`: `id` takes that slot, the rest shift along. */
+export function movePaneOnto(layout: Layout, id: string, targetId: string): Layout {
+  const to = layout.open.indexOf(targetId)
+  return to < 0 ? layout : movePane(layout, id, to)
+}
+
+/** One slot left (−1) or right (+1); at either end it does nothing. */
+export function nudgePane(layout: Layout, id: string, delta: number): Layout {
+  const from = layout.open.indexOf(id)
+  return from < 0 ? layout : movePane(layout, id, from + delta)
+}
+
 /** Hides a pane. Leaves Focus if the focused pane was hidden. */
 export function hidePane(layout: Layout, id: string): Layout {
   const open = layout.open.filter((x) => x !== id)
