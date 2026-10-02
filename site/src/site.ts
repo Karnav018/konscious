@@ -1,6 +1,6 @@
 // Product facts shared by every page. Keep copy here, not inside components,
 // so a rename or a new release is a one-file change.
-const version = '0.2.2'
+const version = '0.2.3'
 const repo = 'https://github.com/Karnav018/konscious'
 // Installers live on the GitHub release for this version: CI builds them,
 // signs them for the in-app updater and publishes them (see
