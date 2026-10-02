@@ -10,6 +10,7 @@ import { setContext } from '../state/commands/runtime'
 import { flash, setBooted, setEnv, setEnvError, setFullscreen, setInit, setLimits, setSuggestions } from '../state/commands/ui'
 import { forksNeeded } from '../lib/restore'
 import { startUpdateChecks } from '../lib/update'
+import { startFileDrop } from './fileDrop'
 import { decode, hydrate, startPersistence } from '../state/persistence'
 import { getState } from '../state/store'
 import { onInfo, reattachSession, refreshGit, setClaudeSessionId, setTheme, startSession } from './actions'
@@ -62,6 +63,7 @@ export async function bootstrap() {
   // Timers only; registered before the resume work so a slow resume cannot
   // delay them.
   startUpdateChecks()
+  void startFileDrop()
 
   try {
     setEnv(await ipc.appEnv())

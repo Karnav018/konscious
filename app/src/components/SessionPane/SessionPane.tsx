@@ -164,6 +164,8 @@ export function SessionPane({
   const meta = useSession(id)
   const rt = useRuntimeOf(id)
   const menuOpen = useUi((u) => u.paneMenu === id)
+  // Files from Finder are over this pane: they'll paste here on drop.
+  const fileOver = useUi((u) => u.fileDrop === id)
   const shellName = useUi((u) => (u.env?.shell ?? '/bin/zsh').split('/').pop())
   const body = useRef<HTMLDivElement>(null)
 
@@ -194,7 +196,8 @@ export function SessionPane({
       }}
       className="group/pane flex flex-col min-w-0 min-h-0 bg-pane border rounded-r overflow-hidden relative"
       style={{
-        borderColor: reorder?.dropTarget || (selected && multi) ? 'var(--accent)' : 'var(--line)',
+        borderColor: reorder?.dropTarget || fileOver || (selected && multi) ? 'var(--accent)' : 'var(--line)',
+        boxShadow: fileOver ? 'inset 0 0 0 1px var(--accent)' : undefined,
         // The pane being carried fades; the one under the cursor stays lit.
         opacity: reorder?.dragging ? 0.45 : 1,
       }}
@@ -281,6 +284,13 @@ export function SessionPane({
       )}
 
       <div ref={body} className="flex-1 min-h-0 relative" />
+      {fileOver && (
+        <div className="absolute inset-x-0 bottom-3 flex justify-center pointer-events-none z-[3]">
+          <span className="px-2.5 py-1 rounded-pill bg-accent text-accent-ink text-[11.5px] font-medium shadow-pop">
+            Drop to paste the path
+          </span>
+        </div>
+      )}
       {ended && <EndedBar meta={meta} rt={rt} />}
     </div>
   )

@@ -2021,6 +2021,9 @@ name = "konscious"
 version = "0.2.3"
 dependencies = [
  "libc",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "portable-pty",
  "serde",
  "serde_json",

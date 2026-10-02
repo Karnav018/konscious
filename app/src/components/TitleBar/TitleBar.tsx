@@ -1,8 +1,9 @@
 // 46px title bar (design lines 26–69). Native traffic lights overlay the
 // left inset; the usage-limit meters are deferred (no supported data source).
-import { jumpWaiting, openNewSession, openTerminalHere, setMode, setTheme, setWarmthPercent, toggleWarm } from '../../app/actions'
-import { isWarm, percentAt } from '../../lib/warmth'
-import { toggleInspector, toggleWarmMenu, toggleWorkspaceMenu } from '../../state/commands/ui'
+import { useLayoutEffect, useRef, useState } from 'react'
+
+import { jumpWaiting, openNewSession, openTerminalHere, setMode, switchWorkspace } from '../../app/actions'
+import { toggleInspector, toggleWorkspaceMenu } from '../../state/commands/ui'
 import {
   useActiveLayout,
   useActiveWorkspace,
@@ -11,71 +12,105 @@ import {
   useSession,
   useStatusCounts,
   useUi,
+  useWorkspacesByUse,
 } from '../../state/selectors'
-import { FlameIcon, FolderIcon, MoonIcon, PlusIcon, SunIcon, TerminalIcon } from '../common/Icon'
+import { FolderIcon, PlusIcon, TerminalIcon } from '../common/Icon'
 import { Segmented } from '../common/Segmented'
 import { StatusGlyph } from '../common/StatusGlyph'
 import { UpdateChip } from '../common/UpdateChip'
 import { UsageBar } from '../common/Usage'
 import { Wordmark } from '../common/Wordmark'
+import { QuickMenu, SettingsButtons, SettingsMenu } from '../Settings/Settings'
 
-/** The lamp's popover: on/off and how warm. Warming is a comfort setting, so
- *  it stays a slider rather than a schedule — you warm it when your eyes ask. */
-function WarmthMenu() {
-  const warm = useUi((u) => u.warm)
-  const warmth = useUi((u) => u.warmth)
-  const on = warm && isWarm(warmth)
+const wsSegment =
+  'relative z-[1] h-[24px] flex items-center gap-1.5 px-2 rounded-rs cursor-pointer min-w-0 max-w-[140px] transition-colors duration-200'
+
+/**
+ * The workspace button, as a switch between the two workspaces used most
+ * recently (like Grid / Focus): the highlight slides to the one you pick. The
+ * pair keeps the order the workspaces were added in, so the highlight moves
+ * rather than the names. Clicking the active one opens the menu (as does ⌘O).
+ */
+function WorkspaceSwitch({ firstRun }: { firstRun: boolean }) {
+  const wsMenu = useUi((u) => u.wsMenu)
+  const ws = useActiveWorkspace()
+  // Ordered by last use: the first one that isn't active is where you were.
+  const other = useWorkspacesByUse().find((w) => w.id !== ws?.id)
+  const pair = ws && other ? [ws, other].sort((a, b) => a.createdAt - b.createdAt) : ws ? [ws] : []
+  const openMenu = () => toggleWorkspaceMenu(ws?.id ?? null)
+
+  // The highlight is one element that slides under whichever segment is
+  // active; measured, since names make the segments different widths.
+  const segs = useRef(new Map<string, HTMLDivElement>())
+  const [thumb, setThumb] = useState<{ left: number; width: number } | null>(null)
+  const pairKey = pair.map((w) => w.id).join('|')
+  const track = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = ws && segs.current.get(ws.id)
+      setThumb(el ? { left: el.offsetLeft, width: el.offsetWidth } : null)
+    }
+    measure()
+    // A narrow window squeezes the names: follow the segment's new width.
+    const ro = new ResizeObserver(measure)
+    if (track.current) ro.observe(track.current)
+    return () => ro.disconnect()
+  }, [ws?.id, ws?.name, other?.name, pairKey])
+
   return (
     <div
-      data-warm-menu
-      className="absolute top-[42px] right-[10px] w-[244px] p-2.5 bg-raised border border-line2 rounded-rs shadow-pop z-[25] flex flex-col gap-2"
+      ref={track}
+      data-ws-trigger
+      className="relative h-[30px] flex items-center gap-[2px] p-[2px] rounded-rs border bg-sel flex-[0_1_auto] min-w-0"
+      style={{ borderColor: wsMenu ? 'var(--accent)' : 'transparent' }}
     >
-      <div className="flex items-center gap-2">
-        <span className="flex-1 text-[12.5px] font-medium">Warm colours</span>
+      {thumb && (
         <div
-          onClick={toggleWarm}
-          className="h-6 px-2 flex items-center rounded-rs border text-[11px] cursor-pointer"
-          style={{
-            borderColor: on ? 'var(--accent)' : 'var(--line2)',
-            color: on ? 'var(--accent)' : 'var(--faint)',
-          }}
-        >
-          {on ? 'On' : 'Off'}
+          aria-hidden
+          className="absolute top-[2px] h-[24px] rounded-rs transition-[left,width] duration-200 ease-out motion-reduce:transition-none"
+          style={{ left: thumb.left, width: thumb.width, background: 'var(--raised)', boxShadow: 'var(--segShadow)' }}
+        />
+      )}
+      {firstRun || !ws ? (
+        <div onClick={openMenu} className={wsSegment} style={{ color: 'var(--text)' }}>
+          <FolderIcon className="text-muted flex-none" />
+          <span className="font-semibold text-[13px] whitespace-nowrap">{firstRun ? 'No workspace' : 'Workspace'}</span>
         </div>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={percentAt(warmth)}
-        onChange={(e) => setWarmthPercent(Number(e.target.value))}
-        title="How warm"
-        className="w-full cursor-pointer"
-        style={{ accentColor: 'var(--accent)' }}
-      />
-      <div className="flex items-center justify-between font-mono text-[10.5px] text-faint">
-        <span>Neutral</span>
-        <span style={{ color: on ? 'var(--accent)' : 'var(--faint)' }}>{warmth}K</span>
-        <span>Amber</span>
-      </div>
-      <div className="text-[11px] text-muted leading-[1.4]">
-        Warms this window only, not the screen. Status colours stay true.
-      </div>
+      ) : (
+        pair.map((w) => {
+          const on = w.id === ws.id
+          return (
+            <div
+              key={w.id}
+              ref={(el) => void (el ? segs.current.set(w.id, el) : segs.current.delete(w.id))}
+              onClick={on ? openMenu : () => switchWorkspace(w.id)}
+              title={on ? 'Workspaces & sessions (⌘O)' : `Switch to ${w.name}`}
+              className={`${wsSegment} ${on ? '' : 'hover:text-text'}`}
+              style={{ color: on ? 'var(--text)' : 'var(--muted)' }}
+            >
+              <FolderIcon
+                className="flex-none transition-colors duration-200"
+                style={{ color: on ? 'var(--accent)' : 'var(--faint)' }}
+              />
+              <span
+                className={`text-[13px] whitespace-nowrap overflow-hidden text-ellipsis min-w-0 ${on ? 'font-semibold' : 'font-medium'}`}
+              >
+                {w.name}
+              </span>
+            </div>
+          )
+        })
+      )}
     </div>
   )
 }
 
 export function TitleBar() {
-  const theme = useUi((u) => u.theme)
-  const warm = useUi((u) => u.warm)
-  const warmth = useUi((u) => u.warmth)
-  const warmMenu = useUi((u) => u.warmMenu)
+  const settingsMenu = useUi((u) => u.settingsMenu)
   const limits = useUi((u) => u.limits)
   const limitsAt = useUi((u) => u.limitsAt)
   const limitsLive = useUi((u) => u.limitsLive)
   const fullscreen = useUi((u) => u.fullscreen)
-  const wsMenu = useUi((u) => u.wsMenu)
   const inspector = useUi((u) => u.inspector)
   const firstRun = !useHasWorkspaces()
   const ws = useActiveWorkspace()
@@ -94,19 +129,7 @@ export function TitleBar() {
         <Wordmark size={17} className="pointer-events-none" />
       </div>
 
-      <div
-        onClick={() => toggleWorkspaceMenu(ws?.id ?? null)}
-        data-ws-trigger
-        title="Workspaces & sessions (⌘O)"
-        className="h-[30px] flex items-center gap-2 pl-[10px] pr-2 rounded-rs border bg-pane cursor-pointer flex-[0_1_auto] min-w-0 max-w-[170px] hover:border-line2"
-        style={{ borderColor: wsMenu ? 'var(--accent)' : 'var(--line)' }}
-      >
-        <FolderIcon className="text-muted flex-none" />
-        <span className="font-semibold text-[13px] whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
-          {firstRun ? 'No workspace' : (ws?.name ?? 'Workspace')}
-        </span>
-        <span className="text-[10px] text-muted flex-none">▾</span>
-      </div>
+      <WorkspaceSwitch firstRun={firstRun} />
 
       <div className="flex flex-none">
         <Segmented
@@ -148,22 +171,7 @@ export function TitleBar() {
       {!firstRun && <UsageBar limits={limits} observedAt={limitsAt} live={limitsLive} />}
 
       <div className="flex gap-[2px] items-center">
-        <div
-          data-warm-button
-          onClick={toggleWarmMenu}
-          title="Warm colours for late sessions"
-          className="w-7 h-7 grid place-items-center rounded-rs cursor-pointer hover:bg-hover hover:text-text"
-          style={{ color: warm && isWarm(warmth) ? 'var(--accent)' : 'var(--muted)' }}
-        >
-          <FlameIcon />
-        </div>
-        <div
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title="Toggle theme"
-          className="w-7 h-7 grid place-items-center rounded-rs text-muted cursor-pointer hover:bg-hover hover:text-text"
-        >
-          {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
-        </div>
+        <SettingsButtons />
         <div
           onClick={() => toggleInspector(inspector)}
           title="Session details (⌘I)"
@@ -190,7 +198,8 @@ export function TitleBar() {
         </div>
       </div>
 
-      {warmMenu && <WarmthMenu />}
+      {settingsMenu === 'all' && <SettingsMenu />}
+      {settingsMenu === 'quick' && <QuickMenu />}
     </div>
   )
 }

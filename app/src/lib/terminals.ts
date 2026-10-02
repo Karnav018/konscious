@@ -21,6 +21,7 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 
 import type { Kind, Theme } from '../types'
 import { Channel, ipc } from './ipc'
+import { pathsForTerminal } from './paste'
 import { isAppShortcut } from './shortcuts'
 import { NEUTRAL_K, warmColor } from './warmth'
 
@@ -217,6 +218,28 @@ function ack(e: Entry, n: number) {
   else if (!e.ackTimer) e.ackTimer = setTimeout(() => flushAck(e), 100)
 }
 
+/** ⌘V and Edit › Paste can both fire for one paste (the key, then the menu's
+ *  paste event); whichever comes second within this window is the same paste. */
+const PASTE_DEDUP_MS = 300
+let lastPasteAt = -Infinity
+
+/**
+ * Paste the way Terminal does. The clipboard is read natively because WebKit
+ * gives the page only the *name* of a file copied in Finder: copied files
+ * paste as their (escaped) paths, otherwise the text. With only a picture on
+ * the clipboard, a Claude pane gets ⌃V — Claude Code reads the image itself.
+ */
+async function pasteClipboard(e: Entry) {
+  const now = performance.now()
+  if (now - lastPasteAt < PASTE_DEDUP_MS) return
+  lastPasteAt = now
+  const clip = await ipc.clipboardRead().catch(() => null)
+  if (!clip) return
+  if (clip.paths.length) e.term.paste(pathsForTerminal(clip.paths))
+  else if (clip.text) e.term.paste(clip.text)
+  else if (clip.image && e.kind === 'claude') e.term.input('\x16', true)
+}
+
 /** Keys xterm must not turn into bytes. App shortcuts are also stopped by
  *  the window capture listener; this is the backstop. */
 function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
@@ -233,9 +256,16 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
       e.term.selectAll()
       return false
     }
+    if (ev.metaKey && !ev.ctrlKey && !ev.altKey && ev.key.toLowerCase() === 'v') {
+      // Handled here (not by the menu's paste event) so copied files paste
+      // as paths; see pasteClipboard.
+      ev.preventDefault()
+      void pasteClipboard(e)
+      return false
+    }
   }
   // ⌘-combos never reach the PTY (xterm would send a bare \r for ⌘↵).
-  // Copy/paste arrive through the native Edit menu as DOM copy/paste events.
+  // Copy arrives through the native Edit menu as a DOM copy event.
   if (ev.metaKey || isAppShortcut(ev)) return false
   return true
 }
@@ -294,6 +324,17 @@ export const terminals = {
       void ipc.terminalWrite(id, data).catch(() => {})
     })
     term.attachCustomKeyEventHandler((ev) => keyFilter(entry, ev))
+    // Edit › Paste (and right-click Paste) arrive as a DOM paste event. Taken
+    // before xterm's own handler so they paste exactly like ⌘V.
+    host.addEventListener(
+      'paste',
+      (ev) => {
+        ev.preventDefault()
+        ev.stopPropagation()
+        void pasteClipboard(entry)
+      },
+      true,
+    )
     entries.set(id, entry)
     return entry
   },
@@ -448,6 +489,11 @@ export const terminals = {
 
   focus(id: string) {
     entries.get(id)?.term.focus()
+  },
+
+  /** Types `text` as a paste (bracketed when the program asked for it). */
+  paste(id: string, text: string) {
+    if (text) entries.get(id)?.term.paste(text)
   },
 
   isFocused(id: string) {

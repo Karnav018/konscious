@@ -1,12 +1,14 @@
 // The only module that talks to Tauri. Everything else calls these wrappers.
 import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener'
 
 import type {
   Attached,
+  Clipboard,
   ContextUsage,
   Limits,
   EnvInfo,
@@ -17,6 +19,11 @@ import type {
   Snapshot,
   Suggestion,
 } from '../types'
+
+export type FileDrop =
+  | { type: 'enter' | 'drop'; paths: string[]; x: number; y: number }
+  | { type: 'over'; x: number; y: number }
+  | { type: 'leave' }
 
 export interface SessionSpec {
   id: string
@@ -72,6 +79,17 @@ export const ipc = {
   fsSubdirs: (path: string) => invoke<string[]>('fs_subdirs', { path }),
   fsSuggestFolders: () => invoke<Suggestion[]>('fs_suggest_folders'),
   fsIsDir: (path: string) => invoke<boolean>('fs_is_dir', { path }),
+  /** The system clipboard as a pane pastes it (copied files → their paths). */
+  clipboardRead: () => invoke<Clipboard>('clipboard_read'),
+  /** Files dragged over / dropped on the window. Tauri takes file drops away
+   *  from the page, so this is the only way to see them. `x`/`y` are CSS px. */
+  onFileDrop: (cb: (e: FileDrop) => void): Promise<UnlistenFn> =>
+    getCurrentWebview().onDragDropEvent(({ payload: p }) => {
+      if (p.type === 'leave') return cb({ type: 'leave' })
+      const scale = window.devicePixelRatio || 1
+      const at = { x: p.position.x / scale, y: p.position.y / scale }
+      cb(p.type === 'over' ? { type: 'over', ...at } : { type: p.type, paths: p.paths, ...at })
+    }),
 
   pickFolder: async (defaultPath?: string): Promise<string | null> => {
     const picked = await openDialog({ directory: true, multiple: false, defaultPath })

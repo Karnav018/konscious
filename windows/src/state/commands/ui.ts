@@ -1,7 +1,7 @@
 // UI commands: named, so the action log reads like what the user did.
 import type { EnvInfo, InitInfo, Limits, Suggestion, Theme } from '../../types'
 import { act } from '../act'
-import type { NewSessionDraft, PersistStatus, UpdateState, WsFilter } from '../store'
+import { getState, type NewSessionDraft, type PersistStatus, type SettingsMenu, type UpdateState, type WsFilter } from '../store'
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -27,13 +27,19 @@ export const setWarmValue = (on: boolean, kelvin?: number) =>
     d.ui.warm = on
     if (kelvin !== undefined) d.ui.warmth = kelvin
   })
-export const toggleWarmMenu = () =>
-  act('ui/warmMenu', (d) => {
-    d.ui.warmMenu = !d.ui.warmMenu
+/** Opens the settings popover (or the newest feature's), or closes it when
+ *  the same one is already open. */
+export const toggleSettingsMenu = (which: SettingsMenu) =>
+  act('ui/settingsMenu', (d) => {
+    d.ui.settingsMenu = d.ui.settingsMenu === which ? null : which
     d.ui.wsMenu = false
     d.ui.paneMenu = null
   })
-export const closeWarmMenu = () => act('ui/closeWarmMenu', (d) => void (d.ui.warmMenu = false))
+/** Fires for every pointer move of a file drag: only a change is a write. */
+export function setFileDrop(id: string | null) {
+  if (getState().ui.fileDrop !== id) act('ui/fileDrop', (d) => void (d.ui.fileDrop = id))
+}
+export const closeSettingsMenu = () => act('ui/closeSettingsMenu', (d) => void (d.ui.settingsMenu = null))
 export function setLimits(limits: Limits, observedAt = Date.now(), live = true) {
   act(live ? 'usage/limits' : 'usage/limitsRestored', (d) => {
     d.ui.limits = limits
@@ -50,7 +56,7 @@ export function toggleWorkspaceMenu(hover: string | null) {
     d.ui.wsHover = hover
     d.ui.inspector = false
     d.ui.paneMenu = null
-    d.ui.warmMenu = false
+    d.ui.settingsMenu = null
   })
 }
 export const hoverWorkspace = (id: string) => act('ui/hoverWorkspace', (d) => void (d.ui.wsHover = id))
@@ -63,7 +69,7 @@ export function setInspector(open: boolean, renaming = false) {
     d.ui.renaming = open && renaming
     d.ui.wsMenu = false
     d.ui.paneMenu = null
-    d.ui.warmMenu = false
+    d.ui.settingsMenu = null
   })
 }
 export const toggleInspector = (open: boolean) => setInspector(!open)
@@ -99,7 +105,7 @@ export function closeOverlays() {
     d.ui.wsMenu = false
     d.ui.inspector = false
     d.ui.paneMenu = null
-    d.ui.warmMenu = false
+    d.ui.settingsMenu = null
     d.ui.newSession = null
     d.ui.renaming = false
   })

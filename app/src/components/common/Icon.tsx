@@ -31,10 +31,13 @@ export const SunIcon = ({ size = 16, ...p }: P) => (
 )
 
 /** Warm colours for late sessions. */
+// Drawn 1.4 units low so the flame (y 2.8–18.4) is centred in its box.
 export const FlameIcon = ({ size = 16, ...p }: P) => (
   <svg {...base(size)} strokeWidth={1.5} {...p}>
-    <path d="M12 2.8c3 3.2 4.6 5.6 4.6 8.4a4.6 4.6 0 0 1-9.2 0c0-2.8 1.6-5.2 4.6-8.4Z" />
-    <path d="M12 18.4a2 2 0 0 0 2-2c0-1.2-2-2.7-2-2.7s-2 1.5-2 2.7a2 2 0 0 0 2 2Z" />
+    <g transform="translate(0 1.4)">
+      <path d="M12 2.8c3 3.2 4.6 5.6 4.6 8.4a4.6 4.6 0 0 1-9.2 0c0-2.8 1.6-5.2 4.6-8.4Z" />
+      <path d="M12 18.4a2 2 0 0 0 2-2c0-1.2-2-2.7-2-2.7s-2 1.5-2 2.7a2 2 0 0 0 2 2Z" />
+    </g>
   </svg>
 )
 
@@ -104,5 +107,18 @@ export const CheckIcon = ({ size = 13, ...p }: P) => (
 export const DownloadIcon = ({ size = 13, ...p }: P) => (
   <svg {...base(size)} strokeWidth={1.7} {...p}>
     <path d="M12 3v12M7 10l5 5 5-5M4 20h16" />
+  </svg>
+)
+
+export const SettingsIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.5} {...p}>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+
+export const StopIcon = ({ size = 12, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={2} {...p}>
+    <rect x="6" y="6" width="12" height="12" rx="2" />
   </svg>
 )

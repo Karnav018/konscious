@@ -40,7 +40,8 @@ export interface PaneReorder {
   dropTarget: boolean
 }
 
-function paneUnder(x: number, y: number): string | null {
+/** The pane at a point on screen (CSS px). Also used by file drops. */
+export function paneUnder(x: number, y: number): string | null {
   return document.elementFromPoint(x, y)?.closest(PANE_SEL)?.getAttribute('data-pane-id') ?? null
 }
 

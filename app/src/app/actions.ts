@@ -178,6 +178,16 @@ export async function reattachSession(info: SessionInfo) {
 }
 
 export const stopSession = (id: string) => void ipc.sessionStop(id).catch((e) => flash(errorMessage(e)))
+/** Stops every running session in a workspace (Claude and terminals). They
+ *  stay in the list and resume on demand. Returns how many were stopped. */
+export function stopWorkspaceSessions(workspaceId: string): number {
+  const { workspace, runtime } = getState()
+  const ids = Object.values(workspace.sessions)
+    .filter((m) => m.workspaceId === workspaceId && runtime.bySession[m.id]?.running)
+    .map((m) => m.id)
+  ids.forEach(stopSession)
+  return ids.length
+}
 export const killSession = (id: string) => void ipc.sessionKill(id).catch((e) => flash(errorMessage(e)))
 
 export async function restartSession(id: string) {

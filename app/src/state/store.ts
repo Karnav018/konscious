@@ -47,6 +47,8 @@ export interface RuntimeState {
   bySession: Record<string, Runtime>
 }
 
+export type SettingsMenu = 'all' | 'quick'
+
 export interface UiState {
   booted: boolean
   init: InitInfo | null
@@ -56,7 +58,11 @@ export interface UiState {
   /** Warm colours for late sessions, and the temperature chosen for them. */
   warm: boolean
   warmth: number
-  warmMenu: boolean
+  /** The settings popover: every setting ('all'), or just the newest
+   *  feature's, opened from its title-bar button ('quick'). */
+  settingsMenu: SettingsMenu | null
+  /** The pane files are being dragged over (they paste there on drop). */
+  fileDrop: string | null
   fontSize: number
   fullscreen: boolean
   suggestions: Suggestion[]
@@ -99,7 +105,8 @@ export const initialState = (): AppState => ({
     theme: 'dark',
     warm: false,
     warmth: DEFAULT_K,
-    warmMenu: false,
+    settingsMenu: null,
+    fileDrop: null,
     fontSize: 12,
     fullscreen: false,
     suggestions: [],

@@ -179,6 +179,12 @@ pub async fn fs_suggest_folders() -> AppResult<Vec<Suggestion>> {
     .await
 }
 
+/// What Ctrl+V pastes into a pane: copied files' paths, else the text.
+#[tauri::command]
+pub async fn clipboard_read() -> AppResult<crate::clipboard::Clipboard> {
+    Ok(crate::clipboard::read())
+}
+
 #[tauri::command]
 pub async fn fs_is_dir(path: String) -> AppResult<bool> {
     Ok(crate::claude::launcher::validate_cwd(&path, &crate::env::home_dir()).is_ok())

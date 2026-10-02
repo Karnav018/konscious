@@ -139,3 +139,12 @@ export interface Suggestion {
 }
 
 export type Theme = 'dark' | 'light'
+
+/** What ⌘V pastes into a pane (clipboard_read). */
+export interface Clipboard {
+  /** Files copied in Finder, as absolute paths. */
+  paths: string[]
+  text: string | null
+  /** A picture is on the clipboard (Claude Code reads it itself). */
+  image: boolean
+}

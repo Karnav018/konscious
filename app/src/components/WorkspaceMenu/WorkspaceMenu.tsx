@@ -1,6 +1,6 @@
 // ⌘O popover (design lines 316–365): workspaces on the left, the hovered
 // workspace's sessions on the right with In grid / Show toggles.
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   hidePane,
@@ -8,6 +8,7 @@ import {
   pickWorkspaceFolder,
   requestDeleteSession,
   selectSession,
+  stopWorkspaceSessions,
   switchWorkspace,
 } from '../../app/actions'
 import { ago, relTo, STATUS_COLOR, STATUS_LABEL, tildify } from '../../lib/format'
@@ -25,7 +26,7 @@ import {
 } from '../../state/selectors'
 import type { WsFilter } from '../../state/store'
 import type { SessionMeta } from '../../types'
-import { FolderIcon, TrashIcon } from '../common/Icon'
+import { FolderIcon, StopIcon, TrashIcon } from '../common/Icon'
 import { StatusGlyph, useNow } from '../common/StatusGlyph'
 
 const FILTERS: { v: WsFilter; l: string }[] = [
@@ -40,6 +41,45 @@ const sessionsIn = (sessions: Record<string, SessionMeta>, wsId: string) =>
   Object.values(sessions)
     .filter((x) => x.workspaceId === wsId)
     .sort((a, b) => a.createdAt - b.createdAt)
+
+/** How long "Stop N?" waits for the confirming click. */
+const CONFIRM_MS = 3000
+
+/**
+ * Stops every running session in the workspace. Asks once ("Stop 4?") since
+ * it interrupts whatever Claude is in the middle of; stopped sessions stay in
+ * the list and can be resumed.
+ */
+function StopAllButton({ workspaceId, name, running }: { workspaceId: string; name: string; running: number }) {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), CONFIRM_MS)
+    return () => clearTimeout(t)
+  }, [armed])
+  const off = running === 0
+  return (
+    <div
+      onClick={() => {
+        if (off) return
+        if (!armed) return setArmed(true)
+        setArmed(false)
+        stopWorkspaceSessions(workspaceId)
+      }}
+      title={off ? `Nothing is running in ${name}` : `Stop all ${running} running in ${name} — they can be resumed`}
+      aria-disabled={off}
+      className={`h-7 px-2.5 flex items-center gap-1.5 rounded-rs border text-[12.5px] font-medium whitespace-nowrap flex-none ${off ? 'cursor-default' : 'cursor-pointer hover:border-err hover:text-err'}`}
+      style={{
+        borderColor: armed ? 'var(--err)' : 'var(--line2)',
+        color: off ? 'var(--faint)' : armed ? 'var(--err)' : 'var(--muted)',
+        background: armed ? 'var(--hover)' : 'transparent',
+      }}
+    >
+      <StopIcon />
+      {armed ? `Stop ${running}?` : 'Stop all'}
+    </div>
+  )
+}
 
 export function WorkspaceMenu() {
   const wsHover = useUi((u) => u.wsHover)
@@ -61,6 +101,7 @@ export function WorkspaceMenu() {
   const shown = workspaces.find((w) => w.id === (wsHover ?? activeId)) ?? workspaces[0]
   if (!shown) return null
   const all = sessionsIn(sessions, shown.id)
+  const running = all.filter((m) => runtimeOf(runtime, m.id).running).length
   const items = all.filter((m) => wsFilter === 'all' || runtimeOf(runtime, m.id).status === wsFilter)
   const shownLayout = layoutOf(layouts, shown.id)
 
@@ -204,11 +245,15 @@ export function WorkspaceMenu() {
             <span className="text-[11.5px] text-muted">
               {shownLayout.open.length} of {CAP} grid slots used · hidden sessions keep running
             </span>
-            <div
-              onClick={() => void openNewSession({ workspaceId: shown.id, dir: shown.path })}
-              className="h-7 px-3 flex items-center gap-1.5 rounded-rs bg-accent text-accent-ink cursor-pointer text-[12.5px] font-medium whitespace-nowrap flex-none"
-            >
-              + New session in {shown.name}
+            <div className="flex items-center gap-2 flex-none">
+              <div
+                onClick={() => void openNewSession({ workspaceId: shown.id, dir: shown.path })}
+                title={`New session in ${shown.name}`}
+                className="h-7 px-3 flex items-center gap-1.5 rounded-rs bg-accent text-accent-ink cursor-pointer text-[12.5px] font-medium whitespace-nowrap flex-none"
+              >
+                + New session
+              </div>
+              <StopAllButton key={shown.id} name={shown.name} workspaceId={shown.id} running={running} />
             </div>
           </div>
         </div>

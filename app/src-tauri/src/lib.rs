@@ -1,4 +1,5 @@
 mod claude;
+mod clipboard;
 mod commands;
 mod env;
 mod error;
@@ -209,6 +210,7 @@ pub fn run() {
             commands::fs_subdirs,
             commands::fs_suggest_folders,
             commands::fs_is_dir,
+            commands::clipboard_read,
         ])
         .build(context)
         .expect("error while building Konscious");

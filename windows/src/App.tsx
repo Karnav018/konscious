@@ -29,7 +29,7 @@ import { matchShortcut } from './lib/shortcuts'
 import {
   cancelDeleteSession,
   closeOverlays,
-  closeWarmMenu,
+  closeSettingsMenu,
   flash,
   setBooted,
   setRenaming,
@@ -40,7 +40,7 @@ import { useActiveLayout, useHasWorkspaces, useUi } from './state/selectors'
 import { getState, type UiState } from './state/store'
 
 const anyOverlayOpen = (ui: UiState) =>
-  ui.wsMenu || ui.inspector || ui.warmMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
+  ui.wsMenu || ui.inspector || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
 
 /** Capture phase: runs before xterm's own key handling. */
 function onKeyDown(e: KeyboardEvent) {
@@ -139,7 +139,7 @@ export default function App() {
       const el = e.target as HTMLElement
       const ui = getState().ui
       if (ui.paneMenu && !el.closest?.('[data-pane-menu]')) openPaneMenu(null)
-      if (ui.warmMenu && !el.closest?.('[data-warm-menu],[data-warm-button]')) closeWarmMenu()
+      if (ui.settingsMenu && !el.closest?.('[data-settings-menu],[data-settings-button]')) closeSettingsMenu()
     }
     window.addEventListener('mousedown', closePopovers)
     window.addEventListener('keydown', onKeyDown, true)
