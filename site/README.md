@@ -30,7 +30,8 @@ at GoDaddy: the subdomain is an `A` record `konscious → 76.76.21.21`.
 | `vite.config.ts` | **Page registry** — every page `vite build` emits is listed here |
 | `src/pages/<name>/` | One folder per page: `main.tsx` (entry) + the page component |
 | `src/components/` | Sections shared across pages (header, footer, …) |
-| `src/site.ts` | Product copy and links: name, tagline, version, download URLs |
+| `src/site.ts` | Product copy and links: name, tagline, download labels |
+| `src/release.ts`, `src/useDownloads.ts` | The newest GitHub release and the download buttons built from it |
 | `src/styles/tokens.css` | Colors, fonts, radii. Placeholder until the design lands |
 | `src/lib/mount.tsx` | Loads fonts + global CSS and mounts a page |
 | `public/` | Copied as-is: favicon, icon, future og-image |
@@ -57,15 +58,20 @@ shown whole in the hero, and each feature row shows a crop of it through
 pixels; `scale` 0.5 means actual on-screen size. Replacing the screenshot
 means re-measuring the regions in `src/components/Features.tsx`.
 
-Download buttons download from the site itself (`/download/<file>`): a small
-Vite plugin in `vite.config.ts` reads the installers from `../release` at build
-time (and serves them in `pnpm dev`), so they're never copied into `site/`.
-Same-origin files plus the `download` attribute and a `Content-Disposition`
-header (`vercel.json`) make every browser save the file instead of opening a
-page. The build fails if an installer named in `src/site.ts` is missing —
-which is also why deploys build locally (`scripts/deploy-site.sh`) rather than
-on Vercel, whose servers only receive `site/`.
+Download buttons follow the newest published GitHub release by themselves —
+the same release the app updates from — so a new release needs no change and
+no deploy here:
 
-## Still to do
+1. At build time, `vite.config.ts` asks GitHub for the latest release and bakes
+   it in as the page's starting point (version, file names, sizes).
+2. When the page loads, `src/useDownloads.ts` asks GitHub again
+   (`api.github.com/repos/Karnav018/konscious/releases/latest`) and switches
+   the buttons, version and sizes to whatever is newest. The answer is kept
+   for ten minutes per tab: GitHub allows 60 such requests an hour per visitor.
+3. If both fail, the buttons open the release page on GitHub, which always
+   lists the newest files.
 
-- Update the sizes in `src/site.ts` when the installers change.
+Installers are found by name (`*-universal.dmg`, `*_x64-setup.exe`, as
+`.github/workflows/release.yml` names them; see `src/release.ts`). Drafts and
+pre-releases are never "latest", so they never reach the site. GitHub serves
+the files as attachments, so a click saves the file without leaving the page.

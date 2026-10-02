@@ -1,4 +1,5 @@
-import { site, visitorOs, type Download as File } from '../site'
+import { site, visitorOs } from '../site'
+import { useDownloads, type DownloadOption } from '../useDownloads'
 import { DownloadLink } from './DownloadLink'
 
 const steps = {
@@ -15,6 +16,7 @@ const steps = {
 }
 
 export function Download() {
+  const downloads = useDownloads()
   const order = visitorOs === 'windows' ? (['windows', 'mac'] as const) : (['mac', 'windows'] as const)
   return (
     <section id="download" className="mx-auto max-w-6xl scroll-mt-16 px-4 pt-20 pb-28 sm:px-6">
@@ -22,11 +24,19 @@ export function Download() {
         Download Konscious
       </h2>
       <p className="mt-4 max-w-[38rem] text-lg leading-relaxed text-muted">
-        Version {site.version}. Konscious runs the Claude Code you have installed, so install it and sign in first.
+        {downloads.version && (
+          <>
+            <a href={downloads.page} className="text-text underline underline-offset-4 hover:text-accent">
+              Version {downloads.version}
+            </a>
+            .{' '}
+          </>
+        )}
+        Konscious runs the Claude Code you have installed, so install it and sign in first.
       </p>
       <div className="mt-12 grid gap-14 md:grid-cols-2 md:gap-16">
         {order.map((os) => (
-          <Platform key={os} file={site.downloads[os]} steps={steps[os]} claude={site.claudeInstall[os]} />
+          <Platform key={os} file={downloads[os]} steps={steps[os]} claude={site.claudeInstall[os]} />
         ))}
       </div>
       <p className="mt-16 text-muted">
@@ -40,7 +50,7 @@ export function Download() {
   )
 }
 
-function Platform({ file, steps, claude }: { file: File; steps: readonly string[]; claude: string }) {
+function Platform({ file, steps, claude }: { file: DownloadOption; steps: readonly string[]; claude: string }) {
   return (
     <div className="min-w-0">
       <DownloadLink
@@ -48,7 +58,7 @@ function Platform({ file, steps, claude }: { file: File; steps: readonly string[
         className="inline-flex items-baseline gap-3 rounded-pill bg-accent px-6 py-3 text-[17px] font-medium text-accent-ink hover:opacity-90"
       >
         {file.label}
-        <span className="text-sm font-normal opacity-75">{file.size}</span>
+        {file.size && <span className="text-sm font-normal opacity-75">{file.size}</span>}
       </DownloadLink>
       <p className="mt-3 text-sm text-faint">{file.detail}</p>
       <h3 className="mt-9 font-semibold">First launch</h3>

@@ -7,10 +7,10 @@
 # "konscious" (scope karnav018s-projects). Needs the Vercel CLI, logged in:
 # `vercel login`.
 #
-# The site carries no installers: its download buttons link to the GitHub
-# release for the version in site/src/site.ts, which is the same release the
-# app updates itself from. So deploy this after the release workflow has
-# published that tag, or the buttons 404 until it does.
+# The site carries no installers and no version: its download buttons ask
+# GitHub for the newest published release when the page loads (with the one
+# that was newest at build time as the starting point). A new release needs no
+# deploy; deploy when the page itself changes.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 site="$root/site"

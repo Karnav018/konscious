@@ -1,13 +1,15 @@
 import { useState } from 'react'
 
-import { site, visitorOs, type Download } from '../site'
+import { site, visitorOs } from '../site'
+import { useDownloads, type DownloadOption } from '../useDownloads'
 import { DownloadLink } from './DownloadLink'
 import { Window } from './Shot'
 
 export function Hero() {
+  const downloads = useDownloads()
   const [primary, other] =
-    visitorOs === 'windows' ? [site.downloads.windows, site.downloads.mac] : [site.downloads.mac, site.downloads.windows]
-  const [started, setStarted] = useState<Download | null>(null)
+    visitorOs === 'windows' ? [downloads.windows, downloads.mac] : [downloads.mac, downloads.windows]
+  const [started, setStarted] = useState<DownloadOption | null>(null)
   return (
     <section>
       <div className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 sm:pt-24">
@@ -40,7 +42,7 @@ export function Hero() {
               </a>
             </>
           ) : (
-            <>Version {site.version}, free. Runs your own Claude Code.</>
+            <>{downloads.version ? `Version ${downloads.version}, free.` : 'Free.'} Runs your own Claude Code.</>
           )}
         </p>
       </div>

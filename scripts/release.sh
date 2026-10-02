@@ -8,15 +8,13 @@
 # merged), it writes nothing and only tags and pushes.
 #
 # The version is written in both apps (package.json, tauri.conf.json, Cargo.toml,
-# Cargo.lock), in the website and in the README's download links, and all of them
-# must agree: the release workflow refuses a tag that doesn't match the app, and
+# Cargo.lock) and in the README's download links, and all of them must agree: the release workflow refuses a tag that doesn't match the app, and
 # the updater compares the installed version against the one in the manifest.
 #
 # Pushing the tag is the release. GitHub Actions builds both apps, signs them
 # with the updater key and publishes them (.github/workflows/release.yml); every
-# installed copy sees it within the hour and offers the restart. Deploy the
-# website after that, so its download buttons point at a release that exists:
-#   scripts/deploy-site.sh
+# installed copy sees it within the hour and offers the restart. The website
+# needs nothing: its download buttons follow the newest published release.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
@@ -57,9 +55,6 @@ else
   done
   # ${1}, not $1: the new version starts with a digit, and "$1" + "0" would read
   # as capture group $10.
-  # The site may sit on an older, already published version (its buttons must
-  # never point at a release CI hasn't built yet), so replace whatever is there.
-  perl -0pi -e "s/(const version = ')[0-9.]+(')/\${1}$version\${2}/" site/src/site.ts
   # The README's download links and badges carry the file names, version and all.
   perl -0pi -e "s/\Q$old\E/$version/g" README.md
 fi
@@ -70,7 +65,6 @@ for f in app/src-tauri/tauri.conf.json windows/src-tauri/tauri.conf.json; do
   [[ "$got" == "$version" ]] || fail "$f still says $got"
 done
 grep -q "name = \"konscious\"" app/src-tauri/Cargo.lock || fail "app Cargo.lock lost its konscious entry"
-grep -q "^const version = '$version'$" site/src/site.ts || fail "site/src/site.ts no longer declares the version"
 for f in app/src-tauri/Cargo.toml windows/src-tauri/Cargo.toml; do
   grep -q "^version = \"$version\"$" "$f" || fail "$f version not bumped"
 done
@@ -105,4 +99,4 @@ git push origin "v$version"
 
 printf '\n\033[32m✓ v%s pushed. The release builds here:\033[0m\n' "$version"
 echo "  https://github.com/Karnav018/konscious/actions/workflows/release.yml"
-echo "  Once it is published, deploy the site: scripts/deploy-site.sh"
+echo "  The website's download buttons switch to it as soon as it is published."
