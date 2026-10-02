@@ -1,6 +1,6 @@
 // Context-window ring (pane header) and plan-usage bar (title bar), from the
 // design. Data: Claude's status-line feed (see claude/hooks.rs).
-import { flash } from '../../app/actions'
+import { flash } from '../../state/commands/ui'
 import { clock, resetsIn, tokens, usageColor } from '../../lib/format'
 import type { ContextUsage, Limits } from '../../types'
 
