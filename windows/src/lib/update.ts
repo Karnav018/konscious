@@ -1,7 +1,8 @@
 // Background updates.
 //
 // Konscious checks this repo's GitHub releases shortly after launch and every
-// hour after that, and downloads a newer version in the background. Installing
+// hour after that (and five minutes after a check that failed), and downloads
+// a newer version in the background. Installing
 // it is never automatic: the installer closes the app, and that stops every
 // live session. So a downloaded update waits in the title bar until you ask
 // for the restart — and every session that was running resumes on the way back
@@ -19,13 +20,25 @@ import type { UpdateState } from '../state/store'
 export const CHECK_EVERY_MS = 60 * 60 * 1000
 /** Launch is busy resuming sessions; the first check waits for the quiet. */
 export const FIRST_CHECK_MS = 20_000
-/** A release server that never answers must not leave the check wedged. */
-const CHECK_TIMEOUT_MS = 30_000
+/** A failed check tries again this soon rather than an hour later: a fresh
+ *  attempt usually reaches a server that answers. */
+export const RETRY_AFTER_FAILURE_MS = 5 * 60 * 1000
+/**
+ * Release files are served from GitHub's CDN, where one unreachable address can
+ * hold a connection for over a minute before the next address is tried. Long
+ * enough to get past that, short enough that a dead server can't wedge checks.
+ */
+export const CHECK_TIMEOUT_MS = 2 * 60 * 1000
+/** The update is ~10 MB, minutes on a slow link. Without its own limit the
+ *  download would inherit the check's. */
+export const DOWNLOAD_TIMEOUT_MS = 15 * 60 * 1000
 
 /** The downloaded update, held until the user restarts. */
 let staged: Update | null = null
 /** One check (or install) at a time: the hourly tick must not overlap itself. */
 let busy = false
+/** The pending retry after a failed check (at most one). */
+let retry: ReturnType<typeof setTimeout> | undefined
 
 /** The title-bar chip's text, or null when there is nothing to say. */
 export function updateLabel(u: UpdateState): string | null {
@@ -72,17 +85,20 @@ export async function checkForUpdate(): Promise<void> {
     let total = 0
     let got = 0
     let shown = -1
-    await update.download((e) => {
-      if (e.event === 'Started') total = e.data.contentLength ?? 0
-      if (e.event !== 'Progress') return
-      got += e.data.chunkLength
-      if (!total) return
-      // Only on a whole-percent change: this fires per chunk.
-      const percent = Math.min(99, Math.floor((got / total) * 100))
-      if (percent === shown) return
-      shown = percent
-      setUpdate({ state: 'downloading', version: update.version, percent })
-    })
+    await update.download(
+      (e) => {
+        if (e.event === 'Started') total = e.data.contentLength ?? 0
+        if (e.event !== 'Progress') return
+        got += e.data.chunkLength
+        if (!total) return
+        // Only on a whole-percent change: this fires per chunk.
+        const percent = Math.min(99, Math.floor((got / total) * 100))
+        if (percent === shown) return
+        shown = percent
+        setUpdate({ state: 'downloading', version: update.version, percent })
+      },
+      { timeout: DOWNLOAD_TIMEOUT_MS },
+    )
     staged = update
     setUpdate({ state: 'ready', version: update.version })
   } catch (e) {
@@ -91,6 +107,8 @@ export async function checkForUpdate(): Promise<void> {
     // An Update holds the bytes downloaded so far on the Rust side. Hand a
     // half-download back instead of carrying it until the app quits.
     if (opened && opened !== staged) await opened.close().catch(() => {})
+    clearTimeout(retry)
+    retry = setTimeout(() => void checkForUpdate(), RETRY_AFTER_FAILURE_MS)
   } finally {
     busy = false
   }
