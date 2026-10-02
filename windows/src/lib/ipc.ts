@@ -6,6 +6,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener'
 
+import { dropPoint } from './dropPoint'
+import { IS_WINDOWS } from './platform'
 import type {
   Attached,
   Clipboard,
@@ -86,8 +88,7 @@ export const ipc = {
   onFileDrop: (cb: (e: FileDrop) => void): Promise<UnlistenFn> =>
     getCurrentWebview().onDragDropEvent(({ payload: p }) => {
       if (p.type === 'leave') return cb({ type: 'leave' })
-      const scale = window.devicePixelRatio || 1
-      const at = { x: p.position.x / scale, y: p.position.y / scale }
+      const at = dropPoint(p.position.x, p.position.y, window.devicePixelRatio, IS_WINDOWS)
       cb(p.type === 'over' ? { type: 'over', ...at } : { type: p.type, paths: p.paths, ...at })
     }),
 
