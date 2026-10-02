@@ -266,6 +266,8 @@ impl EventTail {
 mod tests {
     use super::*;
     use std::io::Write;
+    // Only the sh-driven tests (macOS/Linux) start processes.
+    #[cfg(unix)]
     use std::process::Command;
 
     #[cfg(unix)]
@@ -326,6 +328,7 @@ mod tests {
         run("Stop", "{}");
     }
 
+    #[cfg(unix)]
     fn run_status(cmd: &str, stdin: &str) -> (bool, String) {
         let mut child = Command::new("sh")
             .args(["-c", cmd])
@@ -338,6 +341,7 @@ mod tests {
         (out.status.success(), String::from_utf8_lossy(&out.stdout).to_string())
     }
 
+    #[cfg(unix)]
     const STATUS_JSON: &str = r#"{"model":{"display_name":"Opus 5.5"},"context_window":{"used_percentage":79.4,"total_input_tokens":794000,"context_window_size":1000000},"rate_limits":{"five_hour":{"used_percentage":11,"resets_at":1790770000},"seven_day":{"used_percentage":38.5,"resets_at":1791200000}}}"#;
 
     #[cfg(unix)]

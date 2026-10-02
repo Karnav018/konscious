@@ -31,11 +31,24 @@ step "frontend tests + typecheck"
 pnpm -s test
 pnpm -s exec tsc --noEmit -p .
 
+step "engine lint for Windows (incl. tests)"
+# Compiles the tests for Windows too: code used only by macOS/Linux tests
+# must be gated, or the Windows CI lint fails.
+(cd src-tauri && cargo xwin clippy --quiet --target "$target" --all-targets -- -D warnings)
+
 step "build NSIS installer ($target)"
 # First run downloads the MSVC CRT + Windows SDK (~1 GB) into
 # ~/Library/Caches/cargo-xwin; later builds reuse it.
 export CARGO_TARGET_DIR="$win/src-tauri/target"
-pnpm -s tauri build --runner cargo-xwin --target "$target" --bundles nsis
+# Updater signatures need the release key, which only CI has. Without it,
+# build without update artifacts: the app installs and runs the same, it just
+# can't be published as an update.
+sign=()
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  sign=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
+  echo "no TAURI_SIGNING_PRIVATE_KEY: building without updater signatures"
+fi
+pnpm -s tauri build --runner cargo-xwin --target "$target" --bundles nsis ${sign[@]+"${sign[@]}"}
 
 exe=$(ls -t "$CARGO_TARGET_DIR/$target"/release/bundle/nsis/*-setup.exe | head -1)
 mkdir -p "$root/release/win"

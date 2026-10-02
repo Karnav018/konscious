@@ -20,7 +20,15 @@ step "build universal DMG"
 # Absolute path ending in .noindex: Spotlight skips it, so build copies of
 # Konscious.app never appear next to the installed one.
 export CARGO_TARGET_DIR="$app/src-tauri/target-next.noindex"
-CI=true pnpm -s tauri build --target universal-apple-darwin --bundles dmg
+# Updater signatures need the release key, which only CI has. Without it,
+# build without update artifacts: the app installs and runs the same, it just
+# can't be published as an update.
+sign=()
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  sign=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
+  echo "no TAURI_SIGNING_PRIVATE_KEY: building without updater signatures"
+fi
+CI=true pnpm -s tauri build --target universal-apple-darwin --bundles dmg ${sign[@]+"${sign[@]}"}
 
 out_dir="$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle"
 dmg=$(ls -t "$out_dir"/dmg/*.dmg | head -1)
