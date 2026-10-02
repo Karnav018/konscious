@@ -15,6 +15,8 @@ export function StatusBar() {
   const layout = useActiveLayout()
   const counts = useStatusCounts()
   const home = useUi((u) => u.init?.home)
+  // From the build (CARGO_PKG_VERSION), so it follows every release by itself.
+  const version = useUi((u) => u.init?.version)
   const claudePath = useUi((u) => u.env?.claudePath)
   const persist = useUi((u) => u.persist)
   const claudeN = useClaudeSessionCount()
@@ -25,19 +27,23 @@ export function StatusBar() {
     ? 'no sessions'
     : `${layout.open.length}/${CAP} in grid · ${claudeN} Claude session${claudeN === 1 ? '' : 's'} · ${counts.working} working · ${counts.waiting} waiting`
 
+  // Three equal columns keep the version centred whatever the sides say.
   return (
-    <div className="h-[26px] flex-none flex items-center justify-between gap-4 px-3.5 border-t border-line bg-side font-mono text-[10.5px] text-faint">
+    <div className="h-[26px] flex-none grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-3.5 border-t border-line bg-side font-mono text-[10.5px] text-faint">
       <span className="whitespace-nowrap overflow-hidden text-ellipsis">{left}</span>
-      {persist.state !== 'ok' && (
-        <span
-          className="whitespace-nowrap overflow-hidden text-ellipsis"
-          style={{ color: persist.state === 'error' ? 'var(--err)' : 'var(--warn)' }}
-          title={persist.message}
-        >
-          {persist.state === 'error' ? 'Saving failed — retrying' : 'Read-only: data is from a newer version'}
-        </span>
-      )}
-      <span className="whitespace-nowrap">{right}</span>
+      <span className="flex items-center gap-4 whitespace-nowrap">
+        {version && <span title="Konscious version">v{version}</span>}
+        {persist.state !== 'ok' && (
+          <span
+            className="overflow-hidden text-ellipsis"
+            style={{ color: persist.state === 'error' ? 'var(--err)' : 'var(--warn)' }}
+            title={persist.message}
+          >
+            {persist.state === 'error' ? 'Saving failed — retrying' : 'Read-only: data is from a newer version'}
+          </span>
+        )}
+      </span>
+      <span className="whitespace-nowrap justify-self-end">{right}</span>
     </div>
   )
 }
