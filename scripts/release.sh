@@ -57,7 +57,9 @@ else
   done
   # ${1}, not $1: the new version starts with a digit, and "$1" + "0" would read
   # as capture group $10.
-  perl -0pi -e "s/(const version = ')\Q$old\E(')/\${1}$version\${2}/" site/src/site.ts
+  # The site may sit on an older, already published version (its buttons must
+  # never point at a release CI hasn't built yet), so replace whatever is there.
+  perl -0pi -e "s/(const version = ')[0-9.]+(')/\${1}$version\${2}/" site/src/site.ts
   # The README's download links and badges carry the file names, version and all.
   perl -0pi -e "s/\Q$old\E/$version/g" README.md
 fi

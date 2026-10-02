@@ -1,6 +1,6 @@
 // Product facts shared by every page. Keep copy here, not inside components,
 // so a rename or a new release is a one-file change.
-const version = '0.2.3'
+const version = '0.2.2'
 const repo = 'https://github.com/Karnav018/konscious'
 // Installers live on the GitHub release for this version: CI builds them,
 // signs them for the in-app updater and publishes them (see
@@ -20,14 +20,14 @@ export const site = {
       os: 'macOS',
       label: 'Download for macOS',
       detail: 'Apple silicon and Intel, macOS 13 or later',
-      size: '7.9 MB',
+      size: '10.2 MB',
       ...installer(`Konscious-${version}-universal.dmg`),
     },
     windows: {
       os: 'Windows',
       label: 'Download for Windows',
       detail: '64-bit, Windows 10 or 11',
-      size: '3.2 MB',
+      size: '4.1 MB',
       ...installer(`Konscious_${version}_x64-setup.exe`),
     },
   },
