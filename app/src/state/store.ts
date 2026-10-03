@@ -82,6 +82,9 @@ export interface UiState {
   /** When `limits` was observed (ms), and whether it came live this launch. */
   limitsAt: number | null
   limitsLive: boolean
+  /** Paths dropped or pasted into each pane, newest last. Never saved:
+   *  it is a record of what was typed, not something the app owns. */
+  attachments: Record<string, string[]>
   /** Session awaiting typed "delete" confirmation. */
   confirmDelete: string | null
 }
@@ -123,6 +126,7 @@ export const initialState = (): AppState => ({
     limits: null,
     limitsAt: null,
     limitsLive: false,
+    attachments: {},
     confirmDelete: null,
   },
 })

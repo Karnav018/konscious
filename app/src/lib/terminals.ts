@@ -21,6 +21,7 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 
 import type { Kind, Theme } from '../types'
 import { Channel, ipc } from './ipc'
+import { attachFiles } from '../state/commands/ui'
 import { pathsForTerminal } from './paste'
 import { isAppShortcut } from './shortcuts'
 import { NEUTRAL_K, warmColor } from './warmth'
@@ -75,6 +76,8 @@ interface Entry {
   held: boolean
   /** User-chosen text size for this pane; null = automatic. */
   fontOverride: number | null
+  /** The current selection came from ⌘A, so Delete means "clear my input". */
+  selectedAll: boolean
   /** Keystrokes typed before the process exists; delivered on start. */
   pendingInput: string[] | null
   /** Bytes written (parsed) from the current channel, and who waits on it. */
@@ -235,9 +238,25 @@ async function pasteClipboard(e: Entry) {
   lastPasteAt = now
   const clip = await ipc.clipboardRead().catch(() => null)
   if (!clip) return
-  if (clip.paths.length) e.term.paste(pathsForTerminal(clip.paths))
+  if (clip.paths.length) {
+    e.term.paste(pathsForTerminal(clip.paths))
+    attachFiles(e.id, clip.paths)
+  }
   else if (clip.text) e.term.paste(clip.text)
   else if (clip.image && e.kind === 'claude') e.term.input('\x16', true)
+}
+
+/** Select-all, then Delete. A terminal selection is a copy selection over the
+ *  program's own output, so nothing on screen can be deleted — but this one
+ *  gesture plainly means "clear what I typed", and `Ctrl+U` does that: Claude
+ *  clears its input buffer (Ctrl+Y restores it) and a shell kills the line. */
+export function clearsInput(
+  ev: Pick<KeyboardEvent, 'type' | 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>,
+  selectedAll: boolean,
+): boolean {
+  if (!selectedAll || ev.type !== 'keydown') return false
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return false
+  return ev.key === 'Backspace' || ev.key === 'Delete'
 }
 
 /** Keys xterm must not turn into bytes. App shortcuts are also stopped by
@@ -254,6 +273,13 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
     if (ev.metaKey && ev.key.toLowerCase() === 'a') {
       ev.preventDefault()
       e.term.selectAll()
+      e.selectedAll = true // set after selectAll: the change event resets it
+      return false
+    }
+    if (clearsInput(ev, e.selectedAll)) {
+      ev.preventDefault()
+      e.term.clearSelection()
+      void ipc.terminalWrite(e.id, '\x15')
       return false
     }
     if (ev.metaKey && !ev.ctrlKey && !ev.altKey && ev.key.toLowerCase() === 'v') {
@@ -313,7 +339,7 @@ export const terminals = {
       id, kind, term, fit, host,
       channel: null, pendingAck: 0, ackTimer: undefined, resizeTimer: undefined,
       observer: null, mountedIn: null, webgl: null, pty: null, ptyPending: null,
-      held: false, written: 0, waiters: [], fontOverride: null, pendingInput: [],
+      held: false, written: 0, waiters: [], fontOverride: null, pendingInput: [], selectedAll: false,
     }
     term.onData((data) => {
       if (entry.pendingInput) {
@@ -322,6 +348,9 @@ export const terminals = {
         return
       }
       void ipc.terminalWrite(id, data).catch(() => {})
+    })
+    term.onSelectionChange(() => {
+      entry.selectedAll = false
     })
     term.attachCustomKeyEventHandler((ev) => keyFilter(entry, ev))
     // Edit › Paste (and right-click Paste) arrive as a DOM paste event. Taken
@@ -485,6 +514,12 @@ export const terminals = {
   /** The size the pane is rendering at right now (auto or pinned). */
   currentFontSize(id: string): number {
     return entries.get(id)?.term.options.fontSize ?? fontSize
+  },
+
+  /** Ctrl+U: clears Claude's input buffer (Ctrl+Y restores it) and kills the
+   *  line in a shell. The only reliable way to take back what was typed. */
+  clearInput(id: string) {
+    void ipc.terminalWrite(id, '\x15').catch(() => {})
   },
 
   focus(id: string) {

@@ -5,6 +5,7 @@ import { copyText, killSession, renameSession, restartSession, startSession, sto
 import { ago, clock, STATUS_COLOR, STATUS_LABEL, tildify } from '../../lib/format'
 import { setInspector, setRenaming } from '../../state/commands/ui'
 import { useActiveLayout, useRuntimeOf, useSession, useUi, useWorkspaceName } from '../../state/selectors'
+import { formatBytes, useSessionMemory, worthRestarting } from '../../lib/memory'
 import { getState } from '../../state/store'
 import { useNow } from '../common/StatusGlyph'
 
@@ -20,6 +21,7 @@ export function Inspector() {
   const home = useUi((u) => u.init?.home)
   const shell = useUi((u) => (u.env?.shell ?? '/bin/zsh').split('/').pop())
   const now = useNow(10_000)
+  const memory = useSessionMemory()[id ?? '']
   const [draft, setDraft] = useState('')
   const input = useRef<HTMLInputElement>(null)
 
@@ -41,6 +43,12 @@ export function Inspector() {
     ? [
         ['Claude session', meta.claudeSessionId ?? '—'],
         ['Process', rt.running ? `${meta.kind === 'shell' ? shell : 'claude'} · pid ${rt.pid}` : 'not running'],
+        [
+          'Memory',
+          rt.running && memory
+            ? `${formatBytes(memory.bytes)}${memory.processes > 1 ? ` · ${memory.processes} processes` : ''}`
+            : '—',
+        ],
         ['Branch', rt.git?.branch ?? '—'],
         ['Started', clock(rt.startedAt)],
         ['Last activity', rt.lastActivityAt ? (ago(rt.lastActivityAt, now) === 'now' ? 'just now' : ago(rt.lastActivityAt, now)) : '—'],
@@ -135,6 +143,24 @@ export function Inspector() {
                   </div>
                 ))}
               </div>
+
+              {worthRestarting(memory, rt, now) && (
+                <div className="flex items-start gap-2.5 px-[10px] py-2.5 border border-line2 rounded-rs bg-raised">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <span className="text-[12.5px]">Idle, holding {formatBytes(memory!.bytes)}</span>
+                    <span className="text-[11.5px] text-muted leading-[1.4]">
+                      Claude Code grows over a long session. Restarting resumes this same conversation and gives
+                      the memory back.
+                    </span>
+                  </div>
+                  <div
+                    onClick={() => void restartSession(meta.id)}
+                    className="h-7 px-2.5 flex-none flex items-center rounded-rs border border-accent text-accent cursor-pointer text-[12px]"
+                  >
+                    Restart
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 <span className={label}>Process</span>

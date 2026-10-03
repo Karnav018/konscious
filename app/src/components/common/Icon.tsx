@@ -55,6 +55,14 @@ export const DotsIcon = ({ size = 14, ...p }: P) => (
   </svg>
 )
 
+/** A dropped or pasted file that is not an image. */
+export const FileIcon = ({ size = 12, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+    <path d="M14 3v5h5" />
+  </svg>
+)
+
 /** Drag handle — the pane can be moved to another slot in the grid. */
 export const GripIcon = ({ size = 13, ...p }: P) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>

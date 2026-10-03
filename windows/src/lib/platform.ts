@@ -14,6 +14,10 @@ export function kbd(key: string, win = IS_WINDOWS): string {
   return `Ctrl+Shift+${key === '↵' ? 'Enter' : key}`
 }
 
+/** Hint for a plain Control combination — the same physical key everywhere,
+ *  written ⌃U on a Mac and Ctrl+U on Windows. */
+export const ctrl = (key: string, win = IS_WINDOWS) => (win ? `Ctrl+${key}` : `⌃${key}`)
+
 /** Hint for a shortcut that also needs Shift (⌘⇧← / Ctrl+Shift+← move a pane). */
 export function kbdShift(key: string, win = IS_WINDOWS): string {
   return win ? `Ctrl+Shift+${key}` : `⌘⇧${key}`

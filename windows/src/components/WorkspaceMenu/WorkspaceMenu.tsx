@@ -28,6 +28,7 @@ import {
 } from '../../state/selectors'
 import type { WsFilter } from '../../state/store'
 import type { SessionMeta } from '../../types'
+import { formatBytes, totalOf, useSessionMemory } from '../../lib/memory'
 import { FolderIcon, StopIcon, TrashIcon } from '../common/Icon'
 import { StatusGlyph, useNow } from '../common/StatusGlyph'
 
@@ -89,6 +90,8 @@ export function WorkspaceMenu() {
   const home = useUi((u) => u.init?.home)
   const shellTag = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : 'zsh'))
   const workspaces = useWorkspacesByUse()
+  // Subscribing here means the engine is only polled while this menu is open.
+  const memory = useSessionMemory()
   const sessions = useSessions()
   const activeId = useActiveWorkspaceId()
   const runtime = useRuntimes()
@@ -121,6 +124,7 @@ export function WorkspaceMenu() {
             const ss = sessionsIn(sessions, w.id)
             const wk = ss.filter((x) => runtimeOf(runtime, x.id).status === 'working').length
             const wt = ss.filter((x) => runtimeOf(runtime, x.id).status === 'waiting').length
+            const held = totalOf(memory, ss.map((x) => x.id))
             const hov = (wsHover ?? activeId) === w.id
             const note = wt ? `${wt} waiting` : wk ? `${wk} working` : w.id === activeId ? 'active' : ''
             return (
@@ -139,7 +143,10 @@ export function WorkspaceMenu() {
                   </span>
                 </div>
                 <div className="flex flex-col items-end gap-[2px] flex-none">
-                  <span className="font-mono text-[11px] text-muted">{ss.length}</span>
+                  <span className="font-mono text-[11px] text-muted">
+                    {ss.length}
+                    {held > 0 && <span className="text-faint"> · {formatBytes(held)}</span>}
+                  </span>
                   <span
                     className="text-[10.5px]"
                     style={{ color: wt ? 'var(--warn)' : wk ? 'var(--ok)' : 'var(--faint)' }}

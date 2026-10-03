@@ -65,6 +65,14 @@ export interface Attached extends SessionInfo {
   replayBytes: number
 }
 
+/** Resident memory for a session's whole process tree (Claude's subagents and
+ *  MCP servers included), measured by the engine. */
+export interface SessionMemory {
+  id: string
+  bytes: number
+  processes: number
+}
+
 export interface GitInfo {
   branch: string
   commit: string

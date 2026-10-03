@@ -8,7 +8,7 @@ import { paneUnder } from '../components/SessionGrid/usePaneDrag'
 import { ipc } from '../lib/ipc'
 import { pathsForTerminal } from '../lib/paste'
 import { requestStart, terminals } from '../lib/terminals'
-import { setFileDrop } from '../state/commands/ui'
+import { attachFiles, setFileDrop } from '../state/commands/ui'
 import { focusPane } from './actions'
 
 export function startFileDrop() {
@@ -22,5 +22,6 @@ export function startFileDrop() {
     requestStart(id)
     terminals.focus(id)
     terminals.paste(id, pathsForTerminal(e.paths))
+    attachFiles(id, e.paths)
   })
 }

@@ -4,7 +4,9 @@ mod commands;
 mod env;
 mod error;
 mod git;
+mod memory;
 mod persistence;
+mod preview;
 mod session;
 mod suggest;
 mod sync;
@@ -197,6 +199,8 @@ pub fn run() {
             commands::session_start,
             commands::session_attach,
             commands::session_list,
+            commands::session_memory,
+            commands::file_thumbnail,
             commands::session_stop,
             commands::session_kill,
             commands::session_restart,

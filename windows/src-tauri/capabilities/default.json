@@ -12,6 +12,7 @@
     "core:window:allow-is-fullscreen",
     "opener:default",
     "opener:allow-reveal-item-in-dir",
+    "opener:allow-open-path",
     "dialog:allow-open",
     "updater:default",
     "process:allow-restart"

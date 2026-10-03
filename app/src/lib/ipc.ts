@@ -4,7 +4,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener'
+import { openPath, openUrl, revealItemInDir } from '@tauri-apps/plugin-opener'
 
 import { dropPoint } from './dropPoint'
 import type {
@@ -17,6 +17,7 @@ import type {
   InitInfo,
   Kind,
   SessionInfo,
+  SessionMemory,
   Snapshot,
   Suggestion,
 } from '../types'
@@ -61,6 +62,8 @@ export const ipc = {
   sessionAttach: (id: string, onOutput: Channel<ArrayBuffer>) =>
     invoke<Attached>('session_attach', { id, onOutput }),
   sessionList: () => invoke<SessionInfo[]>('session_list'),
+  sessionMemory: () => invoke<SessionMemory[]>('session_memory'),
+  fileThumbnail: (path: string) => invoke<string | null>('file_thumbnail', { path }),
   sessionStop: (id: string) => invoke<void>('session_stop', { id }),
   sessionKill: (id: string) => invoke<void>('session_kill', { id }),
   sessionRestart: (id: string, cols: number, rows: number) =>
@@ -96,6 +99,9 @@ export const ipc = {
     return typeof picked === 'string' ? picked : null
   },
   revealInFinder: (path: string) => revealItemInDir(path),
+  /** Opens a file in whatever the system uses for it — Preview, a PDF
+   *  reader — so a dropped file can be checked without leaving the app. */
+  openFile: (path: string) => openPath(path),
   openUrl: (url: string) => openUrl(url),
 
   onStatus: (cb: (info: SessionInfo) => void): Promise<UnlistenFn> =>

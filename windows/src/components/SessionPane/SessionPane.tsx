@@ -29,6 +29,7 @@ import { getState } from '../../state/store'
 import type { Runtime, SessionMeta } from '../../types'
 import { CloseIcon, DotsIcon, GripIcon, MaximizeIcon, MinimizeIcon } from '../common/Icon'
 import { StatusGlyph } from '../common/StatusGlyph'
+import { AttachedFiles } from './AttachedFiles'
 import { ContextRing, ModelBadge } from '../common/Usage'
 import { noDrag, type PaneReorder, paneCell } from '../SessionGrid/usePaneDrag'
 
@@ -293,6 +294,7 @@ export function SessionPane({
           </span>
         </div>
       )}
+      {!ended && <AttachedFiles id={id} />}
       {ended && <EndedBar meta={meta} rt={rt} />}
     </div>
   )

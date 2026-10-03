@@ -29,6 +29,10 @@ tauri-plugin-window-state = "2"
 tauri-plugin-updater = "~2.13"
 # relaunch() once an update has been installed.
 tauri-plugin-process = "~2.4"
+# Per-session memory for the Inspector: resident size of a session's process tree.
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+# Inlining a dropped image as a data URL for the pane's attachment strip.
+base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 portable-pty = "0.9"

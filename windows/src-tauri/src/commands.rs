@@ -103,6 +103,13 @@ pub async fn session_list(state: State<'_, AppState>) -> AppResult<Vec<SessionIn
 }
 
 #[tauri::command]
+pub async fn session_memory(state: State<'_, AppState>) -> AppResult<Vec<crate::memory::SessionMemory>> {
+    let running: Vec<(String, i32)> =
+        state.sessions.list().into_iter().filter_map(|s| s.pid.map(|pid| (s.id, pid))).collect();
+    Ok(crate::memory::measure(&running))
+}
+
+#[tauri::command]
 pub async fn session_stop(state: State<'_, AppState>, id: String) -> AppResult<()> {
     state.sessions.stop(&id)
 }
@@ -183,6 +190,11 @@ pub async fn fs_suggest_folders() -> AppResult<Vec<Suggestion>> {
 #[tauri::command]
 pub async fn clipboard_read() -> AppResult<crate::clipboard::Clipboard> {
     Ok(crate::clipboard::read())
+}
+
+#[tauri::command]
+pub async fn file_thumbnail(path: String) -> AppResult<Option<String>> {
+    Ok(crate::preview::thumbnail(&path))
 }
 
 #[tauri::command]

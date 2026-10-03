@@ -1,5 +1,6 @@
 // UI commands: named, so the action log reads like what the user did.
 import type { EnvInfo, InitInfo, Limits, Suggestion, Theme } from '../../types'
+import { withAttached } from '../../lib/attach'
 import { act } from '../act'
 import { getState, type NewSessionDraft, type PersistStatus, type SettingsMenu, type UpdateState, type WsFilter } from '../store'
 
@@ -74,6 +75,15 @@ export function setInspector(open: boolean, renaming = false) {
 }
 export const toggleInspector = (open: boolean) => setInspector(!open)
 export const setRenaming = (on: boolean) => act('ui/renaming', (d) => void (d.ui.renaming = on))
+
+export const attachFiles = (id: string, paths: string[]) =>
+  act('ui/attach', (d) => {
+    d.ui.attachments[id] = withAttached(d.ui.attachments[id] ?? [], paths)
+  })
+export const clearAttachments = (id: string) =>
+  act('ui/attachClear', (d) => {
+    delete d.ui.attachments[id]
+  })
 
 export const setPaneMenu = (id: string | null) => act('ui/paneMenu', (d) => void (d.ui.paneMenu = id))
 
