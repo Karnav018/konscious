@@ -5,7 +5,19 @@ import { errorMessage, ipc, type SessionSpec } from '../lib/ipc'
 import { trimSep } from '../lib/path'
 import { IS_WINDOWS } from '../lib/platform'
 import { terminals } from '../lib/terminals'
-import { DEFAULT_K, effectiveK, isWarm, kelvinAt, paintWarmth } from '../lib/warmth'
+import { localPlace, type Place, sunTimes } from '../lib/sun'
+import {
+  atLocalMinutes,
+  DEFAULT_K,
+  isWarm,
+  kelvinAt,
+  kelvinFor,
+  nextBoundary,
+  NEUTRAL_K,
+  paintWarmth,
+  type WarmWhen,
+  warmStrength,
+} from '../lib/warmth'
 import {
   hidePane as hideLayoutPane,
   layoutOf,
@@ -25,7 +37,11 @@ import {
   openNewSessionDraft,
   setPaneMenu,
   setThemeValue,
+  setWarmHoursValue,
+  setWarmOverride,
+  setWarmPlaceValue,
   setWarmValue,
+  setWarmWhenValue,
 } from '../state/commands/ui'
 import {
   addSession,
@@ -418,12 +434,49 @@ export async function openTerminalHere(fromSessionId?: string | null) {
 
 /* ── appearance & misc ───────────────────────────────────────────── */
 
-/** Repaints the window for the theme and colour temperature now in state. */
+/** When the warm window opens and closes, for the schedule in force. Null
+ *  when the sun does not set here today, which is its own answer. */
+export function warmWindow(now = Date.now()): { onAt: number; offAt: number } | null {
+  const ui = getState().ui
+  if (ui.warmWhen === 'hours') {
+    return { onAt: atLocalMinutes(now, ui.warmFrom), offAt: atLocalMinutes(now, ui.warmTo) }
+  }
+  if (ui.warmWhen === 'sun') {
+    const { sunrise, sunset } = sunTimes(now, ui.warmPlace ?? localPlace(now))
+    return sunrise === null || sunset === null ? null : { onAt: sunset, offAt: sunrise }
+  }
+  return null
+}
+
+/** How warm it should be right now: the switch, then the schedule, then any
+ *  manual flip still standing. */
+export function warmNow(now = Date.now()): number {
+  const ui = getState().ui
+  if (!ui.warm) return NEUTRAL_K
+  const held = ui.warmOverride && now < ui.warmOverride.until ? ui.warmOverride : null
+  if (held) return held.on ? ui.warmth : NEUTRAL_K
+  const window = warmWindow(now)
+  // No schedule, or a day with no sunset: warm whenever the switch is on.
+  if (ui.warmWhen === 'always' || window === null) return ui.warmth
+  return kelvinFor(ui.warmth, warmStrength(now, window.onAt, window.offAt))
+}
+
+/** Repaints the window for the theme and colour temperature now in force. */
 function repaint() {
-  const { theme, warm, warmth } = getState().ui
-  const kelvin = effectiveK(warm, warmth)
+  const { theme } = getState().ui
+  const kelvin = warmNow()
   paintWarmth(theme, kelvin)
   terminals.setAppearance({ theme, warmth: kelvin })
+}
+
+/** Called on a slow timer: the schedule moves on its own, so the paint has to
+ *  follow it. Cheap, and it only touches the DOM when the colour changes. */
+let painted: number | null = null
+export function repaintIfDue() {
+  const kelvin = warmNow()
+  if (kelvin === painted) return
+  painted = kelvin
+  repaint()
 }
 
 export function setTheme(theme: Theme) {
@@ -434,10 +487,36 @@ export function setTheme(theme: Theme) {
 
 /** The title-bar lamp: warm colours on or off, at the temperature chosen. A
  *  slider left at neutral would make "on" invisible, so it starts at default. */
-export function toggleWarm() {
-  const { warm, warmth } = getState().ui
+export function toggleWarm(now = Date.now()) {
+  const { warm, warmth, warmWhen } = getState().ui
   const on = !warm
   setWarmValue(on, on && !isWarm(warmth) ? DEFAULT_K : warmth)
+  // On a schedule, flipping it by hand is an override, not a new rule: it
+  // holds until the schedule next changes its mind, then the schedule resumes.
+  if (warmWhen !== 'always') {
+    const window = warmWindow(now)
+    setWarmOverride(on && window ? null : window ? { on, until: nextBoundary(now, window.onAt, window.offAt) } : null)
+  }
+  repaint()
+}
+
+/** Always on, between hours, or sunset to sunrise. Changing the rule clears
+ *  any override: the user has just said what they want. */
+export function setWarmWhen(when: WarmWhen) {
+  setWarmWhenValue(when)
+  setWarmOverride(null)
+  repaint()
+}
+
+export function setWarmHours(fromMin: number, toMin: number) {
+  setWarmHoursValue(fromMin, toMin)
+  setWarmOverride(null)
+  repaint()
+}
+
+export function setWarmPlace(place: Place | null) {
+  setWarmPlaceValue(place)
+  setWarmOverride(null)
   repaint()
 }
 

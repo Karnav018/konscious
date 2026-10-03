@@ -6,7 +6,14 @@ import type { SessionInfo, SessionMeta } from '../types'
 import { act, actionLog, onInvariantViolation } from './act'
 import { hidePane, layoutOf, openPane, toggleFocus } from './commands/layout'
 import { applyInfo, markStarting } from './commands/runtime'
-import { openNewSessionDraft, setPaneMenu, setWarmValue } from './commands/ui'
+import {
+  openNewSessionDraft,
+  setPaneMenu,
+  setWarmHoursValue,
+  setWarmPlaceValue,
+  setWarmValue,
+  setWarmWhenValue,
+} from './commands/ui'
 import { addSession, addWorkspace, removeSession, setActiveWorkspace, updateSession } from './commands/workspace'
 import { checkInvariants } from './invariants'
 import { decide } from './machine'
@@ -232,6 +239,35 @@ describe('persistence', () => {
     // So does a nonsense temperature.
     const bad = decode({ config: { version: 2, theme: 'dark', warmth: 99 }, workspaces: null, layouts: {}, corrupt: [], restored: [] })
     expect(bad.warmth).toBe(DEFAULT_K)
+    expect(violations).toEqual([])
+  })
+
+  it('round-trips the warm schedule, and defaults it for older configs', () => {
+    seed(1)
+    setWarmWhenValue('sun')
+    setWarmHoursValue(21 * 60 + 30, 7 * 60)
+    setWarmPlaceValue({ lat: 22, lon: 77 })
+    const files = serialize()
+    expect(files.config).toMatchObject({ warmWhen: 'sun', warmFrom: 1290, warmTo: 420, warmPlace: { lat: 22, lon: 77 } })
+    useApp.setState(initialState(), true)
+    hydrate(decode({ config: files.config, workspaces: files.workspaces, layouts: files.layouts, corrupt: [], restored: [] }))
+    expect(getState().ui).toMatchObject({ warmWhen: 'sun', warmFrom: 1290, warmTo: 420 })
+    expect(getState().ui.warmPlace).toEqual({ lat: 22, lon: 77 })
+
+    // A config from before the schedule warms all day, as it used to.
+    const old = decode({ config: { version: 2, theme: 'dark', warm: true }, workspaces: null, layouts: {}, corrupt: [], restored: [] })
+    expect(old.warmWhen).toBe('always')
+    expect(old.warmPlace).toBeNull()
+    // And a nonsense time or a place off the planet falls back.
+    const bad = decode({
+      config: { version: 2, theme: 'dark', warmFrom: 9999, warmPlace: { lat: 500, lon: 0 } },
+      workspaces: null,
+      layouts: {},
+      corrupt: [],
+      restored: [],
+    })
+    expect(bad.warmFrom).toBe(20 * 60)
+    expect(bad.warmPlace).toBeNull()
     expect(violations).toEqual([])
   })
 

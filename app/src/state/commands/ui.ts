@@ -1,6 +1,8 @@
 // UI commands: named, so the action log reads like what the user did.
 import type { EnvInfo, InitInfo, Limits, Suggestion, Theme } from '../../types'
 import { withAttached } from '../../lib/attach'
+import type { Place } from '../../lib/sun'
+import type { WarmWhen } from '../../lib/warmth'
 import { act } from '../act'
 import { getState, type NewSessionDraft, type PersistStatus, type SettingsMenu, type UpdateState, type WsFilter } from '../store'
 
@@ -28,6 +30,19 @@ export const setWarmValue = (on: boolean, kelvin?: number) =>
     d.ui.warm = on
     if (kelvin !== undefined) d.ui.warmth = kelvin
   })
+/** All the time, between hours you set, or sunset to sunrise. */
+export const setWarmWhenValue = (when: WarmWhen) => act('ui/warmWhen', (d) => void (d.ui.warmWhen = when))
+export const setWarmHoursValue = (fromMin: number, toMin: number) =>
+  act('ui/warmHours', (d) => {
+    const clamp = (n: number) => Math.min(1439, Math.max(0, Math.round(n)))
+    d.ui.warmFrom = clamp(fromMin)
+    d.ui.warmTo = clamp(toMin)
+  })
+export const setWarmPlaceValue = (place: Place | null) => act('ui/warmPlace', (d) => void (d.ui.warmPlace = place))
+/** A manual flip that stands until the schedule next changes its mind. */
+export const setWarmOverride = (held: { on: boolean; until: number } | null) =>
+  act('ui/warmOverride', (d) => void (d.ui.warmOverride = held))
+
 /** Opens the settings popover (or the newest feature's), or closes it when
  *  the same one is already open. */
 export const toggleSettingsMenu = (which: SettingsMenu) =>

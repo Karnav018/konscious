@@ -6,6 +6,8 @@ import { subscribeWithSelector } from 'zustand/middleware'
 
 import type { AppId, Edge, MetricKey, PomoState, ReminderState } from '../lib/apps'
 import { freshPomo, freshReminder } from '../lib/apps'
+import type { Place } from '../lib/sun'
+import type { WarmWhen } from '../lib/warmth'
 import { DEFAULT_K } from '../lib/warmth'
 import type { EnvInfo, InitInfo, Kind, Layout, Limits, Runtime, SessionMeta, Suggestion, Theme, Workspace } from '../types'
 
@@ -86,6 +88,15 @@ export interface UiState {
   /** Warm colours for late sessions, and the temperature chosen for them. */
   warm: boolean
   warmth: number
+  /** All the time, between hours you set, or sunset to sunrise. */
+  warmWhen: WarmWhen
+  /** Minutes from midnight, for the hours schedule. */
+  warmFrom: number
+  warmTo: number
+  /** Exact coordinates, when the timezone estimate is not wanted. */
+  warmPlace: Place | null
+  /** A manual flip that holds until the schedule next changes its mind. */
+  warmOverride: { on: boolean; until: number } | null
   /** The settings popover: every setting ('all'), or just the newest
    *  feature's, opened from its title-bar button ('quick'). */
   settingsMenu: SettingsMenu | null
@@ -142,6 +153,11 @@ export const initialState = (): AppState => ({
     theme: 'dark',
     warm: false,
     warmth: DEFAULT_K,
+    warmWhen: 'always',
+    warmFrom: 20 * 60,
+    warmTo: 6 * 60,
+    warmPlace: null,
+    warmOverride: null,
     settingsMenu: null,
     fileDrop: null,
     fontSize: 12,

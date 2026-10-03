@@ -9,11 +9,15 @@ import {
   kelvinAt,
   multipliers,
   NEUTRAL_K,
+  atLocalMinutes,
+  kelvinFor,
+  nextBoundary,
   paintWarmth,
   percentAt,
   WARMED_TOKENS,
   WARMEST_K,
   warmColor,
+  warmStrength,
 } from './warmth'
 
 describe('colour temperature', () => {
@@ -119,5 +123,60 @@ describe('painting the window', () => {
     paintWarmth('dark', 3000)
     paintWarmth('dark', DEFAULT_K)
     expect(override('--pane')).toBe(once)
+  })
+})
+
+describe('when it warms', () => {
+  // A window from 20:00 to 06:00, as instants on one day.
+  const day = new Date(2026, 9, 3, 0, 0, 0, 0).getTime()
+  const at = (h: number, m = 0) => day + h * 3_600_000 + m * 60_000
+  const on = at(20)
+  const off = at(6)
+
+  it('is fully warm in the middle of the window and neutral outside it', () => {
+    expect(warmStrength(at(23), on, off)).toBe(1)
+    expect(warmStrength(at(2), on, off)).toBe(1)
+    expect(warmStrength(at(13), on, off)).toBe(0)
+    expect(warmStrength(at(9), on, off)).toBe(0)
+  })
+
+  it('eases across a boundary rather than snapping', () => {
+    // Twenty minutes either side of 20:00.
+    expect(warmStrength(at(19, 40), on, off)).toBeCloseTo(0, 2)
+    expect(warmStrength(at(20), on, off)).toBeCloseTo(0.5, 2)
+    expect(warmStrength(at(20, 20), on, off)).toBeCloseTo(1, 2)
+    // And back down around 06:00.
+    expect(warmStrength(at(5, 40), on, off)).toBeCloseTo(1, 2)
+    expect(warmStrength(at(6), on, off)).toBeCloseTo(0.5, 2)
+    expect(warmStrength(at(6, 20), on, off)).toBeCloseTo(0, 2)
+  })
+
+  it('handles a window that does not cross midnight', () => {
+    const noon = at(11)
+    const three = at(15)
+    expect(warmStrength(at(13), noon, three)).toBe(1)
+    expect(warmStrength(at(22), noon, three)).toBe(0)
+    expect(warmStrength(at(3), noon, three)).toBe(0)
+  })
+
+  it('knows when the schedule next changes its mind', () => {
+    expect(nextBoundary(at(23), on, off)).toBe(off + 86_400_000)
+    expect(nextBoundary(at(13), on, off)).toBe(on)
+    // An override taken out at dusk lasts until dawn, not for a fixed hour.
+    expect(nextBoundary(at(21), on, off) - at(21)).toBeGreaterThan(8 * 3_600_000)
+  })
+
+  it('reads minutes from midnight on the right day', () => {
+    expect(new Date(atLocalMinutes(at(13), 21 * 60)).getHours()).toBe(21)
+    expect(new Date(atLocalMinutes(at(13), 0)).getHours()).toBe(0)
+  })
+
+  it('paints neutral at no strength and the chosen warmth at full', () => {
+    expect(kelvinFor(3400, 0)).toBe(NEUTRAL_K)
+    expect(kelvinFor(3400, 1)).toBe(3400)
+    expect(kelvinFor(3400, 0.5)).toBe(Math.round((NEUTRAL_K + 3400) / 2))
+    // Half warm is still warm enough to be rewriting tokens.
+    expect(isWarm(kelvinFor(3400, 0.5))).toBe(true)
+    expect(isWarm(kelvinFor(3400, 0))).toBe(false)
   })
 })

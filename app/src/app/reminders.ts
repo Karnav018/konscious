@@ -6,6 +6,7 @@
 // nudge, not one per tick. The notification goes out at the same moment, once.
 import { appById, isDue, pomoNotice, pomoOver } from '../lib/apps'
 import { ipc } from '../lib/ipc'
+import { repaintIfDue } from './actions'
 import { advancePomo, markDue, setNotifyAllowed } from '../state/commands/apps'
 import { getState } from '../state/store'
 
@@ -22,6 +23,8 @@ function sessionWaiting(): boolean {
 }
 
 function tick(now = Date.now()) {
+  // The warm schedule crosses its boundaries unattended; this follows them.
+  repaintIfDue()
   const s = getState()
   const waiting = sessionWaiting()
 

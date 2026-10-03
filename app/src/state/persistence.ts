@@ -12,7 +12,8 @@ import { z } from 'zod'
 import { APPS, type AppId } from '../lib/apps'
 import { CAP } from '../lib/grid'
 import { ipc } from '../lib/ipc'
-import { DEFAULT_K, NEUTRAL_K, WARMEST_K } from '../lib/warmth'
+import type { Place } from '../lib/sun'
+import { DEFAULT_K, NEUTRAL_K, WARMEST_K, type WarmWhen } from '../lib/warmth'
 import type { Layout, Limits, SessionMeta, Snapshot, Theme, Workspace } from '../types'
 import { act } from './act'
 import { setPersistStatus } from './commands/ui'
@@ -93,6 +94,14 @@ const ConfigFileV1 = z.object({
   /** Warm colours for late sessions, and the temperature they warm to. */
   warm: z.boolean().catch(false).optional(),
   warmth: z.number().min(WARMEST_K).max(NEUTRAL_K).catch(DEFAULT_K).optional(),
+  warmWhen: z.enum(['always', 'hours', 'sun']).catch('always').optional(),
+  warmFrom: z.number().min(0).max(1439).catch(20 * 60).optional(),
+  warmTo: z.number().min(0).max(1439).catch(6 * 60).optional(),
+  warmPlace: z
+    .object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) })
+    .nullable()
+    .catch(null)
+    .optional(),
   /** Last known plan usage, shown (faded) until the next live update. */
   limits: z.object({ fiveHour: LimitWindowV, sevenDay: LimitWindowV }).nullable().catch(null).optional(),
   limitsAt: z.number().nullable().catch(null).optional(),
@@ -152,6 +161,10 @@ export interface Decoded {
   apps: AppsState
   warm: boolean
   warmth: number
+  warmWhen: WarmWhen
+  warmFrom: number
+  warmTo: number
+  warmPlace: Place | null
   fontSize: number
   limits: Limits | null
   limitsAt: number | null
@@ -219,6 +232,10 @@ export function decode(snap: Snapshot): Decoded {
     theme: cfg?.theme ?? 'dark',
     apps: appsFrom(cfg?.apps),
     warm: cfg?.warm ?? false,
+    warmWhen: cfg?.warmWhen ?? 'always',
+    warmFrom: cfg?.warmFrom ?? 20 * 60,
+    warmTo: cfg?.warmTo ?? 6 * 60,
+    warmPlace: cfg?.warmPlace ?? null,
     warmth: cfg?.warmth ?? DEFAULT_K,
     fontSize: cfg?.fontSize ?? DEFAULT_FONT,
     limits: cfg?.limits ?? null,
@@ -271,6 +288,10 @@ export function hydrate(dec: Decoded) {
     d.ui.theme = dec.theme
     d.ui.apps = dec.apps
     d.ui.warm = dec.warm
+    d.ui.warmWhen = dec.warmWhen
+    d.ui.warmFrom = dec.warmFrom
+    d.ui.warmTo = dec.warmTo
+    d.ui.warmPlace = dec.warmPlace
     d.ui.warmth = dec.warmth
     d.ui.fontSize = dec.fontSize
     d.ui.limits = dec.limits
@@ -295,6 +316,10 @@ export function serialize(s: AppState = getState()) {
       theme: s.ui.theme,
       apps: s.ui.apps,
       warm: s.ui.warm,
+      warmWhen: s.ui.warmWhen,
+      warmFrom: s.ui.warmFrom,
+      warmTo: s.ui.warmTo,
+      warmPlace: s.ui.warmPlace,
       warmth: s.ui.warmth,
       fontSize: s.ui.fontSize,
       activeWorkspace: activeId,
@@ -363,7 +388,7 @@ export function startPersistence(dec: Pick<Decoded, 'readonly'>) {
   if (dec.readonly) setPersistStatus({ state: 'readonly', message: dec.readonly })
   for (const [target, data] of targets(getState())) written.set(target, JSON.stringify(data))
   useApp.subscribe(
-    (s) => [s.workspace, s.layout, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.fontSize, s.ui.limits, s.ui.apps] as const,
+    (s) => [s.workspace, s.layout, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.warmWhen, s.ui.warmFrom, s.ui.warmTo, s.ui.warmPlace, s.ui.fontSize, s.ui.limits, s.ui.apps] as const,
     schedule,
     { equalityFn: (a, b) => a.every((x, i) => x === b[i]) },
   )
