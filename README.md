@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious-0.2.4-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
-  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious_0.2.4_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.0/Konscious-0.3.0-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.0/Konscious_0.3.0_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
   <a href="https://konscious.hawkapp.in"><img src="https://img.shields.io/badge/Website-konscious.hawkapp.in-FBF5E5?style=for-the-badge&labelColor=212121" alt="Website"></a>
 </p>
 
@@ -38,7 +38,7 @@ Konscious runs your own Claude Code, so install it and sign in first.
 
 | | macOS | Windows |
 |---|---|---|
-| **Download** | [Konscious-0.2.4-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious-0.2.4-universal.dmg) | [Konscious_0.2.4_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious_0.2.4_x64-setup.exe) |
+| **Download** | [Konscious-0.3.0-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.3.0/Konscious-0.3.0-universal.dmg) | [Konscious_0.3.0_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.3.0/Konscious_0.3.0_x64-setup.exe) |
 | **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit |
 | **Install** | Open the DMG and drag Konscious to Applications | Run the installer (for your account, no admin needed) |
 | **First launch** | macOS stops it once because the app isn’t notarized yet: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** |
@@ -99,7 +99,7 @@ and the compiler checks the half you are not looking at.
 
 ## Releasing
 
-A release is a tag. `scripts/release.sh 0.2.4` writes the version into both apps, the website and this README, then pushes `v0.2.4`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS and the installer on Windows, runs each platform's checks, signs both for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour. Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
+A release is a tag. `scripts/release.sh 0.3.0` writes the version into both apps, the website and this README, then pushes `v0.3.0`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS and the installer on Windows, runs each platform's checks, signs both for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour. Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
 
 The updater only installs what the matching private key signed. That keypair is not in the repo: the public half is in both `tauri.conf.json` files, and the workflow reads the private half from the repository secret `TAURI_SIGNING_PRIVATE_KEY` (plus `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, only if the key has a password). Keep the private key safe — losing it means no installed copy can accept an update, and the only way out is asking people to install by hand again.
 
