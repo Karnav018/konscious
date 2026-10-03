@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 
 import { fileKind, fileName } from '../../lib/attach'
+import { ctrl } from '../../lib/platform'
 import { ipc } from '../../lib/ipc'
 import { terminals } from '../../lib/terminals'
 import { clearAttachments } from '../../state/commands/ui'
@@ -73,7 +74,7 @@ export function AttachedFiles({ id }: { id: string }) {
           terminals.clearInput(id)
           clearAttachments(id)
         }}
-        title="Clear the prompt (⌃U — ⌃Y puts it back)"
+        title={`Clear the prompt (${ctrl('U')} — ${ctrl('Y')} puts it back)`}
         className="h-7 px-2 flex-none flex items-center gap-1 rounded-rs text-faint cursor-pointer hover:bg-hover hover:text-text text-[11.5px]"
       >
         <CloseIcon size={11} />

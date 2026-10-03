@@ -21,6 +21,7 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 
 import type { Kind, Theme } from '../types'
 import { Channel, ipc } from './ipc'
+import { IS_WINDOWS } from './platform'
 import { attachFiles } from '../state/commands/ui'
 import { pathsForTerminal } from './paste'
 import { isAppShortcut } from './shortcuts'
@@ -221,16 +222,35 @@ function ack(e: Entry, n: number) {
   else if (!e.ackTimer) e.ackTimer = setTimeout(() => flushAck(e), 100)
 }
 
-/** ⌘V and Edit › Paste can both fire for one paste (the key, then the menu's
- *  paste event); whichever comes second within this window is the same paste. */
+/** ConPTY repaints on resize by itself; xterm must know which build it is
+ *  talking to (reflow is safe from build 21376, i.e. Windows 11). WebView2
+ *  reports Windows 11 as platformVersion 13+. */
+let winPty: { backend: 'conpty'; buildNumber?: number } = { backend: 'conpty' }
+if (IS_WINDOWS) {
+  const uaData = (navigator as Navigator & {
+    userAgentData?: { getHighEntropyValues(h: string[]): Promise<{ platformVersion?: string }> }
+  }).userAgentData
+  void uaData
+    ?.getHighEntropyValues(['platformVersion'])
+    .then(({ platformVersion }) => {
+      const major = Number((platformVersion ?? '').split('.')[0])
+      winPty = { backend: 'conpty', buildNumber: major >= 13 ? 22000 : 19045 }
+      for (const e of entries.values()) e.term.options.windowsPty = winPty
+    })
+    .catch(() => {})
+}
+
+/** The paste key and a paste event can both fire for one paste (the key,
+ *  then the browser's paste); whichever comes second is the same paste. */
 const PASTE_DEDUP_MS = 300
 let lastPasteAt = -Infinity
 
 /**
- * Paste the way Terminal does. The clipboard is read natively because WebKit
- * gives the page only the *name* of a file copied in Finder: copied files
- * paste as their (escaped) paths, otherwise the text. With only a picture on
- * the clipboard, a Claude pane gets ⌃V — Claude Code reads the image itself.
+ * Paste the way Windows Terminal does. The clipboard is read natively because
+ * WebView2 gives the page only the *names* of files copied in Explorer: copied
+ * files paste as their (quoted) paths, otherwise the text. On macOS, with only
+ * a picture on the clipboard, a Claude pane gets ⌃V — Claude Code reads the
+ * image itself (Windows uses a different key, so it is left alone there).
  */
 async function pasteClipboard(e: Entry) {
   const now = performance.now()
@@ -243,7 +263,7 @@ async function pasteClipboard(e: Entry) {
     attachFiles(e.id, clip.paths)
   }
   else if (clip.text) e.term.paste(clip.text)
-  else if (clip.image && e.kind === 'claude') e.term.input('\x16', true)
+  else if (clip.image && e.kind === 'claude' && !IS_WINDOWS) e.term.input('\x16', true)
 }
 
 /** Select-all, then Delete. A terminal selection is a copy selection over the
@@ -290,6 +310,39 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
       return false
     }
   }
+  if (IS_WINDOWS && ev.ctrlKey && !ev.altKey && !ev.metaKey) {
+    const k = ev.key.toLowerCase()
+    // Windows Terminal conventions (no Edit menu here): Ctrl+C copies when
+    // text is selected and is ^C otherwise; Ctrl+Shift+C always copies.
+    if (k === 'c' && (ev.shiftKey || e.term.hasSelection())) {
+      if (ev.type === 'keydown') {
+        ev.preventDefault()
+        const text = e.term.getSelection()
+        if (text) void navigator.clipboard.writeText(text).catch(() => {})
+        e.term.clearSelection()
+      }
+      return false
+    }
+    // Ctrl+Shift+A selects the pane's output, the Windows Terminal binding.
+    // Plain Ctrl+A stays ^A (start of line) for the program.
+    if (k === 'a' && ev.shiftKey) {
+      if (ev.type === 'keydown') {
+        ev.preventDefault()
+        e.term.selectAll()
+        e.selectedAll = true // set after selectAll: the change event resets it
+      }
+      return false
+    }
+    // Ctrl+V / Ctrl+Shift+V: pasted here (not by WebView2) so files copied
+    // in Explorer paste as paths; see pasteClipboard.
+    if (k === 'v') {
+      if (ev.type === 'keydown') {
+        ev.preventDefault()
+        void pasteClipboard(e)
+      }
+      return false
+    }
+  }
   // ⌘-combos never reach the PTY (xterm would send a bare \r for ⌘↵).
   // Copy arrives through the native Edit menu as a DOM copy event.
   if (ev.metaKey || isAppShortcut(ev)) return false
@@ -314,6 +367,7 @@ export const terminals = {
       scrollback: SCROLLBACK,
       macOptionIsMeta: true,
       macOptionClickForcesSelection: true,
+      ...(IS_WINDOWS ? { windowsPty: winPty } : {}),
       allowProposedApi: true,
       drawBoldTextInBrightColors: false,
       theme: xtermTheme(),

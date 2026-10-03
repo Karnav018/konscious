@@ -13,6 +13,8 @@ import {
 } from '../../app/actions'
 import { ago, relTo, STATUS_COLOR, STATUS_LABEL, tildify } from '../../lib/format'
 import { CAP } from '../../lib/grid'
+import { shellLabel } from '../../lib/path'
+import { IS_WINDOWS } from '../../lib/platform'
 import { layoutOf } from '../../state/commands/layout'
 import { runtimeOf } from '../../state/commands/runtime'
 import { closeWorkspaceMenu, hoverWorkspace, setWsFilter } from '../../state/commands/ui'
@@ -86,6 +88,7 @@ export function WorkspaceMenu() {
   const wsHover = useUi((u) => u.wsHover)
   const wsFilter = useUi((u) => u.wsFilter)
   const home = useUi((u) => u.init?.home)
+  const shellTag = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : 'zsh'))
   const workspaces = useWorkspacesByUse()
   // Subscribing here means the engine is only polled while this menu is open.
   const memory = useSessionMemory()
@@ -189,7 +192,7 @@ export function WorkspaceMenu() {
               const isSel = shown.id === activeId && shownLayout.selected === m.id
               const right = r.status === 'idle' ? ago(m.lastActiveAt, now) : STATUS_LABEL[r.status]
               const sub = [
-                (m.kind === 'shell' ? 'zsh · ' : '') + relTo(m.cwd, shown.path),
+                (m.kind === 'shell' ? `${shellTag} · ` : '') + relTo(m.cwd, shown.path),
                 r.git ? `⎇ ${r.git.branch}` : null,
               ]
                 .filter(Boolean)

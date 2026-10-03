@@ -24,6 +24,7 @@ import { StatusBar } from './components/StatusBar/StatusBar'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { Toast } from './components/Toast/Toast'
 import { WorkspaceMenu } from './components/WorkspaceMenu/WorkspaceMenu'
+import { IS_WINDOWS, isBrowserKey } from './lib/platform'
 import { matchShortcut } from './lib/shortcuts'
 import {
   cancelDeleteSession,
@@ -43,6 +44,9 @@ const anyOverlayOpen = (ui: UiState) =>
 
 /** Capture phase: runs before xterm's own key handling. */
 function onKeyDown(e: KeyboardEvent) {
+  // WebView2 would reload/print/find on the app page itself. Cancel only the
+  // browser action; the key still reaches the terminal (Ctrl+R stays ^R).
+  if (IS_WINDOWS && isBrowserKey(e)) e.preventDefault()
   const s = getState()
   const sc = matchShortcut(e)
   if (sc) {
@@ -139,6 +143,12 @@ export default function App() {
     }
     window.addEventListener('mousedown', closePopovers)
     window.addEventListener('keydown', onKeyDown, true)
+    // WebView2's page menu (Back, Refresh, Print…) makes no sense in an app;
+    // text fields keep theirs for cut/copy/paste.
+    const noPageMenu = (e: MouseEvent) => {
+      if (!(e.target instanceof HTMLInputElement)) e.preventDefault()
+    }
+    if (IS_WINDOWS) window.addEventListener('contextmenu', noPageMenu)
     void bootstrap().catch((e) => {
       console.error(e)
       setBooted()
@@ -146,6 +156,7 @@ export default function App() {
     })
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('contextmenu', noPageMenu)
       window.removeEventListener('mousedown', closePopovers)
     }
   }, [])

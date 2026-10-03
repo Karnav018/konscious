@@ -41,7 +41,7 @@ pub async fn app_init(state: State<'_, AppState>) -> AppResult<InitInfo> {
         lock_ok: state.lock_ok,
         base_dir: state.store.base().to_string_lossy().into_owned(),
         previous_version: crate::is_previous_data_dir(state.store.base()),
-        home: std::env::var("HOME").unwrap_or_default(),
+        home: crate::env::home_dir(),
         version: env!("CARGO_PKG_VERSION").into(),
     })
 }
@@ -180,13 +180,13 @@ pub async fn fs_subdirs(path: String) -> AppResult<Vec<String>> {
 #[tauri::command]
 pub async fn fs_suggest_folders() -> AppResult<Vec<Suggestion>> {
     blocking(|| {
-        let home = std::env::var("HOME").unwrap_or_default();
+        let home = crate::env::home_dir();
         Ok(suggest::folders(std::path::Path::new(&home), 6))
     })
     .await
 }
 
-/// What ⌘V pastes into a pane: copied files' paths, else the text.
+/// What Ctrl+V pastes into a pane: copied files' paths, else the text.
 #[tauri::command]
 pub async fn clipboard_read() -> AppResult<crate::clipboard::Clipboard> {
     Ok(crate::clipboard::read())
@@ -199,6 +199,5 @@ pub async fn file_thumbnail(path: String) -> AppResult<Option<String>> {
 
 #[tauri::command]
 pub async fn fs_is_dir(path: String) -> AppResult<bool> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    Ok(crate::claude::launcher::validate_cwd(&path, &home).is_ok())
+    Ok(crate::claude::launcher::validate_cwd(&path, &crate::env::home_dir()).is_ok())
 }

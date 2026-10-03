@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Windows safety gate: the same four checks scripts/check-mac.sh runs, for the
-# Windows copy of the app. Runs on a Windows machine (Git Bash) or in CI.
-#   windows/scripts/check-windows.sh
+# Windows safety gate: the same four checks check-mac.sh runs, for the Windows
+# build of the one codebase. Runs on a Windows machine (Git Bash) or in CI.
+#   app/scripts/check-windows.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

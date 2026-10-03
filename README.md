@@ -80,14 +80,15 @@ Requires Node 22+, pnpm and Rust (stable).
 
 | Folder | What |
 |---|---|
-| [`app/`](app) | The macOS app — interface in `app/src`, Rust engine in `app/src-tauri` |
-| [`windows/`](windows) | The Windows app, a separate copy with the Windows port ([notes](windows/README.md)) |
+| [`app/`](app) | The app, both platforms — interface in `app/src`, Rust engine in `app/src-tauri` |
 | [`site/`](site) | The website, [konscious.hawkapp.in](https://konscious.hawkapp.in) ([notes](site/README.md)) |
 | [`scripts/`](scripts) | One command per build, install and deploy |
 | `release/` | Where a local build drops its installer (not in the repo) |
 | [`claude_workspace_desktop_prd.md`](claude_workspace_desktop_prd.md) | Product requirements |
 
-`app/` contains no Windows code, and nothing in `windows/` is part of the Mac build — a change meant for both platforms is made in both folders.
+One codebase builds both apps. What differs between them lives behind `lib/platform.ts` and `lib/path.ts` in the
+interface, and `#[cfg(unix)]` / `#[cfg(windows)]` in the engine — so a change meant for both platforms is made once,
+and the compiler checks the half you are not looking at.
 
 - **`scripts/build-mac.sh`** — runs the Mac checks (tests, typecheck, clippy), then builds `release/mac/Konscious-<version>-universal.dmg`. Never touches the installed app.
 - **`scripts/build-windows.sh`** — cross-compiles on a Mac into `release/win/Konscious_<version>_x64-setup.exe`. One-time setup: `brew install llvm nsis` and `cargo install --locked cargo-xwin`.

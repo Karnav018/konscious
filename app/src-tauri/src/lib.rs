@@ -15,8 +15,11 @@ mod terminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+#[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Emitter, Manager, RunEvent, Wry};
+#[cfg(target_os = "macos")]
+use tauri::{AppHandle, Wry};
+use tauri::{Emitter, Manager, RunEvent};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use env::EnvHandle;
@@ -53,7 +56,7 @@ fn base_dir() -> PathBuf {
             return PathBuf::from(p);
         }
     }
-    data_dir_in(&PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into())))
+    data_dir_in(&PathBuf::from(env::home_dir()))
 }
 
 fn data_dir_in(home: &Path) -> PathBuf {
@@ -88,7 +91,10 @@ fn locked(dir: &Path) -> bool {
 /// which changed with the rename; carry the file over once so the window
 /// opens where it was.
 fn carry_window_state(identifier: &str) {
-    // Tauri's app config dir on macOS.
+    // Tauri's app config dir: %APPDATA% on Windows.
+    #[cfg(windows)]
+    let base = std::env::var_os("APPDATA").map(PathBuf::from);
+    #[cfg(not(windows))]
     let base = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"));
     let Some(base) = base else { return };
     let file = tauri_plugin_window_state::DEFAULT_FILENAME;
@@ -100,6 +106,7 @@ fn carry_window_state(identifier: &str) {
 }
 
 /// GUI apps start with a soft limit of 256 fds; each PTY session uses several.
+#[cfg(unix)]
 fn raise_fd_limit() {
     unsafe {
         let mut rl = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
@@ -116,6 +123,7 @@ fn raise_fd_limit() {
 /// The default macOS menu binds ⌘W to "Close Window", which would end every
 /// session. Ours keeps Copy/Paste (xterm needs the native Edit actions) and
 /// leaves ⌘A to the frontend so it can select the terminal buffer.
+#[cfg(target_os = "macos")]
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let sep = || PredefinedMenuItem::separator(app);
     let app_menu = Submenu::with_items(
@@ -161,8 +169,18 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     Menu::with_items(app, &[&app_menu, &edit, &window])
 }
 
+/// Windows hooks run `Konscious.exe hook …` / `Konscious.exe status …` (see
+/// claude::win_hooks). Handles those and returns the exit code before any
+/// window or runtime code loads; `None` for a normal launch.
+#[cfg(windows)]
+pub fn helper_main() -> Option<i32> {
+    let args: Vec<String> = std::env::args().collect();
+    claude::win_hooks::run_helper(&args, &mut std::io::stdin().lock())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(unix)]
     raise_fd_limit();
     let context = tauri::generate_context!();
     carry_window_state(&context.config().identifier);
@@ -187,6 +205,9 @@ pub fn run() {
             let sessions = SessionManager::new(emit, Arc::clone(&env), store.run_dir());
             sessions.start_ticker();
             app.manage(AppState { env, sessions, store, lock_ok });
+            // macOS has an app menu bar (Copy/Paste live there); Windows windows
+            // get no menu bar — WebView2 handles clipboard keys natively.
+            #[cfg(target_os = "macos")]
             app.set_menu(build_menu(app.handle())?)?;
             Ok(())
         })

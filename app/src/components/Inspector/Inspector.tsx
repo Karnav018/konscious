@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 
 import { copyText, killSession, renameSession, restartSession, startSession, stopSession } from '../../app/actions'
 import { ago, clock, STATUS_COLOR, STATUS_LABEL, tildify } from '../../lib/format'
+import { shellLabel } from '../../lib/path'
+import { IS_WINDOWS } from '../../lib/platform'
 import { setInspector, setRenaming } from '../../state/commands/ui'
 import { useActiveLayout, useRuntimeOf, useSession, useUi, useWorkspaceName } from '../../state/selectors'
 import { formatBytes, useSessionMemory, worthRestarting } from '../../lib/memory'
@@ -19,7 +21,7 @@ export function Inspector() {
   const rt = useRuntimeOf(id)
   const renaming = useUi((u) => u.renaming)
   const home = useUi((u) => u.init?.home)
-  const shell = useUi((u) => (u.env?.shell ?? '/bin/zsh').split('/').pop())
+  const shell = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : (u.env?.shell ?? '/bin/zsh').split('/').pop()))
   const now = useNow(10_000)
   const memory = useSessionMemory()[id ?? '']
   const [draft, setDraft] = useState('')

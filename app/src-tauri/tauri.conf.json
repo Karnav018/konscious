@@ -18,15 +18,15 @@
         "height": 900,
         "minWidth": 1080,
         "minHeight": 640,
+        "visible": false,
+        "backgroundColor": "#212121",
+        "backgroundThrottling": "disabled",
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "trafficLightPosition": {
           "x": 16,
           "y": 23
         },
-        "visible": false,
-        "backgroundColor": "#212121",
-        "backgroundThrottling": "disabled",
         "acceptFirstMouse": true
       }
     ],
@@ -39,28 +39,39 @@
       "endpoints": [
         "https://github.com/Karnav018/konscious/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk0M0E5N0JFRTc3MkM5RTIKUldUaXlYTG52cGM2bEtJQXpUblZNMGxETEFZUXZRRGRwbTg2aUFQemVOaU92ZDhXRnZkS2laVG8K"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk0M0E5N0JFRTc3MkM5RTIKUldUaXlYTG52cGM2bEtJQXpUblZNMGxETEFZUXZRRGRwbTg2aUFQemVOaU92ZDhXRnZkS2laVG8K",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   },
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": [
-      "app"
+      "app",
+      "dmg",
+      "nsis"
     ],
     "category": "DeveloperTool",
     "shortDescription": "Every Claude session, one calm place.",
-    "macOS": {
-      "minimumSystemVersion": "13.0",
-      "signingIdentity": "-"
-    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "installer-hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-"
+    }
   },
   "mainBinaryName": "Konscious"
 }

@@ -1,5 +1,6 @@
 // First-run screen (design lines 75–107), wired to the real CLI check,
 // folder picker and folder suggestions.
+import { kbd } from '../../lib/platform'
 import { addWorkspace, openNewSession, pickWorkspaceFolder } from '../../app/actions'
 import { tildify } from '../../lib/format'
 import { useUi } from '../../state/selectors'
@@ -105,7 +106,7 @@ export function FirstRun() {
                 onClick={() => void openNewSession()}
                 className="h-[30px] px-3 flex items-center gap-2 rounded-rs bg-accent text-accent-ink cursor-pointer text-[12.5px] font-medium"
               >
-                New session <span className="font-mono text-[11px] opacity-75">⌘N</span>
+                New session <span className="font-mono text-[11px] opacity-75">{kbd('N')}</span>
               </div>
             }
           />

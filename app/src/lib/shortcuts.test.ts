@@ -51,3 +51,31 @@ describe('macOS shortcuts', () => {
     expect(isAppShortcut(key('r', { metaKey: false, ctrlKey: true }))).toBe(false)
   })
 })
+
+describe('Windows shortcuts', () => {
+  const win = (code: string, k: string, mods: Mods = {}) =>
+    matchShortcut(key(k, { metaKey: false, ctrlKey: true, shiftKey: true, code, ...mods }), true)
+
+  it('uses Ctrl+Shift so plain Ctrl+letter stays with the terminal', () => {
+    expect(win('KeyN', 'N')).toEqual({ type: 'newSession' })
+    expect(win('KeyT', 'T')).toEqual({ type: 'newTerminal' })
+    expect(win('KeyO', 'O')).toEqual({ type: 'workspaceMenu' })
+    expect(win('KeyI', 'I')).toEqual({ type: 'inspector' })
+    expect(win('KeyJ', 'J')).toEqual({ type: 'jumpWaiting' })
+    expect(win('Enter', 'Enter')).toEqual({ type: 'toggleFocus' })
+    expect(win('Digit1', '!')).toEqual({ type: 'selectPane', index: 0 })
+    expect(win('ArrowLeft', 'ArrowLeft')).toEqual({ type: 'movePane', delta: -1 })
+    expect(win('ArrowRight', 'ArrowRight')).toEqual({ type: 'movePane', delta: 1 })
+    expect(win('ArrowLeft', 'ArrowLeft', { shiftKey: false })).toBeNull() // Ctrl+← is a word jump
+    expect(win('KeyO', 'o', { shiftKey: false })).toBeNull() // Ctrl+O belongs to the TUI
+    expect(win('KeyC', 'c', { shiftKey: false })).toBeNull()
+    expect(win('KeyN', 'N', { ctrlKey: false })).toBeNull()
+    expect(win('KeyN', 'N', { altKey: true })).toBeNull()
+  })
+
+  it('keeps Ctrl+= Ctrl+- Ctrl+0 for text size', () => {
+    expect(win('Equal', '=', { shiftKey: false })).toEqual({ type: 'fontSize', delta: 1 })
+    expect(win('Minus', '-', { shiftKey: false })).toEqual({ type: 'fontSize', delta: -1 })
+    expect(win('Digit0', '0', { shiftKey: false })).toEqual({ type: 'fontSize', delta: 0 })
+  })
+})

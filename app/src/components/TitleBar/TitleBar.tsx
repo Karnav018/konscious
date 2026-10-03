@@ -3,6 +3,8 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
 import { jumpWaiting, openNewSession, openTerminalHere, setMode, switchWorkspace } from '../../app/actions'
+import { basename } from '../../lib/path'
+import { IS_WINDOWS, kbd } from '../../lib/platform'
 import { toggleInspector, toggleWorkspaceMenu } from '../../state/commands/ui'
 import {
   useActiveLayout,
@@ -29,7 +31,8 @@ const wsSegment =
  * The workspace button, as a switch between the two workspaces used most
  * recently (like Grid / Focus): the highlight slides to the one you pick. The
  * pair keeps the order the workspaces were added in, so the highlight moves
- * rather than the names. Clicking the active one opens the menu (as does ⌘O).
+ * rather than the names. Clicking the active one opens the menu (as does the
+ * workspace shortcut).
  */
 function WorkspaceSwitch({ firstRun }: { firstRun: boolean }) {
   const wsMenu = useUi((u) => u.wsMenu)
@@ -84,7 +87,7 @@ function WorkspaceSwitch({ firstRun }: { firstRun: boolean }) {
               key={w.id}
               ref={(el) => void (el ? segs.current.set(w.id, el) : segs.current.delete(w.id))}
               onClick={on ? openMenu : () => switchWorkspace(w.id)}
-              title={on ? 'Workspaces & sessions (⌘O)' : `Switch to ${w.name}`}
+              title={on ? `Workspaces & sessions (${kbd('O')})` : `Switch to ${w.name}`}
               className={`${wsSegment} ${on ? '' : 'hover:text-text'}`}
               style={{ color: on ? 'var(--text)' : 'var(--muted)' }}
             >
@@ -123,7 +126,8 @@ export function TitleBar() {
     <div
       data-tauri-drag-region
       className="h-[46px] flex-none flex items-center gap-[14px] pr-[10px] border-b border-line bg-side relative z-[23]"
-      style={{ paddingLeft: fullscreen ? 14 : 84 }}
+      // 84px clears the macOS traffic lights; Windows has a native title bar.
+      style={{ paddingLeft: fullscreen || IS_WINDOWS ? 14 : 84 }}
     >
       <div data-tauri-drag-region className="flex items-center flex-none">
         <Wordmark size={17} className="pointer-events-none" />
@@ -145,7 +149,7 @@ export function TitleBar() {
       {!firstRun && (
         <div
           onClick={() => void openTerminalHere(layout.selected)}
-          title={`New terminal in ${selected ? selected.cwd.split('/').pop() : (ws?.name ?? 'workspace')} (⌘T)`}
+          title={`New terminal in ${selected ? (IS_WINDOWS ? basename(selected.cwd) : selected.cwd.split('/').pop()) : (ws?.name ?? 'workspace')} (${kbd('T')})`}
           className="h-[30px] pl-2 pr-[10px] flex items-center gap-1 rounded-rs border border-line bg-pane cursor-pointer text-muted flex-none hover:border-line2 hover:text-text"
         >
           <PlusIcon size={12} />
@@ -156,7 +160,7 @@ export function TitleBar() {
       {counts.waiting > 0 && !firstRun && (
         <div
           onClick={jumpWaiting}
-          title="Next session that needs you (⌘J)"
+          title={`Next session that needs you (${kbd('J')})`}
           className="h-[26px] flex items-center gap-1.5 px-[10px] rounded-pill border border-warn text-warn text-[12px] font-medium cursor-pointer whitespace-nowrap flex-none hover:bg-hover"
         >
           <span className="w-1.5 h-1.5 rounded-[3px] bg-warn" />
@@ -174,7 +178,7 @@ export function TitleBar() {
         <SettingsButtons />
         <div
           onClick={() => toggleInspector(inspector)}
-          title="Session details (⌘I)"
+          title={`Session details (${kbd('I')})`}
           className="h-7 max-w-[200px] flex items-center gap-[7px] pl-[10px] pr-2 rounded-rs border bg-pane cursor-pointer flex-none hover:border-line2"
           style={{ borderColor: inspector ? 'var(--accent)' : 'var(--line)' }}
         >
@@ -190,7 +194,7 @@ export function TitleBar() {
         </div>
         <div
           onClick={() => void openNewSession()}
-          title="New session (⌘N)"
+          title={`New session (${kbd('N')})`}
           className="h-7 pl-2 pr-[10px] flex items-center gap-1.5 rounded-rs bg-accent text-accent-ink cursor-pointer text-[12.5px] font-medium ml-1"
         >
           <PlusIcon />

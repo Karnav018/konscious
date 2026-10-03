@@ -1,4 +1,5 @@
 import { dropSession } from '../../lib/grid'
+import { basename } from '../../lib/path'
 import type { SessionMeta, Workspace } from '../../types'
 import { act } from '../act'
 import { getState } from '../store'
@@ -12,7 +13,7 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 40) || 'workspace'
 
-export const basename = (p: string) => p.replace(/\/+$/, '').split('/').pop() || p
+export { basename }
 
 export const newSessionId = () => `s-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
 

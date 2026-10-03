@@ -1,5 +1,5 @@
-// Files dragged from Finder onto a pane: their paths are typed into that
-// pane, the way Terminal does it — so Claude Code attaches a dropped image,
+// Files dragged from Explorer onto a pane: their paths are typed into that
+// pane, the way Windows Terminal does it — so Claude Code attaches a dropped image,
 // and a shell gets the path to work on.
 //
 // Tauri takes file drops away from the page (dragDropEnabled), so they come

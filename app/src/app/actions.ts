@@ -2,6 +2,8 @@
 // these; they never talk to ipc, terminals or `act` directly.
 import { CAP } from '../lib/grid'
 import { errorMessage, ipc, type SessionSpec } from '../lib/ipc'
+import { trimSep } from '../lib/path'
+import { IS_WINDOWS } from '../lib/platform'
 import { terminals } from '../lib/terminals'
 import { DEFAULT_K, effectiveK, isWarm, kelvinAt, paintWarmth } from '../lib/warmth'
 import {
@@ -54,6 +56,7 @@ export function expandHome(path: string): string {
   const home = getState().ui.init?.home
   const p = path.trim()
   if (home && (p === '~' || p.startsWith('~/'))) return home + p.slice(1)
+  if (IS_WINDOWS) return home && p.startsWith('~\\') ? home + p.slice(1) : trimSep(p)
   return p.replace(/\/+$/, '') || p
 }
 
