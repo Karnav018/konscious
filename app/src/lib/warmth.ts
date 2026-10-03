@@ -30,7 +30,8 @@ export const percentAt = (kelvin: number) =>
  *
  *  The status palette is deliberately absent — --ok, --warn, --err and --info
  *  are how a pane says working / waiting / failed / idle, and how the usage
- *  rings warn you, so they stay true at every setting. The shadows and the
+ *  rings warn you, so they stay true at every setting. --hot joins them: a
+ *  machine under load must never start reading as a session in trouble. The shadows and the
  *  modal overlay are black: warming them would change nothing. */
 export const WARMED_TOKENS = [
   '--stage',
@@ -47,6 +48,14 @@ export const WARMED_TOKENS = [
   '--accentSoft',
   '--accentInk',
   '--userBg',
+  '--water',
+  '--stand',
+  '--sys',
+  '--cpu',
+  '--ram',
+  '--ssd',
+  '--tmp',
+  '--pomo',
   '--hover',
   '--sel',
 ] as const

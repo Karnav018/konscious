@@ -15,6 +15,7 @@ export type Shortcut =
   | { type: 'toggleFocus' }
   | { type: 'selectPane'; index: number }
   | { type: 'movePane'; delta: 1 | -1 }
+  | { type: 'apps' }
   | { type: 'fontSize'; delta: 1 | -1 | 0 }
 
 export function matchShortcut(e: KeyboardEvent, win = IS_WINDOWS): Shortcut | null {
@@ -36,6 +37,7 @@ const WIN_KEYS: Record<string, Shortcut> = {
   KeyJ: { type: 'jumpWaiting' },
   Enter: { type: 'toggleFocus' },
   NumpadEnter: { type: 'toggleFocus' },
+  KeyA: { type: 'apps' },
   ArrowLeft: { type: 'movePane', delta: -1 },
   ArrowRight: { type: 'movePane', delta: 1 },
 }
@@ -60,6 +62,7 @@ function matchMac(e: KeyboardEvent): Shortcut | null {
   if (k === 'o' && !e.shiftKey) return { type: 'workspaceMenu' }
   if (k === 'i' && !e.shiftKey) return { type: 'inspector' }
   if (k === 'j' && !e.shiftKey) return { type: 'jumpWaiting' }
+  if (k === 'a' && e.shiftKey) return { type: 'apps' }
   if (k === 'enter') return { type: 'toggleFocus' }
   // ⌘⇧← / ⌘⇧→ — move the selected pane one slot in the grid.
   if (e.shiftKey && (k === 'arrowleft' || k === 'arrowright')) {

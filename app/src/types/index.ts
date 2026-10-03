@@ -73,6 +73,20 @@ export interface SessionMemory {
   processes: number
 }
 
+/** This machine, for the dock's gauge. `tmp` is °C, or null when the
+ *  platform will not report a component temperature. */
+export interface Stats {
+  cpu: number
+  ram: number
+  ssd: number
+  tmp: number | null
+  cores: number
+  ramTotal: number
+  ramUsed: number
+  ssdTotal: number
+  ssdUsed: number
+}
+
 export interface GitInfo {
   branch: string
   commit: string

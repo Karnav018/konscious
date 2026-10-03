@@ -55,6 +55,56 @@ export const DotsIcon = ({ size = 14, ...p }: P) => (
   </svg>
 )
 
+/** Drink water. Outlined when quiet; `fill` draws the level inside it. */
+export const DropIcon = ({ size = 16, fill = 0, ...p }: P & { fill?: number }) => {
+  const clip = `drop-${Math.round(fill * 100)}`
+  return (
+    <svg {...base(size)} strokeWidth={1.6} {...p}>
+      <defs>
+        <clipPath id={clip}>
+          <rect x="0" y={24 - 24 * Math.max(0, Math.min(1, fill))} width="24" height="24" />
+        </clipPath>
+      </defs>
+      <path d="M12 3.2c3 3.6 5 6 5 8.8a5 5 0 0 1-10 0c0-2.8 2-5.2 5-8.8Z" />
+      {fill > 0 && (
+        <path
+          d="M12 3.2c3 3.6 5 6 5 8.8a5 5 0 0 1-10 0c0-2.8 2-5.2 5-8.8Z"
+          fill="currentColor"
+          stroke="none"
+          clipPath={`url(#${clip})`}
+        />
+      )}
+    </svg>
+  )
+}
+
+/** Pomodoro. A tomato with its leaf, drawn rather than coloured red: the hue
+ *  is violet because red belongs to a failed session. */
+export const TomatoIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <path d="M12 6.4c3.4 0 5.8 2.5 5.8 5.9S15.4 20 12 20s-5.8-2.3-5.8-7.7S8.6 6.4 12 6.4Z" />
+    <path d="M12 6.4V4.6M12 4.6c-1.5-1-3-.9-3.9-.5.3 1.2 1.3 2.1 2.6 2.3M12 4.6c1.5-1 3-.9 3.9-.5-.3 1.2-1.3 2.1-2.6 2.3" />
+  </svg>
+)
+
+/** Stand up. */
+export const StandIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <circle cx="12" cy="4.6" r="2.1" />
+    <path d="M12 7v6M12 13l-3 7M12 13l3 7M8 9.4h8" />
+  </svg>
+)
+
+/** The Apps entry at the top of the dock. */
+export const AppsIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.7} {...p}>
+    <rect x="3.5" y="3.5" width="7" height="7" rx="1.4" />
+    <rect x="13.5" y="3.5" width="7" height="7" rx="1.4" />
+    <rect x="3.5" y="13.5" width="7" height="7" rx="1.4" />
+    <rect x="13.5" y="13.5" width="7" height="7" rx="1.4" />
+  </svg>
+)
+
 /** A dropped or pasted file that is not an image. */
 export const FileIcon = ({ size = 12, ...p }: P) => (
   <svg {...base(size)} strokeWidth={1.6} {...p}>

@@ -7,6 +7,7 @@ mod git;
 mod memory;
 mod persistence;
 mod preview;
+mod stats;
 mod session;
 mod suggest;
 mod sync;
@@ -197,6 +198,7 @@ pub fn run() {
         // in the background and restarts when you say so (src/lib/update.ts).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             let handle = app.handle().clone();
             let emit: SessionEmitter = Arc::new(move |name, payload| {
@@ -222,6 +224,7 @@ pub fn run() {
             commands::session_list,
             commands::session_memory,
             commands::file_thumbnail,
+            commands::system_stats,
             commands::session_stop,
             commands::session_kill,
             commands::session_restart,

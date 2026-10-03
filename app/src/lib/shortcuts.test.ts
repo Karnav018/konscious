@@ -19,6 +19,12 @@ describe('macOS shortcuts', () => {
     expect(matchShortcut(key('N'))).toEqual({ type: 'newSession' })
   })
 
+  it('opens the Apps panel with ⌘⇧A, leaving plain ⌘A to the terminal', () => {
+    expect(matchShortcut(key('a', { shiftKey: true }))).toEqual({ type: 'apps' })
+    // Plain ⌘A selects the pane's output; it must not open a panel.
+    expect(matchShortcut(key('a'))).toBeNull()
+  })
+
   it('moves the selected pane with ⌘⇧← / ⌘⇧→', () => {
     expect(matchShortcut(key('ArrowLeft', { shiftKey: true }))).toEqual({ type: 'movePane', delta: -1 })
     expect(matchShortcut(key('ArrowRight', { shiftKey: true }))).toEqual({ type: 'movePane', delta: 1 })
@@ -46,6 +52,7 @@ describe('macOS shortcuts', () => {
     expect(matchShortcut(key('n', { ctrlKey: true }))).toBeNull()
     expect(matchShortcut(key('n', { altKey: true }))).toBeNull()
     expect(matchShortcut(key('n', { shiftKey: true }))).toBeNull()
+    expect(matchShortcut(key('a', { shiftKey: true }))).toEqual({ type: 'apps' }) // the one ⌘⇧letter we take
     expect(matchShortcut(key('c'))).toBeNull()
     expect(matchShortcut(key('v'))).toBeNull()
     expect(isAppShortcut(key('r', { metaKey: false, ctrlKey: true }))).toBe(false)

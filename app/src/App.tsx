@@ -11,14 +11,18 @@ import {
   stepPaneFontSize,
   toggleFocus,
 } from './app/actions'
+import { setAppPanel, setAppPopover } from './state/commands/apps'
 import { layoutOf } from './state/commands/layout'
 import { bootstrap } from './app/bootstrap'
+import { startReminders } from './app/reminders'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { DeleteSessionDialog } from './components/DeleteSessionDialog/DeleteSessionDialog'
 import { EmptyState } from './components/EmptyState/EmptyState'
 import { FirstRun } from './components/FirstRun/FirstRun'
 import { Inspector } from './components/Inspector/Inspector'
 import { NewSessionModal } from './components/NewSessionModal/NewSessionModal'
+import { AppsPanel } from './components/Dock/AppsPanel'
+import { Dock } from './components/Dock/Dock'
 import { SessionGrid } from './components/SessionGrid/SessionGrid'
 import { StatusBar } from './components/StatusBar/StatusBar'
 import { TitleBar } from './components/TitleBar/TitleBar'
@@ -69,6 +73,8 @@ function onKeyDown(e: KeyboardEvent) {
         return toggleFocus()
       case 'selectPane':
         return selectPaneIndex(sc.index)
+      case 'apps':
+        return setAppPanel(s.ui.appPanel ? null : 'catalog')
       case 'movePane':
         return movePane(layoutOf(s.layout.byWorkspace, s.workspace.activeId).selected, sc.delta)
       case 'fontSize': {
@@ -140,8 +146,10 @@ export default function App() {
       const ui = getState().ui
       if (ui.paneMenu && !el.closest?.('[data-pane-menu]')) openPaneMenu(null)
       if (ui.settingsMenu && !el.closest?.('[data-settings-menu],[data-settings-button]')) closeSettingsMenu()
+      if (ui.appPopover && !el.closest?.('[data-dock]')) setAppPopover(null)
     }
     window.addEventListener('mousedown', closePopovers)
+    const stopReminders = startReminders()
     window.addEventListener('keydown', onKeyDown, true)
     // WebView2's page menu (Back, Refresh, Print…) makes no sense in an app;
     // text fields keep theirs for cut/copy/paste.
@@ -158,6 +166,7 @@ export default function App() {
       window.removeEventListener('keydown', onKeyDown, true)
       window.removeEventListener('contextmenu', noPageMenu)
       window.removeEventListener('mousedown', closePopovers)
+      stopReminders()
     }
   }, [])
 
@@ -175,8 +184,13 @@ export default function App() {
     <div className="h-full min-w-[1080px] flex flex-col bg-win relative overflow-hidden text-text">
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-2 gap-2 bg-win">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-2 gap-2 bg-win relative">
           <ErrorBoundary label="main">{main}</ErrorBoundary>
+          {booted && lockOk && !firstRun && (
+            <ErrorBoundary compact label="dock">
+              <Dock />
+            </ErrorBoundary>
+          )}
         </div>
       </div>
       <StatusBar />
@@ -185,6 +199,7 @@ export default function App() {
         {booted && lockOk && wsMenu && !firstRun && <WorkspaceMenu />}
         {booted && lockOk && newSession && <NewSessionModal />}
         {booted && lockOk && confirmDelete && <DeleteSessionDialog />}
+        {booted && lockOk && !firstRun && <AppsPanel />}
       </ErrorBoundary>
       <Toast />
     </div>

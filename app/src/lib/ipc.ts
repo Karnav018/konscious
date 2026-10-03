@@ -4,6 +4,11 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from '@tauri-apps/plugin-notification'
 import { openPath, openUrl, revealItemInDir } from '@tauri-apps/plugin-opener'
 
 import { dropPoint } from './dropPoint'
@@ -20,6 +25,7 @@ import type {
   SessionInfo,
   SessionMemory,
   Snapshot,
+  Stats,
   Suggestion,
 } from '../types'
 
@@ -64,6 +70,7 @@ export const ipc = {
     invoke<Attached>('session_attach', { id, onOutput }),
   sessionList: () => invoke<SessionInfo[]>('session_list'),
   sessionMemory: () => invoke<SessionMemory[]>('session_memory'),
+  systemStats: () => invoke<Stats>('system_stats'),
   fileThumbnail: (path: string) => invoke<string | null>('file_thumbnail', { path }),
   sessionStop: (id: string) => invoke<void>('session_stop', { id }),
   sessionKill: (id: string) => invoke<void>('session_kill', { id }),
@@ -103,6 +110,21 @@ export const ipc = {
   /** Opens a file in whatever the system uses for it — Preview, a PDF
    *  reader — so a dropped file can be checked without leaving the app. */
   openFile: (path: string) => openPath(path),
+
+  /* ── system notifications (a due reminder raises exactly one) ──── */
+
+  /** Whether the user has allowed notifications. Never throws: a refusal and
+   *  a platform that cannot tell us both mean "no". */
+  notifyAllowed: () => isPermissionGranted().catch(() => false),
+  /** Asked once, the first time an app is switched on. */
+  notifyAsk: () => requestPermission().then((p) => p === 'granted').catch(() => false),
+  notify: (title: string, body: string) => {
+    try {
+      sendNotification({ title, body })
+    } catch {
+      /* refused or unavailable: the dock still shows the nudge */
+    }
+  },
   openUrl: (url: string) => openUrl(url),
 
   onStatus: (cb: (info: SessionInfo) => void): Promise<UnlistenFn> =>

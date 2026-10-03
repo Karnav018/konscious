@@ -193,6 +193,11 @@ pub async fn clipboard_read() -> AppResult<crate::clipboard::Clipboard> {
 }
 
 #[tauri::command]
+pub async fn system_stats() -> AppResult<crate::stats::Stats> {
+    Ok(tauri::async_runtime::spawn_blocking(crate::stats::snapshot).await.unwrap_or_default())
+}
+
+#[tauri::command]
 pub async fn file_thumbnail(path: String) -> AppResult<Option<String>> {
     Ok(crate::preview::thumbnail(&path))
 }

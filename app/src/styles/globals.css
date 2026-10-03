@@ -20,6 +20,15 @@
   --color-warn: var(--warn);
   --color-err: var(--err);
   --color-info: var(--info);
+  --color-water: var(--water);
+  --color-stand: var(--stand);
+  --color-sys: var(--sys);
+  --color-cpu: var(--cpu);
+  --color-ram: var(--ram);
+  --color-ssd: var(--ssd);
+  --color-tmp: var(--tmp);
+  --color-hot: var(--hot);
+  --color-pomo: var(--pomo);
   --color-hover: var(--hover);
   --color-sel: var(--sel);
   --color-overlay: var(--overlay);

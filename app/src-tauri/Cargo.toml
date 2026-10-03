@@ -29,8 +29,11 @@ tauri-plugin-window-state = "2"
 tauri-plugin-updater = "~2.13"
 # relaunch() once an update has been installed.
 tauri-plugin-process = "~2.4"
+# A due reminder raises one system notification, so it reaches you while
+# Konscious is behind your editor.
+tauri-plugin-notification = "2"
 # Per-session memory for the Inspector: resident size of a session's process tree.
-sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+sysinfo = { version = "0.33", default-features = false, features = ["system", "disk", "component"] }
 # Inlining a dropped image as a data URL for the pane's attachment strip.
 base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
