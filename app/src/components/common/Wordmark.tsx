@@ -1,6 +1,15 @@
-// The Konscious wordmark: "k", an accent ring for the "o", "nscious" (title bar
-// at 17px, first-run hero at 40px). Sized in em so the ring always sits on the
-// baseline at x-height, whatever the font size.
+// The Konscious wordmark: "k", an accent ring for each "o", the letters
+// between (title bar at 17px, first-run hero at 40px). Sized in em so the
+// rings always sit on the baseline at x-height, whatever the font size.
+const ring: React.CSSProperties = {
+  display: 'inline-block',
+  width: '0.53em',
+  height: '0.53em',
+  borderRadius: '50%',
+  border: '0.13em solid var(--accent)',
+  margin: '0 0.06em 0 0.07em',
+}
+
 export function Wordmark({ size = 17, className = '' }: { size?: number; className?: string }) {
   return (
     <span
@@ -11,18 +20,10 @@ export function Wordmark({ size = 17, className = '' }: { size?: number; classNa
       style={{ fontSize: size, letterSpacing: '-0.04em' }}
     >
       <span aria-hidden="true">k</span>
-      <span
-        aria-hidden="true"
-        style={{
-          display: 'inline-block',
-          width: '0.53em',
-          height: '0.53em',
-          borderRadius: '50%',
-          border: '0.13em solid var(--accent)',
-          margin: '0 0.06em 0 0.07em',
-        }}
-      />
-      <span aria-hidden="true">nscious</span>
+      <span aria-hidden="true" style={ring} />
+      <span aria-hidden="true">nsci</span>
+      <span aria-hidden="true" style={ring} />
+      <span aria-hidden="true">us</span>
     </span>
   )
 }
