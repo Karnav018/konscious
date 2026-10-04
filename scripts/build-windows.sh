@@ -3,13 +3,13 @@
 #
 #   scripts/build-windows.sh    → release/win/Konscious_<version>_x64-setup.exe
 #
-# Builds from windows/ only; the macOS app in app/ is not involved.
+# Builds from app/, the one codebase, cross-compiled for the MSVC target.
 # One-time setup: brew install llvm nsis
 #                 cargo install --locked cargo-xwin
 #                 rustup target add x86_64-pc-windows-msvc
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-win="$root/windows"
+win="$root/app"
 target=x86_64-pc-windows-msvc
 step() { printf '\n\033[1m▸ %s\033[0m\n' "$1"; }
 fail() { printf '\033[31m✗ %s\033[0m\n' "$1"; exit 1; }

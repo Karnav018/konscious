@@ -4,9 +4,21 @@
 // To add a setting: give it a row component and an entry in FEATURES with the
 // release it ships in. If it is the newest, it takes over the title-bar button
 // on its own and the previous one stays here in Settings.
-import { setTheme, setWarmthPercent, toggleWarm } from '../../app/actions'
+import { useEffect, useState } from 'react'
+
+import {
+  setTheme,
+  setWarmHours,
+  setWarmPlace,
+  setWarmthPercent,
+  setWarmWhen,
+  toggleWarm,
+  warmWindow,
+} from '../../app/actions'
 import { byNewest, type Landed, newest } from '../../lib/features'
-import { isWarm, percentAt } from '../../lib/warmth'
+import { clock } from '../../lib/format'
+import { isPlace, localPlace, localZone } from '../../lib/sun'
+import { isWarm, percentAt, type WarmWhen } from '../../lib/warmth'
 import { toggleSettingsMenu } from '../../state/commands/ui'
 import { useUi } from '../../state/selectors'
 import { FlameIcon, MoonIcon, SettingsIcon, SunIcon } from '../common/Icon'
@@ -31,14 +43,147 @@ const hint = 'text-[11px] text-muted leading-[1.4]'
 
 const useWarmOn = () => useUi((u) => u.warm && isWarm(u.warmth))
 
-function WarmthRow() {
+/** "20:00" ⇄ minutes from midnight, which is how the schedule stores them. */
+const hhmm = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+const fromHhmm = (text: string, fallback: number) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(text.trim())
+  if (!m) return fallback
+  const mins = Number(m[1]) * 60 + Number(m[2])
+  return mins >= 0 && mins <= 1439 ? mins : fallback
+}
+
+/** When the warmth applies: always, between hours, or sunset to sunrise. */
+function WarmScheduleRow() {
+  const when = useUi((u) => u.warmWhen)
+  const from = useUi((u) => u.warmFrom)
+  const to = useUi((u) => u.warmTo)
+  const place = useUi((u) => u.warmPlace)
+  const on = useWarmOn()
+  const [coords, setCoords] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
+  const window = warmWindow(now)
+  const zone = localZone()
+  const here = place ?? localPlace(now)
+  const choice = (v: WarmWhen, label: string) => (
+    <div
+      key={v}
+      onClick={() => setWarmWhen(v)}
+      style={{
+        borderColor: when === v ? 'var(--accent)' : 'var(--line2)',
+        color: when === v ? 'var(--accent)' : 'var(--muted)',
+      }}
+      className="h-7 px-2.5 flex items-center rounded-rs border cursor-pointer text-[11.5px]"
+    >
+      {label}
+    </div>
+  )
+  const timeBox =
+    'w-[62px] h-7 px-2 rounded-rs bg-pane border border-line text-[12px] font-mono tabular-nums outline-none focus:border-accent'
+
+  return (
+    <div className="flex flex-col gap-2" style={{ opacity: on ? 1 : 0.55 }}>
+      <span className={label}>When</span>
+      <div className="flex gap-1">
+        {choice('always', 'All day')}
+        {choice('hours', 'Hours')}
+        {choice('sun', 'Sunset')}
+      </div>
+
+      {when === 'hours' && (
+        <div className="flex items-center gap-2">
+          <input
+            id="warm-from"
+            defaultValue={hhmm(from)}
+            onBlur={(e) => setWarmHours(fromHhmm(e.target.value, from), to)}
+            className={timeBox}
+            aria-label="Warm from"
+          />
+          <span className="text-[11.5px] text-faint">to</span>
+          <input
+            id="warm-to"
+            defaultValue={hhmm(to)}
+            onBlur={(e) => setWarmHours(from, fromHhmm(e.target.value, to))}
+            className={timeBox}
+            aria-label="Warm until"
+          />
+        </div>
+      )}
+
+      {when === 'sun' && (
+        <div className="flex flex-col gap-1.5">
+          {window ? (
+            <span className="font-mono text-[11px] text-muted tabular-nums">
+              sunset {clock(window.onAt)} · sunrise {clock(window.offAt)}
+            </span>
+          ) : (
+            <span className="text-[11.5px] text-muted leading-[1.4]">
+              The sun doesn’t set here today, so the warmth stays as the switch leaves it.
+            </span>
+          )}
+          {coords ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                id="warm-lat"
+                defaultValue={here.lat.toFixed(2)}
+                onBlur={(e) => {
+                  const next = { lat: Number(e.target.value), lon: here.lon }
+                  if (isPlace(next)) setWarmPlace(next)
+                }}
+                className={timeBox}
+                aria-label="Latitude"
+              />
+              <input
+                id="warm-lon"
+                defaultValue={here.lon.toFixed(2)}
+                onBlur={(e) => {
+                  const next = { lat: here.lat, lon: Number(e.target.value) }
+                  if (isPlace(next)) setWarmPlace(next)
+                }}
+                className={timeBox}
+                aria-label="Longitude"
+              />
+              {place && (
+                <span
+                  onClick={() => {
+                    setWarmPlace(null)
+                    setCoords(false)
+                  }}
+                  className="text-[11px] text-accent cursor-pointer"
+                >
+                  Use my timezone
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[11px] text-faint">
+                {place ? `${here.lat.toFixed(1)}°, ${here.lon.toFixed(1)}°` : `estimated from ${zone}`}
+              </span>
+              <span onClick={() => setCoords(true)} className="text-[11px] text-accent cursor-pointer">
+                Exact coordinates
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function WarmthRow() {
   const warmth = useUi((u) => u.warmth)
   const on = useWarmOn()
   return (
     <>
       <div className="flex items-center gap-2">
         <span className={label}>Warm colours</span>
-        <Toggle on={on} onChange={toggleWarm} label="Warm colours" />
+        <Toggle on={on} onChange={() => toggleWarm()} label="Warm colours" />
       </div>
       <input
         type="range"
@@ -57,6 +202,7 @@ function WarmthRow() {
         <span>Amber</span>
       </div>
       <div className={hint}>Warms this window only, not the screen. Status colours stay true.</div>
+      <WarmScheduleRow />
     </>
   )
 }

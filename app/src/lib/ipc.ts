@@ -3,12 +3,19 @@ import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener'
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from '@tauri-apps/plugin-notification'
+import { openPath, openUrl, revealItemInDir } from '@tauri-apps/plugin-opener'
 
 import { dropPoint } from './dropPoint'
+import { IS_WINDOWS } from './platform'
 import type {
   Attached,
+  BundleManifest,
   Clipboard,
   ContextUsage,
   Limits,
@@ -16,8 +23,11 @@ import type {
   GitInfo,
   InitInfo,
   Kind,
+  Layout,
   SessionInfo,
+  SessionMemory,
   Snapshot,
+  Stats,
   Suggestion,
 } from '../types'
 
@@ -61,6 +71,40 @@ export const ipc = {
   sessionAttach: (id: string, onOutput: Channel<ArrayBuffer>) =>
     invoke<Attached>('session_attach', { id, onOutput }),
   sessionList: () => invoke<SessionInfo[]>('session_list'),
+  sessionMemory: () => invoke<SessionMemory[]>('session_memory'),
+  systemStats: () => invoke<Stats>('system_stats'),
+
+  /* ── moving a workspace between machines ───────────────────────── */
+
+  /** Writes a bundle: the workspace, its layout, and each session's Claude
+   *  transcript. Returns what actually went in. */
+  bundleExport: (args: {
+    dest: string
+    workspaceName: string
+    root: string
+    layout: Layout
+    sessions: { id: string; name: string; kind: Kind; cwd: string; claudeSessionId: string | null }[]
+    appVersion: string
+  }) => invoke<{ bytes: number; transcripts: number; missing: number }>('bundle_export', args),
+
+  /** Reads a bundle's manifest without writing anything. */
+  /** What each session would add to a bundle, before one is written. */
+  bundlePreview: (sessions: { id: string; name: string; kind: Kind; cwd: string; claudeSessionId: string | null }[]) =>
+    invoke<{ id: string; bytes: number }[]>('bundle_preview', { sessions }),
+
+  bundleInspect: (path: string) => invoke<BundleManifest>('bundle_inspect', { path }),
+
+  /** A .kon the system asked us to open before the interface was listening. */
+  bundlePending: () => invoke<string | null>('bundle_pending'),
+
+  /** A .kon opened while the app was already running. */
+  onBundleOpened: (cb: (path: string) => void): Promise<UnlistenFn> =>
+    listen<string>('bundle-opened', (e) => cb(e.payload)),
+
+  /** Copies the bundle's transcripts to where Claude will look for them. */
+  bundleImport: (path: string, root: string) =>
+    invoke<{ transcripts: number; missing: number }>('bundle_import', { path, root }),
+  fileThumbnail: (path: string) => invoke<string | null>('file_thumbnail', { path }),
   sessionStop: (id: string) => invoke<void>('session_stop', { id }),
   sessionKill: (id: string) => invoke<void>('session_kill', { id }),
   sessionRestart: (id: string, cols: number, rows: number) =>
@@ -87,15 +131,46 @@ export const ipc = {
   onFileDrop: (cb: (e: FileDrop) => void): Promise<UnlistenFn> =>
     getCurrentWebview().onDragDropEvent(({ payload: p }) => {
       if (p.type === 'leave') return cb({ type: 'leave' })
-      const at = dropPoint(p.position.x, p.position.y, window.devicePixelRatio, false)
+      const at = dropPoint(p.position.x, p.position.y, window.devicePixelRatio, IS_WINDOWS)
       cb(p.type === 'over' ? { type: 'over', ...at } : { type: p.type, paths: p.paths, ...at })
     }),
+
+  /** Where to write a bundle. Null when the user backs out. */
+  pickSaveBundle: (defaultName: string): Promise<string | null> =>
+    saveDialog({ defaultPath: defaultName, filters: [{ name: 'Konscious workspace', extensions: ['kon'] }] }),
+
+  /** A bundle to read. */
+  pickBundle: async (): Promise<string | null> => {
+    const picked = await openDialog({
+      multiple: false,
+      filters: [{ name: 'Konscious workspace', extensions: ['kon'] }],
+    })
+    return typeof picked === 'string' ? picked : null
+  },
 
   pickFolder: async (defaultPath?: string): Promise<string | null> => {
     const picked = await openDialog({ directory: true, multiple: false, defaultPath })
     return typeof picked === 'string' ? picked : null
   },
   revealInFinder: (path: string) => revealItemInDir(path),
+  /** Opens a file in whatever the system uses for it — Preview, a PDF
+   *  reader — so a dropped file can be checked without leaving the app. */
+  openFile: (path: string) => openPath(path),
+
+  /* ── system notifications (a due reminder raises exactly one) ──── */
+
+  /** Whether the user has allowed notifications. Never throws: a refusal and
+   *  a platform that cannot tell us both mean "no". */
+  notifyAllowed: () => isPermissionGranted().catch(() => false),
+  /** Asked once, the first time an app is switched on. */
+  notifyAsk: () => requestPermission().then((p) => p === 'granted').catch(() => false),
+  notify: (title: string, body: string) => {
+    try {
+      sendNotification({ title, body })
+    } catch {
+      /* refused or unavailable: the dock still shows the nudge */
+    }
+  },
   openUrl: (url: string) => openUrl(url),
 
   onStatus: (cb: (info: SessionInfo) => void): Promise<UnlistenFn> =>

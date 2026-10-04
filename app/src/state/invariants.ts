@@ -37,6 +37,9 @@ export function checkInvariants(s: AppState): string[] {
   }
   if (s.ui.paneMenu && !sessions[s.ui.paneMenu]) v.push(`pane menu open for missing session ${s.ui.paneMenu}`)
   if (s.ui.newSession && !wsIds.has(s.ui.newSession.workspaceId)) v.push('new-session draft targets a missing workspace')
+  for (const id of Object.keys(s.ui.attachments)) {
+    if (!sessions[id]) v.push(`attachments kept for missing session ${id}`)
+  }
   if (s.ui.confirmDelete && !sessions[s.ui.confirmDelete]) v.push(`delete confirmation for missing session ${s.ui.confirmDelete}`)
   return v
 }
@@ -77,5 +80,8 @@ export function repair(d: Draft<AppState>): void {
   }
   if (d.ui.paneMenu && !sessions[d.ui.paneMenu]) d.ui.paneMenu = null
   if (d.ui.newSession && !wsIds.has(d.ui.newSession.workspaceId)) d.ui.newSession = null
+  for (const id of Object.keys(d.ui.attachments)) {
+    if (!sessions[id]) delete d.ui.attachments[id]
+  }
   if (d.ui.confirmDelete && !sessions[d.ui.confirmDelete]) d.ui.confirmDelete = null
 }

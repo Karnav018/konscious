@@ -30,7 +30,8 @@ export const percentAt = (kelvin: number) =>
  *
  *  The status palette is deliberately absent — --ok, --warn, --err and --info
  *  are how a pane says working / waiting / failed / idle, and how the usage
- *  rings warn you, so they stay true at every setting. The shadows and the
+ *  rings warn you, so they stay true at every setting. --hot joins them: a
+ *  machine under load must never start reading as a session in trouble. The shadows and the
  *  modal overlay are black: warming them would change nothing. */
 export const WARMED_TOKENS = [
   '--stage',
@@ -47,6 +48,14 @@ export const WARMED_TOKENS = [
   '--accentSoft',
   '--accentInk',
   '--userBg',
+  '--water',
+  '--stand',
+  '--sys',
+  '--cpu',
+  '--ram',
+  '--ssd',
+  '--tmp',
+  '--pomo',
   '--hover',
   '--sel',
 ] as const
@@ -124,3 +133,56 @@ export function paintWarmth(theme: Theme, kelvin: number) {
     else root.style.removeProperty(token)
   }
 }
+
+/* ── when it warms ────────────────────────────────────────────────── */
+
+// A schedule is three choices: all the time, between hours you set, or from
+// sunset to sunrise. The strength it returns is 0–1 rather than on/off, so the
+// colour eases across each boundary instead of snapping — twenty minutes
+// either side, which is slow enough not to notice happening and quick enough
+// to be done before you wonder.
+
+export type WarmWhen = 'always' | 'hours' | 'sun'
+
+/** How long a boundary takes to cross, centred on the boundary itself. */
+export const RAMP_MS = 40 * 60 * 1000
+
+const DAY_MS = 86_400_000
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
+
+/** Minutes from local midnight as an instant on the day `now` falls in. */
+export function atLocalMinutes(now: number, minutes: number): number {
+  const d = new Date(now)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime() + minutes * 60_000
+}
+
+/** How warm it should be at `now`, 0–1, for a window that runs `onAt` → `offAt`
+ *  and may cross midnight. Ramps across both boundaries. */
+export function warmStrength(now: number, onAt: number, offAt: number, ramp = RAMP_MS): number {
+  const half = ramp / 2
+  let end = offAt
+  while (end <= onAt) end += DAY_MS
+  let best = 0
+  // The same window yesterday, today and tomorrow: whichever one `now` is in.
+  for (const shift of [-DAY_MS, 0, DAY_MS]) {
+    const up = clamp01((now - (onAt + shift - half)) / ramp)
+    const down = clamp01((now - (end + shift - half)) / ramp)
+    best = Math.max(best, Math.min(up, 1 - down))
+  }
+  return best
+}
+
+/** The next time the schedule changes its mind, which is how long a manual
+ *  override lasts: turn it off at dusk and it stays off until dawn. */
+export function nextBoundary(now: number, onAt: number, offAt: number): number {
+  let end = offAt
+  while (end <= onAt) end += DAY_MS
+  const candidates: number[] = []
+  for (const shift of [-DAY_MS, 0, DAY_MS, 2 * DAY_MS]) candidates.push(onAt + shift, end + shift)
+  return candidates.filter((t) => t > now).sort((a, b) => a - b)[0] ?? now + DAY_MS
+}
+
+/** The temperature to paint: neutral at strength 0, the chosen warmth at 1. */
+export const kelvinFor = (warmth: number, strength: number): number =>
+  Math.round(NEUTRAL_K - (NEUTRAL_K - clampK(warmth)) * clamp01(strength))

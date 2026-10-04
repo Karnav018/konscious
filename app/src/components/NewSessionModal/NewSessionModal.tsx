@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createSession, expandHome } from '../../app/actions'
 import { tildify } from '../../lib/format'
 import { ipc } from '../../lib/ipc'
+import { isRoot, join, parent, trimSep } from '../../lib/path'
 import { closeNewSession, updateNewSessionDraft } from '../../state/commands/ui'
 import { useUi, useWorkspacesByUse } from '../../state/selectors'
 import type { NewSessionDraft } from '../../state/store'
@@ -42,7 +43,7 @@ export function NewSessionModal() {
       const names = ok ? await ipc.fsSubdirs(target).catch(() => [] as string[]) : []
       if (cancelled) return
       setDirOk(ok)
-      setListing({ base: ok ? target.replace(/\/+$/, '') || '/' : '', names })
+      setListing({ base: ok ? trimSep(target) : '', names })
     }, 150)
     return () => {
       cancelled = true
@@ -158,12 +159,12 @@ export function NewSessionModal() {
                 Browse…
               </div>
             </div>
-            {listing.base && (listing.names.length > 0 || listing.base !== '/') && (
+            {listing.base && (listing.names.length > 0 || !isRoot(listing.base)) && (
               <div className="flex flex-wrap gap-1">
-                {listing.base !== '/' && (
+                {!isRoot(listing.base) && (
                   <div
                     title="Parent folder"
-                    onClick={() => setDir(tildify(listing.base.replace(/\/[^/]+$/, '') || '/', home))}
+                    onClick={() => setDir(tildify(parent(listing.base), home))}
                     className="h-[22px] px-2 flex items-center rounded-pill border border-line cursor-pointer font-mono text-[10.5px] text-faint hover:border-accent hover:text-text"
                   >
                     ../
@@ -172,7 +173,7 @@ export function NewSessionModal() {
                 {listing.names.map((d) => (
                   <div
                     key={d}
-                    onClick={() => setDir(tildify(`${listing.base === '/' ? '' : listing.base}/${d}`, home))}
+                    onClick={() => setDir(tildify(join(listing.base, d), home))}
                     className="h-[22px] px-2 flex items-center rounded-pill border border-line cursor-pointer font-mono text-[10.5px] text-muted hover:border-accent hover:text-text"
                   >
                     ./{d}

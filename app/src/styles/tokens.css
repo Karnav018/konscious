@@ -39,6 +39,20 @@
   --shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   --overlay: rgba(0, 0, 0, 0.45);
   --segShadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  /* Mini apps. Each has its own hue, deliberately clear of --ok, --warn,
+     --err and --info so an app never reads as a session's state. Square
+     icons, too: sessions are round. */
+  --water: #74a9f0;
+  --stand: #5ccbd6;
+  --sys: #e8dccb;
+  --cpu: #8fa2ff;
+  --ram: #f29cc4;
+  --ssd: #d9c7a7;
+  --tmp: #7fc8f0;
+  /* Heavy load. Magenta on purpose: not amber, not red, so a busy machine
+     never looks like a session waiting or failed. */
+  --hot: #ff7ae0;
+  --pomo: #9b7ef0;
   color-scheme: dark;
 }
 
@@ -68,5 +82,14 @@
   --shadow: 0 24px 60px rgba(33, 33, 33, 0.14);
   --overlay: rgba(33, 33, 33, 0.22);
   --segShadow: 0 1px 2px rgba(33, 33, 33, 0.12);
+  --water: #2b6cc4;
+  --stand: #1d8794;
+  --sys: #4a4240;
+  --cpu: #4a5fd6;
+  --ram: #c2457f;
+  --ssd: #7a6a4c;
+  --tmp: #2a86b8;
+  --hot: #c026a8;
+  --pomo: #6b4fd0;
   color-scheme: light;
 }

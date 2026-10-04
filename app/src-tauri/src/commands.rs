@@ -41,7 +41,7 @@ pub async fn app_init(state: State<'_, AppState>) -> AppResult<InitInfo> {
         lock_ok: state.lock_ok,
         base_dir: state.store.base().to_string_lossy().into_owned(),
         previous_version: crate::is_previous_data_dir(state.store.base()),
-        home: std::env::var("HOME").unwrap_or_default(),
+        home: crate::env::home_dir(),
         version: env!("CARGO_PKG_VERSION").into(),
     })
 }
@@ -100,6 +100,13 @@ pub async fn session_attach(
 #[tauri::command]
 pub async fn session_list(state: State<'_, AppState>) -> AppResult<Vec<SessionInfo>> {
     Ok(state.sessions.list())
+}
+
+#[tauri::command]
+pub async fn session_memory(state: State<'_, AppState>) -> AppResult<Vec<crate::memory::SessionMemory>> {
+    let running: Vec<(String, i32)> =
+        state.sessions.list().into_iter().filter_map(|s| s.pid.map(|pid| (s.id, pid))).collect();
+    Ok(crate::memory::measure(&running))
 }
 
 #[tauri::command]
@@ -173,20 +180,173 @@ pub async fn fs_subdirs(path: String) -> AppResult<Vec<String>> {
 #[tauri::command]
 pub async fn fs_suggest_folders() -> AppResult<Vec<Suggestion>> {
     blocking(|| {
-        let home = std::env::var("HOME").unwrap_or_default();
+        let home = crate::env::home_dir();
         Ok(suggest::folders(std::path::Path::new(&home), 6))
     })
     .await
 }
 
-/// What ⌘V pastes into a pane: copied files' paths, else the text.
+/// What Ctrl+V pastes into a pane: copied files' paths, else the text.
 #[tauri::command]
 pub async fn clipboard_read() -> AppResult<crate::clipboard::Clipboard> {
     Ok(crate::clipboard::read())
 }
 
+/// An ISO-ish stamp for the manifest. Seconds since the epoch would do, but
+/// a person reads this file.
+fn chrono_now() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!("{secs}")
+}
+
+/// Where Claude keeps its transcripts. The environment resolves in the
+/// background at startup, so this waits for it like `app_env` does.
+fn claude_config(state: &State<'_, AppState>) -> AppResult<std::path::PathBuf> {
+    state
+        .env
+        .get(Duration::from_secs(10))
+        .map(|e| e.claude_config_dir())
+        .ok_or_else(|| AppError::Unavailable("Timed out reading your environment".into()))
+}
+
+/// Writes a workspace bundle: its manifest, plus each session's transcript
+/// copied out of Claude's own store.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSession {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+    /// Where the session runs on this machine; stored as an offset.
+    pub cwd: String,
+    pub claude_session_id: Option<String>,
+}
+
+#[tauri::command]
+pub async fn bundle_export(
+    state: State<'_, AppState>,
+    dest: String,
+    workspace_name: String,
+    root: String,
+    layout: serde_json::Value,
+    sessions: Vec<ExportSession>,
+    app_version: String,
+) -> AppResult<serde_json::Value> {
+    use crate::bundle;
+    let claude = claude_config(&state)?;
+    // Path handling lives here, not in the interface: one place that knows
+    // how a cwd becomes an offset and back again.
+    let mut manifest = bundle::Manifest {
+        version: bundle::BUNDLE_VERSION,
+        app: app_version,
+        platform: std::env::consts::OS.to_string(),
+        exported_at: chrono_now(),
+        workspace_name,
+        source_root: root.clone(),
+        sessions: sessions
+            .into_iter()
+            .map(|s| {
+                let offset = bundle::relative_to(&root, &s.cwd);
+                bundle::BundleSession {
+                    id: s.id,
+                    name: s.name,
+                    kind: s.kind,
+                    relative: offset.clone().unwrap_or_default(),
+                    outside: offset.is_none(),
+                    claude_session_id: s.claude_session_id,
+                    has_transcript: false,
+                }
+            })
+            .collect(),
+        layout,
+    };
+    // Only carry transcripts that actually exist, and say which did not.
+    let mut copies: Vec<(String, std::path::PathBuf)> = Vec::new();
+    for session in &mut manifest.sessions {
+        let Some(conversation) = session.claude_session_id.clone() else {
+            session.has_transcript = false;
+            continue;
+        };
+        match bundle::find_transcript(&claude, &conversation) {
+            Some(path) => {
+                session.has_transcript = true;
+                copies.push((conversation, path));
+            }
+            None => session.has_transcript = false,
+        }
+    }
+    let bytes = bundle::write(std::path::Path::new(&dest), &manifest, &copies)?;
+    Ok(serde_json::json!({
+        "bytes": bytes,
+        "transcripts": copies.len(),
+        "missing": manifest.sessions.iter().filter(|s| !s.has_transcript).count(),
+    }))
+}
+
+/// A `.kon` the system asked us to open before the interface was listening.
+/// Taken once: a second call returns nothing.
+#[tauri::command]
+pub async fn bundle_pending(state: State<'_, AppState>) -> AppResult<Option<String>> {
+    Ok(state.pending_bundle.lock().unwrap_or_else(|e| e.into_inner()).take())
+}
+
+/// What each session would contribute to a bundle, so the export dialog can
+/// show the cost before anything is written.
+#[tauri::command]
+pub async fn bundle_preview(
+    state: State<'_, AppState>,
+    sessions: Vec<ExportSession>,
+) -> AppResult<Vec<serde_json::Value>> {
+    let claude = claude_config(&state)?;
+    Ok(sessions
+        .into_iter()
+        .map(|s| {
+            let bytes = s
+                .claude_session_id
+                .as_deref()
+                .and_then(|c| crate::bundle::find_transcript(&claude, c))
+                .and_then(|p| std::fs::metadata(p).ok())
+                .map(|m| m.len())
+                .unwrap_or(0);
+            serde_json::json!({ "id": s.id, "bytes": bytes })
+        })
+        .collect())
+}
+
+/// Reads a bundle's manifest without writing anything, so the user can see
+/// what it holds before importing it.
+#[tauri::command]
+pub async fn bundle_inspect(path: String) -> AppResult<crate::bundle::Manifest> {
+    crate::bundle::read_manifest(std::path::Path::new(&path))
+}
+
+/// Copies the bundle's transcripts to where Claude will look for them, given
+/// the folder the user picked on this machine.
+#[tauri::command]
+pub async fn bundle_import(
+    state: State<'_, AppState>,
+    path: String,
+    root: String,
+) -> AppResult<crate::bundle::Imported> {
+    let src = std::path::Path::new(&path);
+    let manifest = crate::bundle::read_manifest(src)?;
+    crate::bundle::import_transcripts(src, &claude_config(&state)?, &root, &manifest)
+}
+
+#[tauri::command]
+pub async fn system_stats() -> AppResult<crate::stats::Stats> {
+    Ok(tauri::async_runtime::spawn_blocking(crate::stats::snapshot).await.unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn file_thumbnail(path: String) -> AppResult<Option<String>> {
+    Ok(crate::preview::thumbnail(&path))
+}
+
 #[tauri::command]
 pub async fn fs_is_dir(path: String) -> AppResult<bool> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    Ok(crate::claude::launcher::validate_cwd(&path, &home).is_ok())
+    Ok(crate::claude::launcher::validate_cwd(&path, &crate::env::home_dir()).is_ok())
 }

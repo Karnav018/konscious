@@ -1,5 +1,8 @@
 // UI commands: named, so the action log reads like what the user did.
 import type { EnvInfo, InitInfo, Limits, Suggestion, Theme } from '../../types'
+import { withAttached } from '../../lib/attach'
+import type { Place } from '../../lib/sun'
+import type { WarmWhen } from '../../lib/warmth'
 import { act } from '../act'
 import { getState, type NewSessionDraft, type PersistStatus, type SettingsMenu, type UpdateState, type WsFilter } from '../store'
 
@@ -27,6 +30,19 @@ export const setWarmValue = (on: boolean, kelvin?: number) =>
     d.ui.warm = on
     if (kelvin !== undefined) d.ui.warmth = kelvin
   })
+/** All the time, between hours you set, or sunset to sunrise. */
+export const setWarmWhenValue = (when: WarmWhen) => act('ui/warmWhen', (d) => void (d.ui.warmWhen = when))
+export const setWarmHoursValue = (fromMin: number, toMin: number) =>
+  act('ui/warmHours', (d) => {
+    const clamp = (n: number) => Math.min(1439, Math.max(0, Math.round(n)))
+    d.ui.warmFrom = clamp(fromMin)
+    d.ui.warmTo = clamp(toMin)
+  })
+export const setWarmPlaceValue = (place: Place | null) => act('ui/warmPlace', (d) => void (d.ui.warmPlace = place))
+/** A manual flip that stands until the schedule next changes its mind. */
+export const setWarmOverride = (held: { on: boolean; until: number } | null) =>
+  act('ui/warmOverride', (d) => void (d.ui.warmOverride = held))
+
 /** Opens the settings popover (or the newest feature's), or closes it when
  *  the same one is already open. */
 export const toggleSettingsMenu = (which: SettingsMenu) =>
@@ -75,6 +91,27 @@ export function setInspector(open: boolean, renaming = false) {
 export const toggleInspector = (open: boolean) => setInspector(!open)
 export const setRenaming = (on: boolean) => act('ui/renaming', (d) => void (d.ui.renaming = on))
 
+export const attachFiles = (id: string, paths: string[]) =>
+  act('ui/attach', (d) => {
+    d.ui.attachments[id] = withAttached(d.ui.attachments[id] ?? [], paths)
+  })
+export const clearAttachments = (id: string) =>
+  act('ui/attachClear', (d) => {
+    delete d.ui.attachments[id]
+  })
+
+export const openExport = (workspaceId: string) =>
+  act('ui/export', (d) => {
+    d.ui.transfer = { kind: 'export', workspaceId }
+    d.ui.wsMenu = false
+  })
+export const openImport = (path: string) =>
+  act('ui/import', (d) => {
+    d.ui.transfer = { kind: 'import', path }
+    d.ui.wsMenu = false
+  })
+export const closeTransfer = () => act('ui/transferClose', (d) => void (d.ui.transfer = null))
+
 export const setPaneMenu = (id: string | null) => act('ui/paneMenu', (d) => void (d.ui.paneMenu = id))
 
 export function openNewSessionDraft(draft: NewSessionDraft) {
@@ -102,6 +139,7 @@ export const cancelDeleteSession = () => act('ui/confirmDeleteCancel', (d) => vo
 export function closeOverlays() {
   act('ui/closeOverlays', (d) => {
     d.ui.confirmDelete = null
+    d.ui.transfer = null
     d.ui.wsMenu = false
     d.ui.inspector = false
     d.ui.paneMenu = null

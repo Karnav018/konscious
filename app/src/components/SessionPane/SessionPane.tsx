@@ -19,6 +19,8 @@ import {
   toggleFocus,
 } from '../../app/actions'
 import { STATUS_COLOR, STATUS_LABEL } from '../../lib/format'
+import { shellLabel } from '../../lib/path'
+import { IS_WINDOWS, kbd, kbdShift } from '../../lib/platform'
 import { requestStart, terminals } from '../../lib/terminals'
 import { setInspector } from '../../state/commands/ui'
 import { isEnded } from '../../state/machine'
@@ -27,11 +29,12 @@ import { getState } from '../../state/store'
 import type { Runtime, SessionMeta } from '../../types'
 import { CloseIcon, DotsIcon, GripIcon, MaximizeIcon, MinimizeIcon } from '../common/Icon'
 import { StatusGlyph } from '../common/StatusGlyph'
+import { AttachedFiles } from './AttachedFiles'
 import { ContextRing, ModelBadge } from '../common/Usage'
 import { noDrag, type PaneReorder, paneCell } from '../SessionGrid/usePaneDrag'
 
-/** ⌘⇧← / ⌘⇧→ also move the selected pane. */
-const MOVE_HINT = 'Drag to move this pane (⌘⇧← / ⌘⇧→)'
+/** Ctrl+Shift+← / → (⌘⇧← / → on the Mac) also move the selected pane. */
+const MOVE_HINT = `Drag to move this pane (${kbdShift('←')} / ${kbdShift('→')})`
 
 interface MenuItem {
   label: string
@@ -42,10 +45,10 @@ interface MenuItem {
 
 function menuFor(meta: SessionMeta, rt: Runtime, reorder: PaneReorder | null): MenuItem[] {
   const items: MenuItem[] = [
-    { label: 'Session details', key: '⌘I', run: () => setInspector(true) },
+    { label: 'Session details', key: kbd('I'), run: () => setInspector(true) },
     { label: 'Rename…', run: () => setInspector(true, true) },
-    ...(reorder?.canLeft ? [{ label: 'Move left', key: '⌘⇧←', run: () => movePane(meta.id, -1) }] : []),
-    ...(reorder?.canRight ? [{ label: 'Move right', key: '⌘⇧→', run: () => movePane(meta.id, 1) }] : []),
+    ...(reorder?.canLeft ? [{ label: 'Move left', key: kbdShift('←'), run: () => movePane(meta.id, -1) }] : []),
+    ...(reorder?.canRight ? [{ label: 'Move right', key: kbdShift('→'), run: () => movePane(meta.id, 1) }] : []),
     {
       label: 'New session in this folder',
       run: () => void openNewSession({ workspaceId: meta.workspaceId, dir: meta.cwd, kind: meta.kind }),
@@ -92,17 +95,17 @@ function FontSizeRow({ id, pinned }: { id: string; pinned: number | null }) {
   return (
     <div className="h-8 px-2 flex items-center gap-1.5 text-[12.5px]" onClick={(e) => e.stopPropagation()}>
       <span className="flex-1">Text size</span>
-      <div className={btn} onClick={step(-1)} title="Smaller (⌘−)">−</div>
+      <div className={btn} onClick={step(-1)} title={`Smaller (${kbd('−')})`}>−</div>
       <span className="w-8 text-center font-mono text-[11.5px] text-muted">
         {pinned ?? Math.round(terminals.currentFontSize(id))}
       </span>
-      <div className={btn} onClick={step(1)} title="Larger (⌘+)">+</div>
+      <div className={btn} onClick={step(1)} title={`Larger (${kbd('+')})`}>+</div>
       <div
         onClick={(e) => {
           e.stopPropagation()
           resetPaneFontSize(id)
         }}
-        title="Automatic size for this pane (⌘0)"
+        title={`Automatic size for this pane (${kbd('0')})`}
         className="h-6 px-1.5 flex items-center rounded-rs border text-[10.5px] cursor-pointer"
         style={{
           borderColor: pinned ? 'var(--accent)' : 'var(--line)',
@@ -164,9 +167,9 @@ export function SessionPane({
   const meta = useSession(id)
   const rt = useRuntimeOf(id)
   const menuOpen = useUi((u) => u.paneMenu === id)
-  // Files from Finder are over this pane: they'll paste here on drop.
+  // Files from Explorer are over this pane: they'll paste here on drop.
   const fileOver = useUi((u) => u.fileDrop === id)
-  const shellName = useUi((u) => (u.env?.shell ?? '/bin/zsh').split('/').pop())
+  const shellName = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : (u.env?.shell ?? '/bin/zsh').split('/').pop()))
   const body = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -240,7 +243,7 @@ export function SessionPane({
         >
           <DotsIcon />
         </HeaderButton>
-        <HeaderButton title={focused ? 'Restore (⌘↵)' : 'Focus (⌘↵)'} onClick={() => toggleFocus(id)}>
+        <HeaderButton title={`${focused ? 'Restore' : 'Focus'} (${kbd('↵')})`} onClick={() => toggleFocus(id)}>
           {focused ? <MinimizeIcon /> : <MaximizeIcon />}
         </HeaderButton>
         <HeaderButton title="Hide pane (process keeps running)" onClick={() => hidePane(id)}>
@@ -291,6 +294,7 @@ export function SessionPane({
           </span>
         </div>
       )}
+      {!ended && <AttachedFiles id={id} />}
       {ended && <EndedBar meta={meta} rt={rt} />}
     </div>
   )

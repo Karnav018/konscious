@@ -3,8 +3,8 @@
 //! lives with the frontend that owns UI state.
 //!
 //! Writes are serialized and atomic (tmp → fsync → rename), a corrupt file is
-//! set aside as `*.corrupt-<ts>` instead of being overwritten, and an `flock`
-//! keeps two app instances from resuming the same sessions.
+//! set aside as `*.corrupt-<ts>` instead of being overwritten, and an
+//! exclusive file lock keeps two app instances from resuming the same sessions.
 //!
 //! Backups: the first write of each file per app launch rotates the previous
 //! version into `<file>.bak1` (→ bak2 → bak3), so the state of the last three
@@ -14,6 +14,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
+#[cfg(unix)]
 use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -105,7 +106,10 @@ impl Store {
         let Ok(file) = OpenOptions::new().create(true).truncate(false).write(true).open(self.base.join(".lock")) else {
             return false;
         };
+        #[cfg(unix)]
         let ok = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0;
+        #[cfg(windows)]
+        let ok = file.try_lock().is_ok(); // LockFileEx
         if ok {
             *self.lock_file.locked() = Some(file);
         }

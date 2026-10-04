@@ -11,19 +11,26 @@ import {
   stepPaneFontSize,
   toggleFocus,
 } from './app/actions'
+import { setAppPanel, setAppPopover } from './state/commands/apps'
 import { layoutOf } from './state/commands/layout'
 import { bootstrap } from './app/bootstrap'
+import { startReminders } from './app/reminders'
+import { startBundleOpens } from './app/transfer'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { DeleteSessionDialog } from './components/DeleteSessionDialog/DeleteSessionDialog'
 import { EmptyState } from './components/EmptyState/EmptyState'
 import { FirstRun } from './components/FirstRun/FirstRun'
 import { Inspector } from './components/Inspector/Inspector'
 import { NewSessionModal } from './components/NewSessionModal/NewSessionModal'
+import { AppsPanel } from './components/Dock/AppsPanel'
+import { Transfer } from './components/Transfer/Transfer'
+import { Dock } from './components/Dock/Dock'
 import { SessionGrid } from './components/SessionGrid/SessionGrid'
 import { StatusBar } from './components/StatusBar/StatusBar'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { Toast } from './components/Toast/Toast'
 import { WorkspaceMenu } from './components/WorkspaceMenu/WorkspaceMenu'
+import { IS_WINDOWS, isBrowserKey } from './lib/platform'
 import { matchShortcut } from './lib/shortcuts'
 import {
   cancelDeleteSession,
@@ -39,10 +46,13 @@ import { useActiveLayout, useHasWorkspaces, useUi } from './state/selectors'
 import { getState, type UiState } from './state/store'
 
 const anyOverlayOpen = (ui: UiState) =>
-  ui.wsMenu || ui.inspector || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
+  ui.wsMenu || ui.inspector || !!ui.transfer || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
 
 /** Capture phase: runs before xterm's own key handling. */
 function onKeyDown(e: KeyboardEvent) {
+  // WebView2 would reload/print/find on the app page itself. Cancel only the
+  // browser action; the key still reaches the terminal (Ctrl+R stays ^R).
+  if (IS_WINDOWS && isBrowserKey(e)) e.preventDefault()
   const s = getState()
   const sc = matchShortcut(e)
   if (sc) {
@@ -65,6 +75,8 @@ function onKeyDown(e: KeyboardEvent) {
         return toggleFocus()
       case 'selectPane':
         return selectPaneIndex(sc.index)
+      case 'apps':
+        return setAppPanel(s.ui.appPanel ? null : 'catalog')
       case 'movePane':
         return movePane(layoutOf(s.layout.byWorkspace, s.workspace.activeId).selected, sc.delta)
       case 'fontSize': {
@@ -136,9 +148,18 @@ export default function App() {
       const ui = getState().ui
       if (ui.paneMenu && !el.closest?.('[data-pane-menu]')) openPaneMenu(null)
       if (ui.settingsMenu && !el.closest?.('[data-settings-menu],[data-settings-button]')) closeSettingsMenu()
+      if (ui.appPopover && !el.closest?.('[data-dock]')) setAppPopover(null)
     }
     window.addEventListener('mousedown', closePopovers)
+    const stopReminders = startReminders()
+    const stopBundles = startBundleOpens()
     window.addEventListener('keydown', onKeyDown, true)
+    // WebView2's page menu (Back, Refresh, Print…) makes no sense in an app;
+    // text fields keep theirs for cut/copy/paste.
+    const noPageMenu = (e: MouseEvent) => {
+      if (!(e.target instanceof HTMLInputElement)) e.preventDefault()
+    }
+    if (IS_WINDOWS) window.addEventListener('contextmenu', noPageMenu)
     void bootstrap().catch((e) => {
       console.error(e)
       setBooted()
@@ -146,7 +167,10 @@ export default function App() {
     })
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('contextmenu', noPageMenu)
       window.removeEventListener('mousedown', closePopovers)
+      stopReminders()
+      void stopBundles.then((off) => off()).catch(() => {})
     }
   }, [])
 
@@ -164,8 +188,13 @@ export default function App() {
     <div className="h-full min-w-[1080px] flex flex-col bg-win relative overflow-hidden text-text">
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-2 gap-2 bg-win">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-2 gap-2 bg-win relative">
           <ErrorBoundary label="main">{main}</ErrorBoundary>
+          {booted && lockOk && !firstRun && (
+            <ErrorBoundary compact label="dock">
+              <Dock />
+            </ErrorBoundary>
+          )}
         </div>
       </div>
       <StatusBar />
@@ -174,6 +203,8 @@ export default function App() {
         {booted && lockOk && wsMenu && !firstRun && <WorkspaceMenu />}
         {booted && lockOk && newSession && <NewSessionModal />}
         {booted && lockOk && confirmDelete && <DeleteSessionDialog />}
+        {booted && lockOk && !firstRun && <AppsPanel />}
+        {booted && lockOk && <Transfer />}
       </ErrorBoundary>
       <Toast />
     </div>

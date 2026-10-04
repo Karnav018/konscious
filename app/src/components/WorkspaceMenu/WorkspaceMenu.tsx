@@ -12,10 +12,13 @@ import {
   switchWorkspace,
 } from '../../app/actions'
 import { ago, relTo, STATUS_COLOR, STATUS_LABEL, tildify } from '../../lib/format'
+import { pickAndImport } from '../../app/transfer'
 import { CAP } from '../../lib/grid'
+import { shellLabel } from '../../lib/path'
+import { IS_WINDOWS } from '../../lib/platform'
 import { layoutOf } from '../../state/commands/layout'
 import { runtimeOf } from '../../state/commands/runtime'
-import { closeWorkspaceMenu, hoverWorkspace, setWsFilter } from '../../state/commands/ui'
+import { closeWorkspaceMenu, hoverWorkspace, openExport, setWsFilter } from '../../state/commands/ui'
 import {
   useActiveWorkspaceId,
   useLayouts,
@@ -26,6 +29,7 @@ import {
 } from '../../state/selectors'
 import type { WsFilter } from '../../state/store'
 import type { SessionMeta } from '../../types'
+import { formatBytes, totalOf, useSessionMemory } from '../../lib/memory'
 import { FolderIcon, StopIcon, TrashIcon } from '../common/Icon'
 import { StatusGlyph, useNow } from '../common/StatusGlyph'
 
@@ -85,7 +89,10 @@ export function WorkspaceMenu() {
   const wsHover = useUi((u) => u.wsHover)
   const wsFilter = useUi((u) => u.wsFilter)
   const home = useUi((u) => u.init?.home)
+  const shellTag = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : 'zsh'))
   const workspaces = useWorkspacesByUse()
+  // Subscribing here means the engine is only polled while this menu is open.
+  const memory = useSessionMemory()
   const sessions = useSessions()
   const activeId = useActiveWorkspaceId()
   const runtime = useRuntimes()
@@ -118,6 +125,7 @@ export function WorkspaceMenu() {
             const ss = sessionsIn(sessions, w.id)
             const wk = ss.filter((x) => runtimeOf(runtime, x.id).status === 'working').length
             const wt = ss.filter((x) => runtimeOf(runtime, x.id).status === 'waiting').length
+            const held = totalOf(memory, ss.map((x) => x.id))
             const hov = (wsHover ?? activeId) === w.id
             const note = wt ? `${wt} waiting` : wk ? `${wk} working` : w.id === activeId ? 'active' : ''
             return (
@@ -136,7 +144,10 @@ export function WorkspaceMenu() {
                   </span>
                 </div>
                 <div className="flex flex-col items-end gap-[2px] flex-none">
-                  <span className="font-mono text-[11px] text-muted">{ss.length}</span>
+                  <span className="font-mono text-[11px] text-muted">
+                    {ss.length}
+                    {held > 0 && <span className="text-faint"> · {formatBytes(held)}</span>}
+                  </span>
                   <span
                     className="text-[10.5px]"
                     style={{ color: wt ? 'var(--warn)' : wk ? 'var(--ok)' : 'var(--faint)' }}
@@ -182,7 +193,7 @@ export function WorkspaceMenu() {
               const isSel = shown.id === activeId && shownLayout.selected === m.id
               const right = r.status === 'idle' ? ago(m.lastActiveAt, now) : STATUS_LABEL[r.status]
               const sub = [
-                (m.kind === 'shell' ? 'zsh · ' : '') + relTo(m.cwd, shown.path),
+                (m.kind === 'shell' ? `${shellTag} · ` : '') + relTo(m.cwd, shown.path),
                 r.git ? `⎇ ${r.git.branch}` : null,
               ]
                 .filter(Boolean)
@@ -241,10 +252,28 @@ export function WorkspaceMenu() {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 px-3.5 py-[10px] border-t border-line">
+          <div className="flex flex-col gap-2 px-3.5 py-[10px] border-t border-line">
             <span className="text-[11.5px] text-muted">
               {shownLayout.open.length} of {CAP} grid slots used · hidden sessions keep running
             </span>
+            <div className="flex items-center gap-2">
+              {/* Short labels: the heading above already says which workspace,
+                  and the full name makes this row overflow. */}
+              <div
+                onClick={() => void pickAndImport()}
+                title="Import a workspace from a .kon file"
+                className="h-7 px-2.5 flex-none flex items-center rounded-rs border border-line2 cursor-pointer text-[12px] text-muted hover:text-text hover:border-accent"
+              >
+                Import…
+              </div>
+              <div
+                onClick={() => openExport(shown.id)}
+                title={`Export ${shown.name} and its conversations as a .kon file`}
+                className="h-7 px-2.5 flex-none flex items-center rounded-rs border border-line2 cursor-pointer text-[12px] text-muted hover:text-text hover:border-accent"
+              >
+                Export…
+              </div>
+              <span className="flex-1" />
             <div className="flex items-center gap-2 flex-none">
               <div
                 onClick={() => void openNewSession({ workspaceId: shown.id, dir: shown.path })}
@@ -254,6 +283,7 @@ export function WorkspaceMenu() {
                 + New session
               </div>
               <StopAllButton key={shown.id} name={shown.name} workspaceId={shown.id} running={running} />
+            </div>
             </div>
           </div>
         </div>

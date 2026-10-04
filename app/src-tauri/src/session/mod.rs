@@ -2,5 +2,5 @@ pub mod manager;
 pub mod model;
 pub mod process;
 pub mod status;
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod stress;

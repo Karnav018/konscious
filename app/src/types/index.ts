@@ -65,6 +65,53 @@ export interface Attached extends SessionInfo {
   replayBytes: number
 }
 
+/** Resident memory for a session's whole process tree (Claude's subagents and
+ *  MCP servers included), measured by the engine. */
+export interface SessionMemory {
+  id: string
+  bytes: number
+  processes: number
+}
+
+/** This machine, for the dock's gauge. `tmp` is °C, or null when the
+ *  platform will not report a component temperature. */
+export interface Stats {
+  cpu: number
+  ram: number
+  ssd: number
+  tmp: number | null
+  cores: number
+  ramTotal: number
+  ramUsed: number
+  ssdTotal: number
+  ssdUsed: number
+}
+
+/** A session as it travels in a bundle. */
+export interface BundleSession {
+  id: string
+  name: string
+  kind: Kind
+  /** Its folder, as an offset from the workspace root. */
+  relative: string
+  /** It ran outside the workspace root, so import places it at the root. */
+  outside: boolean
+  claudeSessionId: string | null
+  hasTranscript: boolean
+}
+
+/** What a bundle says about itself, read before anything is written. */
+export interface BundleManifest {
+  version: number
+  app: string
+  platform: string
+  exportedAt: string
+  workspaceName: string
+  sourceRoot: string
+  sessions: BundleSession[]
+  layout: Layout
+}
+
 export interface GitInfo {
   branch: string
   commit: string

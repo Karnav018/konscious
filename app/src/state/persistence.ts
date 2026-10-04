@@ -9,14 +9,16 @@
 import { produce } from 'immer'
 import { z } from 'zod'
 
+import { APPS, type AppId } from '../lib/apps'
 import { CAP } from '../lib/grid'
 import { ipc } from '../lib/ipc'
-import { DEFAULT_K, NEUTRAL_K, WARMEST_K } from '../lib/warmth'
+import type { Place } from '../lib/sun'
+import { DEFAULT_K, NEUTRAL_K, WARMEST_K, type WarmWhen } from '../lib/warmth'
 import type { Layout, Limits, SessionMeta, Snapshot, Theme, Workspace } from '../types'
 import { act } from './act'
 import { setPersistStatus } from './commands/ui'
 import { repair } from './invariants'
-import { type AppState, getState, useApp } from './store'
+import { type AppsState, type AppState, getState, initialState, useApp } from './store'
 
 export const SCHEMA_VERSION = 2
 export const DEFAULT_FONT = 12
@@ -92,9 +94,53 @@ const ConfigFileV1 = z.object({
   /** Warm colours for late sessions, and the temperature they warm to. */
   warm: z.boolean().catch(false).optional(),
   warmth: z.number().min(WARMEST_K).max(NEUTRAL_K).catch(DEFAULT_K).optional(),
+  warmWhen: z.enum(['always', 'hours', 'sun']).catch('always').optional(),
+  warmFrom: z.number().min(0).max(1439).catch(20 * 60).optional(),
+  warmTo: z.number().min(0).max(1439).catch(6 * 60).optional(),
+  warmPlace: z
+    .object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) })
+    .nullable()
+    .catch(null)
+    .optional(),
   /** Last known plan usage, shown (faded) until the next live update. */
   limits: z.object({ fiveHour: LimitWindowV, sevenDay: LimitWindowV }).nullable().catch(null).optional(),
   limitsAt: z.number().nullable().catch(null).optional(),
+  /** Mini apps: the dock's place, which apps are on, and their settings. */
+  apps: z
+    .object({
+      edge: z.enum(['left', 'right', 'top', 'bottom']).catch('right'),
+      along: z.number().min(0).max(1).catch(0.5),
+      autoMinimise: z.boolean().catch(false),
+      on: z.record(z.string(), z.boolean()).catch({}),
+      pinned: z.record(z.string(), z.boolean()).catch({}),
+      every: z.object({ water: z.number().min(1).max(600), stand: z.number().min(1).max(600) }).catch({ water: 40, stand: 50 }),
+      snoozeMin: z.number().min(1).max(120).catch(10),
+      glasses: z.number().min(0).max(100).catch(0),
+      glassesOn: z.string().catch(''),
+      asked: z.boolean().catch(false),
+      pomo: z
+        .object({
+          phase: z.enum(['idle', 'focus', 'break']).catch('idle'),
+          endsAt: z.number().nullable().catch(null),
+          rounds: z.number().min(0).max(1000).catch(0),
+        })
+        .catch({ phase: 'idle', endsAt: null, rounds: 0 })
+        .optional(),
+      pomoSet: z
+        .object({ focusMin: z.number().min(1).max(600), breakMin: z.number().min(1).max(600) })
+        .catch({ focusMin: 25, breakMin: 5 })
+        .optional(),
+      statPinned: z.enum(['cpu', 'ram', 'ssd', 'tmp']).nullable().catch(null).optional(),
+      reminders: z
+        .record(
+          z.string(),
+          z.object({ since: Ms, snoozedUntil: z.number().nullable().catch(null), dueAt: z.number().nullable().catch(null) }),
+        )
+        .catch({}),
+    })
+    .nullable()
+    .catch(null)
+    .optional(),
   fontSize: z.number().min(FONT_MIN).max(FONT_MAX).catch(DEFAULT_FONT),
   activeWorkspace: z.string().nullable().catch(null),
 })
@@ -112,8 +158,13 @@ export interface Decoded {
   activeId: string | null
   layouts: Record<string, Layout>
   theme: Theme
+  apps: AppsState
   warm: boolean
   warmth: number
+  warmWhen: WarmWhen
+  warmFrom: number
+  warmTo: number
+  warmPlace: Place | null
   fontSize: number
   limits: Limits | null
   limitsAt: number | null
@@ -179,13 +230,51 @@ export function decode(snap: Snapshot): Decoded {
     layouts,
     activeId: cfg?.activeWorkspace ?? null,
     theme: cfg?.theme ?? 'dark',
+    apps: appsFrom(cfg?.apps),
     warm: cfg?.warm ?? false,
+    warmWhen: cfg?.warmWhen ?? 'always',
+    warmFrom: cfg?.warmFrom ?? 20 * 60,
+    warmTo: cfg?.warmTo ?? 6 * 60,
+    warmPlace: cfg?.warmPlace ?? null,
     warmth: cfg?.warmth ?? DEFAULT_K,
     fontSize: cfg?.fontSize ?? DEFAULT_FONT,
     limits: cfg?.limits ?? null,
     limitsAt: cfg?.limitsAt ?? null,
     skipped,
     readonly,
+  }
+}
+
+/** The saved apps state, with every gap filled from the defaults — a config
+ *  from before mini apps, or one missing an app added since, both load. */
+function appsFrom(saved: unknown): AppsState {
+  const base = initialState().ui.apps
+  const got = (saved ?? {}) as Partial<AppsState>
+  const flags = (from: unknown, fallback: Record<string, boolean>) => {
+    const m = { ...fallback } as Record<AppId, boolean>
+    for (const app of APPS) {
+      const v = (from as Record<string, unknown> | null | undefined)?.[app.id]
+      if (typeof v === 'boolean') m[app.id] = v
+    }
+    return m
+  }
+  // A pomodoro that was running when the app quit is not resumed: a phase
+  // that ended hours ago is not a phase.
+  const pomo = got.pomo && got.pomo.phase !== 'idle' ? { ...got.pomo, phase: 'idle' as const, endsAt: null } : base.pomo
+  const reminders = { ...base.reminders }
+  for (const id of ['water', 'stand'] as const) {
+    const r = got.reminders?.[id]
+    if (r && Number.isFinite(r.since)) reminders[id] = r
+  }
+  return {
+    ...base,
+    ...got,
+    on: flags(got.on, base.on),
+    pinned: flags(got.pinned, base.pinned),
+    every: { ...base.every, ...got.every },
+    pomo,
+    pomoSet: { ...base.pomoSet, ...got.pomoSet },
+    reminders,
   }
 }
 
@@ -197,7 +286,12 @@ export function hydrate(dec: Decoded) {
     d.workspace.activeId = dec.activeId
     d.layout.byWorkspace = dec.layouts
     d.ui.theme = dec.theme
+    d.ui.apps = dec.apps
     d.ui.warm = dec.warm
+    d.ui.warmWhen = dec.warmWhen
+    d.ui.warmFrom = dec.warmFrom
+    d.ui.warmTo = dec.warmTo
+    d.ui.warmPlace = dec.warmPlace
     d.ui.warmth = dec.warmth
     d.ui.fontSize = dec.fontSize
     d.ui.limits = dec.limits
@@ -220,7 +314,12 @@ export function serialize(s: AppState = getState()) {
     config: {
       version: SCHEMA_VERSION,
       theme: s.ui.theme,
+      apps: s.ui.apps,
       warm: s.ui.warm,
+      warmWhen: s.ui.warmWhen,
+      warmFrom: s.ui.warmFrom,
+      warmTo: s.ui.warmTo,
+      warmPlace: s.ui.warmPlace,
       warmth: s.ui.warmth,
       fontSize: s.ui.fontSize,
       activeWorkspace: activeId,
@@ -289,7 +388,7 @@ export function startPersistence(dec: Pick<Decoded, 'readonly'>) {
   if (dec.readonly) setPersistStatus({ state: 'readonly', message: dec.readonly })
   for (const [target, data] of targets(getState())) written.set(target, JSON.stringify(data))
   useApp.subscribe(
-    (s) => [s.workspace, s.layout, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.fontSize, s.ui.limits] as const,
+    (s) => [s.workspace, s.layout, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.warmWhen, s.ui.warmFrom, s.ui.warmTo, s.ui.warmPlace, s.ui.fontSize, s.ui.limits, s.ui.apps] as const,
     schedule,
     { equalityFn: (a, b) => a.every((x, i) => x === b[i]) },
   )

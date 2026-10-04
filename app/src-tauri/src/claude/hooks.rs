@@ -7,9 +7,14 @@
 //!   prompts and tool inputs are never written to disk;
 //! - never print to stdout (UserPromptSubmit stdout would become context);
 //! - always exit 0 (a non-zero exit shows a "hook error" in the transcript).
+//!
+//! macOS/Linux: each hook is a tiny `sh` command (this file). Windows has
+//! its own hook plumbing in `win_hooks.rs`, which the macOS build never
+//! compiles; only the event format and the tailer below are shared.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom};
+#[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -28,23 +33,29 @@ pub enum HookEvent {
 }
 
 /// Notification types that mean "a person needs to act in this pane".
-const ATTENTION_MATCHER: &str =
+pub(crate) const ATTENTION_MATCHER: &str =
     "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input";
 
-fn sh_quote(s: &str) -> String {
+pub(crate) fn sh_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 fn simple(token: &str, events: &str) -> String {
     format!("printf '%s\\n' {token} >> {events} 2>/dev/null; exit 0")
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 fn capture(token: &str, events: &str) -> String {
     format!("{{ printf '{token}\\t'; tr -d '\\n\\r'; printf '\\n'; }} >> {events} 2>/dev/null; exit 0")
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 fn entry(command: String, matcher: Option<&str>) -> Value {
-    let hook = json!({ "type": "command", "command": command, "timeout": 5 });
+    wrap(json!({ "type": "command", "command": command, "timeout": 5 }), matcher)
+}
+
+pub(crate) fn wrap(hook: Value, matcher: Option<&str>) -> Value {
     match matcher {
         Some(m) => json!([{ "matcher": m, "hooks": [hook] }]),
         None => json!([{ "hooks": [hook] }]),
@@ -55,6 +66,7 @@ fn entry(command: String, matcher: Option<&str>) -> Value {
 /// and displays nothing — Konscious shows context, model and plan usage in its own
 /// chrome. If the user configured a status line of their own, that one is
 /// shown unchanged. Never fails (a failing status line shows an error).
+#[cfg_attr(windows, allow(dead_code))]
 pub fn status_command(status_path: &Path, chain: Option<&str>) -> String {
     let st = sh_quote(&status_path.to_string_lossy());
     let tmp = sh_quote(&format!("{}.tmp", status_path.to_string_lossy()));
@@ -83,6 +95,7 @@ pub fn user_status_line(cwd: &Path, config_dir: &Path) -> Option<String> {
     None
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 pub fn settings_value(events_path: &Path, status_path: &Path, chain: Option<&str>) -> Value {
     let ev = sh_quote(&events_path.to_string_lossy());
     json!({
@@ -111,12 +124,24 @@ pub struct HookFiles {
 /// Writes the settings file and truncates the events file for a new run.
 pub fn prepare(run_dir: &Path, session_id: &str, chain: Option<&str>) -> std::io::Result<HookFiles> {
     fs::create_dir_all(run_dir)?;
+    #[cfg(unix)]
     fs::set_permissions(run_dir, fs::Permissions::from_mode(0o700))?;
     let settings = run_dir.join(format!("{session_id}.settings.json"));
     let events = run_dir.join(format!("{session_id}.events"));
     let status = run_dir.join(format!("{session_id}.status.json"));
-    fs::write(&settings, serde_json::to_vec_pretty(&settings_value(&events, &status, chain))?)?;
-    OpenOptions::new().create(true).write(true).truncate(true).mode(0o600).open(&events)?;
+    #[cfg(not(windows))]
+    let doc = settings_value(&events, &status, chain);
+    #[cfg(windows)]
+    let doc = {
+        let _ = chain; // chaining the user's own status line: macOS/Linux only
+        super::win_hooks::settings_value(&events, &status)
+    };
+    fs::write(&settings, serde_json::to_vec_pretty(&doc)?)?;
+    let mut open = OpenOptions::new();
+    open.create(true).write(true).truncate(true);
+    #[cfg(unix)]
+    open.mode(0o600);
+    open.open(&events)?;
     let _ = fs::remove_file(&status);
     Ok(HookFiles { settings, events, status })
 }
@@ -241,8 +266,11 @@ impl EventTail {
 mod tests {
     use super::*;
     use std::io::Write;
+    // Only the sh-driven tests (macOS/Linux) start processes.
+    #[cfg(unix)]
     use std::process::Command;
 
+    #[cfg(unix)]
     #[test]
     fn settings_cover_status_events_and_quote_paths() {
         let v = settings_value(Path::new("/tmp/it's here/x.events"), Path::new("/tmp/s.json"), None);
@@ -257,6 +285,7 @@ mod tests {
     }
 
     /// Runs the generated commands through a real `sh`, as Claude does.
+    #[cfg(unix)]
     #[test]
     fn hook_commands_append_parseable_lines_and_never_fail() {
         let dir = tempfile::tempdir().unwrap();
@@ -299,6 +328,7 @@ mod tests {
         run("Stop", "{}");
     }
 
+    #[cfg(unix)]
     fn run_status(cmd: &str, stdin: &str) -> (bool, String) {
         let mut child = Command::new("sh")
             .args(["-c", cmd])
@@ -311,8 +341,10 @@ mod tests {
         (out.status.success(), String::from_utf8_lossy(&out.stdout).to_string())
     }
 
+    #[cfg(unix)]
     const STATUS_JSON: &str = r#"{"model":{"display_name":"Opus 5.5"},"context_window":{"used_percentage":79.4,"total_input_tokens":794000,"context_window_size":1000000},"rate_limits":{"five_hour":{"used_percentage":11,"resets_at":1790770000},"seven_day":{"used_percentage":38.5,"resets_at":1791200000}}}"#;
 
+    #[cfg(unix)]
     #[test]
     fn status_line_saves_the_feed_and_shows_nothing_by_default() {
         let dir = tempfile::tempdir().unwrap();
@@ -329,6 +361,7 @@ mod tests {
         assert_eq!(limits.seven_day.unwrap().resets_at, Some(1_791_200_000));
     }
 
+    #[cfg(unix)]
     #[test]
     fn status_line_chains_the_users_own_command_and_never_fails() {
         let dir = tempfile::tempdir().unwrap();

@@ -1,3 +1,4 @@
+import { IS_WINDOWS } from './platform'
 import type { Status } from '../types'
 
 export const STATUS_LABEL: Record<Status, string> = {
@@ -65,14 +66,16 @@ export function resetsIn(epochSec: number | null | undefined, now = Date.now()):
 /** Design thresholds: ok → warn at 60% → err at 85% (usage bar). */
 export const usageColor = (pct: number) => (pct >= 85 ? 'var(--err)' : pct >= 60 ? 'var(--warn)' : 'var(--ok)')
 
-export function tildify(path: string, home: string | undefined): string {
+export function tildify(path: string, home: string | undefined, win = IS_WINDOWS): string {
   if (home && (path === home || path.startsWith(home + '/'))) return '~' + path.slice(home.length)
+  if (win && home && path.startsWith(home + '\\')) return '~' + path.slice(home.length)
   return path
 }
 
 /** Path relative to the workspace root, as the design shows it (`./backend`). */
-export function relTo(path: string, root: string): string {
+export function relTo(path: string, root: string, win = IS_WINDOWS): string {
   if (path === root) return '.'
   if (path.startsWith(root + '/')) return './' + path.slice(root.length + 1)
+  if (win && path.startsWith(root + '\\')) return '.\\' + path.slice(root.length + 1)
   return path
 }

@@ -21,6 +21,8 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 
 import type { Kind, Theme } from '../types'
 import { Channel, ipc } from './ipc'
+import { IS_WINDOWS } from './platform'
+import { attachFiles } from '../state/commands/ui'
 import { pathsForTerminal } from './paste'
 import { isAppShortcut } from './shortcuts'
 import { NEUTRAL_K, warmColor } from './warmth'
@@ -75,6 +77,8 @@ interface Entry {
   held: boolean
   /** User-chosen text size for this pane; null = automatic. */
   fontOverride: number | null
+  /** The current selection came from ⌘A, so Delete means "clear my input". */
+  selectedAll: boolean
   /** Keystrokes typed before the process exists; delivered on start. */
   pendingInput: string[] | null
   /** Bytes written (parsed) from the current channel, and who waits on it. */
@@ -218,16 +222,35 @@ function ack(e: Entry, n: number) {
   else if (!e.ackTimer) e.ackTimer = setTimeout(() => flushAck(e), 100)
 }
 
-/** ⌘V and Edit › Paste can both fire for one paste (the key, then the menu's
- *  paste event); whichever comes second within this window is the same paste. */
+/** ConPTY repaints on resize by itself; xterm must know which build it is
+ *  talking to (reflow is safe from build 21376, i.e. Windows 11). WebView2
+ *  reports Windows 11 as platformVersion 13+. */
+let winPty: { backend: 'conpty'; buildNumber?: number } = { backend: 'conpty' }
+if (IS_WINDOWS) {
+  const uaData = (navigator as Navigator & {
+    userAgentData?: { getHighEntropyValues(h: string[]): Promise<{ platformVersion?: string }> }
+  }).userAgentData
+  void uaData
+    ?.getHighEntropyValues(['platformVersion'])
+    .then(({ platformVersion }) => {
+      const major = Number((platformVersion ?? '').split('.')[0])
+      winPty = { backend: 'conpty', buildNumber: major >= 13 ? 22000 : 19045 }
+      for (const e of entries.values()) e.term.options.windowsPty = winPty
+    })
+    .catch(() => {})
+}
+
+/** The paste key and a paste event can both fire for one paste (the key,
+ *  then the browser's paste); whichever comes second is the same paste. */
 const PASTE_DEDUP_MS = 300
 let lastPasteAt = -Infinity
 
 /**
- * Paste the way Terminal does. The clipboard is read natively because WebKit
- * gives the page only the *name* of a file copied in Finder: copied files
- * paste as their (escaped) paths, otherwise the text. With only a picture on
- * the clipboard, a Claude pane gets ⌃V — Claude Code reads the image itself.
+ * Paste the way Windows Terminal does. The clipboard is read natively because
+ * WebView2 gives the page only the *names* of files copied in Explorer: copied
+ * files paste as their (quoted) paths, otherwise the text. On macOS, with only
+ * a picture on the clipboard, a Claude pane gets ⌃V — Claude Code reads the
+ * image itself (Windows uses a different key, so it is left alone there).
  */
 async function pasteClipboard(e: Entry) {
   const now = performance.now()
@@ -235,9 +258,25 @@ async function pasteClipboard(e: Entry) {
   lastPasteAt = now
   const clip = await ipc.clipboardRead().catch(() => null)
   if (!clip) return
-  if (clip.paths.length) e.term.paste(pathsForTerminal(clip.paths))
+  if (clip.paths.length) {
+    e.term.paste(pathsForTerminal(clip.paths))
+    attachFiles(e.id, clip.paths)
+  }
   else if (clip.text) e.term.paste(clip.text)
-  else if (clip.image && e.kind === 'claude') e.term.input('\x16', true)
+  else if (clip.image && e.kind === 'claude' && !IS_WINDOWS) e.term.input('\x16', true)
+}
+
+/** Select-all, then Delete. A terminal selection is a copy selection over the
+ *  program's own output, so nothing on screen can be deleted — but this one
+ *  gesture plainly means "clear what I typed", and `Ctrl+U` does that: Claude
+ *  clears its input buffer (Ctrl+Y restores it) and a shell kills the line. */
+export function clearsInput(
+  ev: Pick<KeyboardEvent, 'type' | 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>,
+  selectedAll: boolean,
+): boolean {
+  if (!selectedAll || ev.type !== 'keydown') return false
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return false
+  return ev.key === 'Backspace' || ev.key === 'Delete'
 }
 
 /** Keys xterm must not turn into bytes. App shortcuts are also stopped by
@@ -254,6 +293,13 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
     if (ev.metaKey && ev.key.toLowerCase() === 'a') {
       ev.preventDefault()
       e.term.selectAll()
+      e.selectedAll = true // set after selectAll: the change event resets it
+      return false
+    }
+    if (clearsInput(ev, e.selectedAll)) {
+      ev.preventDefault()
+      e.term.clearSelection()
+      void ipc.terminalWrite(e.id, '\x15')
       return false
     }
     if (ev.metaKey && !ev.ctrlKey && !ev.altKey && ev.key.toLowerCase() === 'v') {
@@ -261,6 +307,39 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
       // as paths; see pasteClipboard.
       ev.preventDefault()
       void pasteClipboard(e)
+      return false
+    }
+  }
+  if (IS_WINDOWS && ev.ctrlKey && !ev.altKey && !ev.metaKey) {
+    const k = ev.key.toLowerCase()
+    // Windows Terminal conventions (no Edit menu here): Ctrl+C copies when
+    // text is selected and is ^C otherwise; Ctrl+Shift+C always copies.
+    if (k === 'c' && (ev.shiftKey || e.term.hasSelection())) {
+      if (ev.type === 'keydown') {
+        ev.preventDefault()
+        const text = e.term.getSelection()
+        if (text) void navigator.clipboard.writeText(text).catch(() => {})
+        e.term.clearSelection()
+      }
+      return false
+    }
+    // Ctrl+Shift+A selects the pane's output, the Windows Terminal binding.
+    // Plain Ctrl+A stays ^A (start of line) for the program.
+    if (k === 'a' && ev.shiftKey) {
+      if (ev.type === 'keydown') {
+        ev.preventDefault()
+        e.term.selectAll()
+        e.selectedAll = true // set after selectAll: the change event resets it
+      }
+      return false
+    }
+    // Ctrl+V / Ctrl+Shift+V: pasted here (not by WebView2) so files copied
+    // in Explorer paste as paths; see pasteClipboard.
+    if (k === 'v') {
+      if (ev.type === 'keydown') {
+        ev.preventDefault()
+        void pasteClipboard(e)
+      }
       return false
     }
   }
@@ -288,6 +367,7 @@ export const terminals = {
       scrollback: SCROLLBACK,
       macOptionIsMeta: true,
       macOptionClickForcesSelection: true,
+      ...(IS_WINDOWS ? { windowsPty: winPty } : {}),
       allowProposedApi: true,
       drawBoldTextInBrightColors: false,
       theme: xtermTheme(),
@@ -313,7 +393,7 @@ export const terminals = {
       id, kind, term, fit, host,
       channel: null, pendingAck: 0, ackTimer: undefined, resizeTimer: undefined,
       observer: null, mountedIn: null, webgl: null, pty: null, ptyPending: null,
-      held: false, written: 0, waiters: [], fontOverride: null, pendingInput: [],
+      held: false, written: 0, waiters: [], fontOverride: null, pendingInput: [], selectedAll: false,
     }
     term.onData((data) => {
       if (entry.pendingInput) {
@@ -322,6 +402,9 @@ export const terminals = {
         return
       }
       void ipc.terminalWrite(id, data).catch(() => {})
+    })
+    term.onSelectionChange(() => {
+      entry.selectedAll = false
     })
     term.attachCustomKeyEventHandler((ev) => keyFilter(entry, ev))
     // Edit › Paste (and right-click Paste) arrive as a DOM paste event. Taken
@@ -485,6 +568,12 @@ export const terminals = {
   /** The size the pane is rendering at right now (auto or pinned). */
   currentFontSize(id: string): number {
     return entries.get(id)?.term.options.fontSize ?? fontSize
+  },
+
+  /** Ctrl+U: clears Claude's input buffer (Ctrl+Y restores it) and kills the
+   *  line in a shell. The only reliable way to take back what was typed. */
+  clearInput(id: string) {
+    void ipc.terminalWrite(id, '\x15').catch(() => {})
   },
 
   focus(id: string) {

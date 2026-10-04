@@ -41,18 +41,14 @@ if $tag_only; then
 else
   step "bump $old → $version"
   # package.json / tauri.conf.json: the "version" field at the top level only.
-  for f in app/package.json app/src-tauri/tauri.conf.json windows/package.json windows/src-tauri/tauri.conf.json site/package.json; do
+  for f in app/package.json app/src-tauri/tauri.conf.json site/package.json; do
     perl -0pi -e "s/(\"version\": )\"\Q$old\E\"/\$1\"$version\"/" "$f"
   done
   # Cargo.toml: the [package] version, which is the first one in the file.
-  for f in app/src-tauri/Cargo.toml windows/src-tauri/Cargo.toml; do
-    perl -0pi -e "s/^version = \"\Q$old\E\"/version = \"$version\"/m" "$f"
-  done
+  perl -0pi -e "s/^version = \"\Q$old\E\"/version = \"$version\"/m" app/src-tauri/Cargo.toml
   # Cargo.lock: only our own package's entry, never a dependency that happens to
   # share the version number.
-  for f in app/src-tauri/Cargo.lock windows/src-tauri/Cargo.lock; do
-    perl -0pi -e "s/(name = \"konscious\"(\r?\n)version = )\"\Q$old\E\"/\$1\"$version\"/" "$f"
-  done
+  perl -0pi -e "s/(name = \"konscious\"(\r?\n)version = )\"\Q$old\E\"/\$1\"$version\"/" app/src-tauri/Cargo.lock
   # ${1}, not $1: the new version starts with a digit, and "$1" + "0" would read
   # as capture group $10.
   # The README's download links and badges carry the file names, version and all.
@@ -60,14 +56,10 @@ else
 fi
 
 step "check"
-for f in app/src-tauri/tauri.conf.json windows/src-tauri/tauri.conf.json; do
-  got=$(node -p "require('./$f').version")
-  [[ "$got" == "$version" ]] || fail "$f still says $got"
-done
+got=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+[[ "$got" == "$version" ]] || fail "app/src-tauri/tauri.conf.json still says $got"
 grep -q "name = \"konscious\"" app/src-tauri/Cargo.lock || fail "app Cargo.lock lost its konscious entry"
-for f in app/src-tauri/Cargo.toml windows/src-tauri/Cargo.toml; do
-  grep -q "^version = \"$version\"$" "$f" || fail "$f version not bumped"
-done
+grep -q "^version = \"$version\"$" app/src-tauri/Cargo.toml || fail "app/src-tauri/Cargo.toml version not bumped"
 if ! $tag_only; then
   # Nothing may still name the version we came from.
   left=$(git grep -n -F "$old" -- app windows site README.md ':!*pnpm-lock.yaml' ':!*Cargo.lock' || true)

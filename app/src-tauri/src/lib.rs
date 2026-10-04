@@ -1,10 +1,14 @@
 mod claude;
+mod bundle;
 mod clipboard;
 mod commands;
 mod env;
 mod error;
 mod git;
+mod memory;
 mod persistence;
+mod preview;
+mod stats;
 mod session;
 mod suggest;
 mod sync;
@@ -13,8 +17,11 @@ mod terminal;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+#[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Emitter, Manager, RunEvent, Wry};
+#[cfg(target_os = "macos")]
+use tauri::{AppHandle, Wry};
+use tauri::{Emitter, Manager, RunEvent};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 use env::EnvHandle;
@@ -27,6 +34,9 @@ pub struct AppState {
     pub store: Arc<Store>,
     /// False when another instance holds ~/.claude-workspace/.lock.
     pub lock_ok: bool,
+    /// A `.kon` the system asked us to open. Held because the file can arrive
+    /// before the interface is listening; the frontend collects it at boot.
+    pub pending_bundle: std::sync::Mutex<Option<String>>,
 }
 
 fn window_flags() -> StateFlags {
@@ -51,7 +61,7 @@ fn base_dir() -> PathBuf {
             return PathBuf::from(p);
         }
     }
-    data_dir_in(&PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into())))
+    data_dir_in(&PathBuf::from(env::home_dir()))
 }
 
 fn data_dir_in(home: &Path) -> PathBuf {
@@ -86,7 +96,10 @@ fn locked(dir: &Path) -> bool {
 /// which changed with the rename; carry the file over once so the window
 /// opens where it was.
 fn carry_window_state(identifier: &str) {
-    // Tauri's app config dir on macOS.
+    // Tauri's app config dir: %APPDATA% on Windows.
+    #[cfg(windows)]
+    let base = std::env::var_os("APPDATA").map(PathBuf::from);
+    #[cfg(not(windows))]
     let base = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"));
     let Some(base) = base else { return };
     let file = tauri_plugin_window_state::DEFAULT_FILENAME;
@@ -98,6 +111,7 @@ fn carry_window_state(identifier: &str) {
 }
 
 /// GUI apps start with a soft limit of 256 fds; each PTY session uses several.
+#[cfg(unix)]
 fn raise_fd_limit() {
     unsafe {
         let mut rl = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
@@ -114,6 +128,7 @@ fn raise_fd_limit() {
 /// The default macOS menu binds ⌘W to "Close Window", which would end every
 /// session. Ours keeps Copy/Paste (xterm needs the native Edit actions) and
 /// leaves ⌘A to the frontend so it can select the terminal buffer.
+#[cfg(target_os = "macos")]
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let sep = || PredefinedMenuItem::separator(app);
     let app_menu = Submenu::with_items(
@@ -159,8 +174,18 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     Menu::with_items(app, &[&app_menu, &edit, &window])
 }
 
+/// Windows hooks run `Konscious.exe hook …` / `Konscious.exe status …` (see
+/// claude::win_hooks). Handles those and returns the exit code before any
+/// window or runtime code loads; `None` for a normal launch.
+#[cfg(windows)]
+pub fn helper_main() -> Option<i32> {
+    let args: Vec<String> = std::env::args().collect();
+    claude::win_hooks::run_helper(&args, &mut std::io::stdin().lock())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(unix)]
     raise_fd_limit();
     let context = tauri::generate_context!();
     carry_window_state(&context.config().identifier);
@@ -177,6 +202,7 @@ pub fn run() {
         // in the background and restarts when you say so (src/lib/update.ts).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             let handle = app.handle().clone();
             let emit: SessionEmitter = Arc::new(move |name, payload| {
@@ -184,7 +210,10 @@ pub fn run() {
             });
             let sessions = SessionManager::new(emit, Arc::clone(&env), store.run_dir());
             sessions.start_ticker();
-            app.manage(AppState { env, sessions, store, lock_ok });
+            app.manage(AppState { env, sessions, store, lock_ok, pending_bundle: Default::default() });
+            // macOS has an app menu bar (Copy/Paste live there); Windows windows
+            // get no menu bar — WebView2 handles clipboard keys natively.
+            #[cfg(target_os = "macos")]
             app.set_menu(build_menu(app.handle())?)?;
             Ok(())
         })
@@ -197,6 +226,14 @@ pub fn run() {
             commands::session_start,
             commands::session_attach,
             commands::session_list,
+            commands::session_memory,
+            commands::file_thumbnail,
+            commands::system_stats,
+            commands::bundle_pending,
+            commands::bundle_preview,
+            commands::bundle_export,
+            commands::bundle_inspect,
+            commands::bundle_import,
             commands::session_stop,
             commands::session_kill,
             commands::session_restart,
@@ -218,6 +255,22 @@ pub fn run() {
     app.run(|app, event| {
         // ⌘Q / Dock Quit on macOS deliver only `Exit` (never `ExitRequested`),
         // so all cleanup lives here. `shutdown` is idempotent.
+        // Double-clicking a .kon, or "Open with Konscious".
+        if let RunEvent::Opened { urls } = &event {
+            let paths: Vec<String> = urls
+                .iter()
+                .filter_map(|u| u.to_file_path().ok())
+                .map(|p| p.to_string_lossy().into_owned())
+                .filter(|p| p.to_lowercase().ends_with(".kon"))
+                .collect();
+            if let Some(path) = paths.into_iter().next() {
+                if let Some(state) = app.try_state::<AppState>() {
+                    *state.pending_bundle.lock().unwrap_or_else(|e| e.into_inner()) = Some(path.clone());
+                }
+                // Already running: the interface opens the import sheet now.
+                let _ = app.emit("bundle-opened", path);
+            }
+        }
         if let RunEvent::Exit = event {
             let _ = app.save_window_state(window_flags());
             if let Some(state) = app.try_state::<AppState>() {

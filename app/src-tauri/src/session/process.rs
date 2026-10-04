@@ -6,8 +6,10 @@
 //!        └──write── writer ◄─ queue ◄─ terminal_write     waiter: child.wait() → exit callback
 //! ```
 //!
-//! Signals go to the whole process group (`killpg`), never just the leader:
-//! portable-pty's own `kill()` hits one pid and blocks the caller.
+//! Unix: signals go to the whole process group (`killpg`), never just the
+//! leader — portable-pty's own `kill()` hits one pid and blocks the caller.
+//! Windows: there are no process groups or signals; the PTY's killer
+//! terminates the process, and closing the ConPTY ends what it hosted.
 
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,6 +17,8 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
+#[cfg(windows)]
+use portable_pty::ChildKiller;
 use portable_pty::MasterPty;
 
 use crate::claude::launcher::Launch;
@@ -29,6 +33,14 @@ const BATCH_MAX: usize = 64 * 1024;
 const EOF_DRAIN: Duration = Duration::from_millis(300);
 /// Session threads do little stack work; small stacks keep 30+ sessions cheap.
 const STACK: usize = 256 * 1024;
+
+/// Platform-neutral stop levels (Unix maps them to SIGHUP / SIGTERM / SIGKILL).
+#[derive(Clone, Copy, Debug)]
+enum Sig {
+    Hangup,
+    Term,
+    Kill,
+}
 
 #[derive(Debug, Clone)]
 pub struct ExitInfo {
@@ -58,6 +70,9 @@ pub struct Process {
     kill_requested: Arc<AtomicBool>,
     /// Released on stop/kill so the reader drains and the process can exit.
     sink: Arc<OutputSink>,
+    /// Terminates the child on Windows (Unix uses killpg on the group).
+    #[cfg(windows)]
+    killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
     pub started_wall_ms: u64,
 }
 
@@ -81,6 +96,8 @@ impl Process {
             pty::spawn(launch, cols, rows)?;
         let SpawnCtx { run_id, sink, tracker, on_exit } = ctx;
         let process_sink = Arc::clone(&sink);
+        #[cfg(windows)]
+        let killer = child.clone_killer();
 
         let alive = Arc::new(Mutex::new(true));
         let stop_requested = Arc::new(AtomicBool::new(false));
@@ -175,6 +192,7 @@ impl Process {
                 // Descendants may still hold the tty; the group id cannot be
                 // reused while any member lives, so this is safe after reaping.
                 // Never signal pid ≤ 1: killpg(1) would target launchd.
+                #[cfg(unix)]
                 if pid > 1 {
                     unsafe { libc::killpg(pid, libc::SIGHUP) };
                 }
@@ -201,6 +219,8 @@ impl Process {
             stop_requested,
             kill_requested,
             sink: process_sink,
+            #[cfg(windows)]
+            killer: Mutex::new(killer),
             started_wall_ms: now_ms(),
         }))
     }
@@ -219,12 +239,18 @@ impl Process {
         let _ = self.master.locked().resize(pty::size(cols, rows));
     }
 
-    /// Signals the process group and, for shells, the foreground job's group.
-    fn signal(&self, sig: i32) {
+    /// Unix: signals the process group and, for shells, the foreground job's group.
+    #[cfg(unix)]
+    fn signal(&self, sig: Sig) {
         let alive = self.alive.locked();
         if !*alive || self.pid <= 1 {
             return;
         }
+        let sig = match sig {
+            Sig::Hangup => libc::SIGHUP,
+            Sig::Term => libc::SIGTERM,
+            Sig::Kill => libc::SIGKILL,
+        };
         let fg = self.master.locked().process_group_leader();
         unsafe {
             libc::killpg(self.pid, sig);
@@ -234,14 +260,22 @@ impl Process {
         }
     }
 
-    /// SIGHUP → (2s) SIGTERM → (1s) SIGKILL. Returns immediately.
+    /// Windows: every stop level terminates the child (no signals exist).
+    #[cfg(windows)]
+    fn signal(&self, _sig: Sig) {
+        if *self.alive.locked() {
+            let _ = self.killer.locked().kill();
+        }
+    }
+
+    /// Hang-up → (2s) terminate → (1s) kill. Returns immediately.
     pub fn stop(self: &Arc<Self>) {
         self.stop_requested.store(true, Ordering::SeqCst);
         self.sink.release(self.run_id);
-        self.signal(libc::SIGHUP);
+        self.signal(Sig::Hangup);
         let me = Arc::clone(self);
         let _ = std::thread::Builder::new().stack_size(STACK).spawn(move || {
-            for (wait, sig) in [(Duration::from_secs(2), libc::SIGTERM), (Duration::from_secs(1), libc::SIGKILL)] {
+            for (wait, sig) in [(Duration::from_secs(2), Sig::Term), (Duration::from_secs(1), Sig::Kill)] {
                 let deadline = Instant::now() + wait;
                 while me.is_alive() && Instant::now() < deadline {
                     std::thread::sleep(Duration::from_millis(25));
@@ -257,18 +291,18 @@ impl Process {
     pub fn kill(&self) {
         self.kill_requested.store(true, Ordering::SeqCst);
         self.sink.release(self.run_id);
-        self.signal(libc::SIGKILL);
+        self.signal(Sig::Kill);
     }
 
     pub fn hangup(&self) {
         self.stop_requested.store(true, Ordering::SeqCst);
         self.sink.release(self.run_id);
-        self.signal(libc::SIGHUP);
+        self.signal(Sig::Hangup);
     }
 
     pub fn force_kill(&self) {
         self.sink.release(self.run_id);
-        self.signal(libc::SIGKILL);
+        self.signal(Sig::Kill);
     }
 
     pub fn wait_exit(&self, timeout: Duration) -> bool {
@@ -290,7 +324,7 @@ impl Drop for Process {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::terminal::output::Outlet;

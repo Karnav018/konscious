@@ -99,7 +99,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: windows
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
         with:
@@ -112,14 +112,14 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: windows/pnpm-lock.yaml
+          cache-dependency-path: app/pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: windows/src-tauri
+          workspaces: app/src-tauri
 
       - run: pnpm install --frozen-lockfile
 
