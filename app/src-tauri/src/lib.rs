@@ -256,6 +256,7 @@ pub fn run() {
         // ⌘Q / Dock Quit on macOS deliver only `Exit` (never `ExitRequested`),
         // so all cleanup lives here. `shutdown` is idempotent.
         // Double-clicking a .kon, or "Open with Konscious".
+        #[cfg(target_os = "macos")]
         if let RunEvent::Opened { urls } = &event {
             let paths: Vec<String> = urls
                 .iter()
