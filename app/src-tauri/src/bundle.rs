@@ -241,7 +241,7 @@ mod tests {
     fn manifest(sessions: Vec<BundleSession>) -> Manifest {
         Manifest {
             version: BUNDLE_VERSION,
-            app: "0.3.0".into(),
+            app: env!("CARGO_PKG_VERSION").into(),
             platform: "macos".into(),
             exported_at: "2026-10-04T00:00:00Z".into(),
             workspace_name: "konscious".into(),
