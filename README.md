@@ -1,36 +1,56 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.png">
-    <img src=".github/assets/banner-light.png" alt="Konscious — every Claude session, one calm place." width="640">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/hero-dark.svg">
+    <img src=".github/assets/hero-light.svg" alt="Konscious: six Claude Code sessions in one window. One stops to ask for permission, the title bar counts it, ⌘J jumps to it, and another one finishes." width="100%">
   </picture>
 </p>
 
+<h3 align="center">Run Claude Code in six places at once.<br>Konscious shows you which one is waiting.</h3>
+
 <p align="center">
-  Run up to six Claude Code sessions and shells side by side.<br>
-  Each one shows whether it’s working, waiting for you, or done — so you only look where you’re needed.
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious-0.2.4-universal.dmg"><img src=".github/assets/download-macos.svg" alt="Download for macOS" height="64"></a>
+  &nbsp;
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious_0.2.4_x64-setup.exe"><img src=".github/assets/download-windows.svg" alt="Download for Windows" height="64"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious-0.2.4-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
-  <a href="https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious_0.2.4_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
-  <a href="https://konscious.hawkapp.in"><img src="https://img.shields.io/badge/Website-konscious.hawkapp.in-FBF5E5?style=for-the-badge&labelColor=212121" alt="Website"></a>
+  Free for macOS and Windows. Runs the Claude Code you already have.<br>
+  <a href="https://konscious.hawkapp.in">konscious.hawkapp.in</a>
 </p>
+
+<br>
+
+## Why it exists
+
+Claude Code is good enough that you stop watching it. You start a second session while the first one works, then a third. Soon you're flicking through terminal tabs for the one that stopped to ask you something, and finding it ten minutes late.
+
+Konscious puts up to six sessions in one window and watches every one of them. When a session needs you, its pane says so, the title bar counts it, and one shortcut takes you there.
+
+## What it does
+
+### Run them side by side
+
+Six panes in a grid, or one in Focus. Drag a pane by its header to put it where you want it; hidden sessions keep running. Open a shell in the same folder as the session you're in, and switch between your two latest workspaces right from the title bar.
+
+### See which one needs you
+
+Each pane shows **Working**, **Waiting** or **Idle**, read from Claude Code's own hooks, so a session stuck on a permission prompt shows it the moment it stops. The title bar counts the ones waiting, and <kbd>⌘</kbd> <kbd>J</kbd> takes you to the next. A session that finished while you were elsewhere keeps a dot until you look at it.
+
+### Come back to all of it
+
+Quit whenever you like. Next time, every session that was running resumes its conversation in the same layout. New versions download in the background and wait for you to restart.
+
+### And the small things
+
+- Drag a file from Finder onto a pane, or copy it and press <kbd>⌘</kbd> <kbd>V</kbd>, and its path is typed in. Drop a screenshot on a Claude session and Claude sees the image.
+- Rings in the title bar show your 5-hour and 7-day usage. Each pane shows its model and how full its context window is.
+- Stop every session in a workspace at once from the workspace menu.
+- Warm colours for late nights, in Konscious only. Status colours stay true at 1am.
+- Your Claude Code setup stays yours: your settings, hooks and logins are never edited.
 
 <p align="center">
   <img src="site/public/app-window.png" alt="Konscious with five sessions in a grid: three Claude Code sessions working, idle and waiting, a research session and a terminal, with usage rings in the title bar." width="100%">
 </p>
-
-## What it does
-
-- **See which session needs you.** Every pane says whether its session is working, waiting for you, or idle. The status comes from Claude Code’s own hooks, so a session stuck on a permission prompt shows it the moment it stops.
-- **Jump straight to it.** The title bar counts waiting sessions; one shortcut takes you to the next one.
-- **Six at a time, or one in focus.** Up to six panes in a grid, or Focus on one. Hidden sessions keep running.
-- **Arrange them how you think.** Drag a pane by its header to any other slot, and the panes in between shift along. The grid only moves when you move it, and the arrangement comes back the way you left it.
-- **A shell beside every session.** Open a terminal in the same folder as the session you’re in.
-- **Usage at a glance.** Rings in the title bar show your 5-hour and 7-day Claude usage; each pane shows its model and how full its context window is.
-- **Picks up where you left off.** Quit any time. Every session that was running resumes its conversation, in the same layout.
-- **Warm colours for late sessions.** A flame in the title bar warms the whole window toward amber, as far as you like. It warms Konscious rather than your display, and the status colours stay true — working, waiting and failed read the same at 1am as at noon.
-- **Your setup stays yours.** Sessions run the Claude Code you already have, with your settings, hooks and logins. Konscious never edits them.
 
 ## Install
 
@@ -40,15 +60,14 @@ Konscious runs your own Claude Code, so install it and sign in first.
 |---|---|---|
 | **Download** | [Konscious-0.2.4-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious-0.2.4-universal.dmg) | [Konscious_0.2.4_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.2.4/Konscious_0.2.4_x64-setup.exe) |
 | **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit |
-| **Install** | Open the DMG and drag Konscious to Applications | Run the installer (for your account, no admin needed) |
-| **First launch** | macOS stops it once because the app isn’t notarized yet: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** |
+| **Install** | Open the DMG and drag Konscious to Applications | Run the installer. It installs for your account, no admin needed |
+| **First launch** | The app isn't notarized yet, so macOS stops it once: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** |
 | **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | `irm https://claude.ai/install.ps1 \| iex` |
 
-**Updating takes care of itself.** Konscious checks this repo's releases shortly after launch and every hour after that, and downloads a new version in the background. It never installs behind your back: installing closes the app, and that stops every live session — so the title bar offers **Restart to update** and waits for you. On the way back up, every session that was running resumes its conversation, which is what makes the restart cheap. Sessions, layouts and settings are kept.
+**Updates install themselves, when you say so.** Konscious checks for a new version shortly after launch and every hour, and downloads it in the background. It never restarts behind your back, because a restart stops every live session: the title bar shows **Restart to update** and waits. When it comes back, every session that was running resumes. Updates are checked against a signing key built into the app, so only releases from this repo can install themselves.
 
-Updates are verified against a signing key built into the app, so only releases published by this repo's workflow can install themselves. You can still install a version by hand at any time — downloading and running the installer over an existing install works exactly as before.
-
-## Keyboard shortcuts
+<details>
+<summary><b>Keyboard shortcuts</b></summary>
 
 | | macOS | Windows |
 |---|---|---|
@@ -64,7 +83,10 @@ Updates are verified against a signing key built into the app, so only releases 
 
 On Windows, plain <kbd>Ctrl</kbd> + letter stays with the terminal (<kbd>Ctrl</kbd> <kbd>C</kbd> still interrupts), which is why app shortcuts add <kbd>Shift</kbd>.
 
-## How it works
+</details>
+
+<details>
+<summary><b>How it works</b></summary>
 
 Konscious is a [Tauri 2](https://tauri.app) app: a React 19 + TypeScript interface over a Rust engine that runs every session in its own pseudo-terminal.
 
@@ -74,7 +96,10 @@ Konscious is a [Tauri 2](https://tauri.app) app: a React 19 + TypeScript interfa
 
 User data lives in `~/.konscious` (config, workspaces, layouts). Data from the previous version is moved there on first launch.
 
-## Build from source
+</details>
+
+<details>
+<summary><b>Build from source</b></summary>
 
 Requires Node 22+, pnpm and Rust (stable).
 
@@ -96,7 +121,10 @@ Requires Node 22+, pnpm and Rust (stable).
 - **`scripts/deploy-site.sh`** — builds the website and deploys it to Vercel.
 - **`scripts/release.sh <version>`** — bumps the version everywhere, commits, tags and pushes. The tag is the release.
 
-## Releasing
+</details>
+
+<details>
+<summary><b>Releasing</b></summary>
 
 A release is a tag. `scripts/release.sh 0.2.4` writes the version into both apps, the website and this README, then pushes `v0.2.4`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS and the installer on Windows, runs each platform's checks, signs both for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour. Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
 
@@ -112,3 +140,5 @@ pnpm test                                             # interface tests
 cargo test --manifest-path src-tauri/Cargo.toml --lib # engine tests
 scripts/check-mac.sh                                  # everything the Mac build requires to pass
 ```
+
+</details>
