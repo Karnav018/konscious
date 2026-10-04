@@ -38,9 +38,10 @@ const due = (over: Partial<Parameters<typeof isDue>[0]> = {}) =>
 
 describe('the catalog', () => {
   it('ships every app in a category, in catalog order', () => {
-    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'pomo', 'sys'])
+    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'pomo', 'warm', 'sys'])
     expect(APPS.filter((a) => a.category === 'Reminders').map((a) => a.id)).toEqual(['water', 'stand'])
     expect(APPS.filter((a) => a.category === 'Timers').map((a) => a.id)).toEqual(['pomo'])
+    expect(APPS.filter((a) => a.category === 'Display').map((a) => a.id)).toEqual(['warm'])
     expect(APPS.filter((a) => a.category === 'System').map((a) => a.id)).toEqual(['sys'])
   })
 
@@ -55,6 +56,7 @@ describe('the catalog', () => {
   it('never uses a session colour for an app', () => {
     // --ok, --warn, --err and --info are how a pane says what it is doing.
     const status = ['var(--ok)', 'var(--warn)', 'var(--err)', 'var(--info)']
+    // Amber would have been the obvious hue for warmth, and amber is --warn.
     for (const app of APPS) expect(status).not.toContain(app.hue)
   })
 

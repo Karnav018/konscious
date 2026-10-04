@@ -130,6 +130,8 @@ export interface UiState {
   appPanel: AppId | 'catalog' | null
   /** Whether the system has allowed notifications, as last checked. */
   notifyAllowed: boolean
+  /** The open transfer sheet, if any. Each sheet holds its own steps. */
+  transfer: { kind: 'export'; workspaceId: string } | { kind: 'import'; path: string } | null
   /** Session awaiting typed "delete" confirmation. */
   confirmDelete: string | null
 }
@@ -180,8 +182,10 @@ export const initialState = (): AppState => ({
       edge: 'right',
       along: 0.5,
       autoMinimise: false,
-      on: { water: false, stand: false, pomo: false, sys: false },
-      pinned: { water: true, stand: true, pomo: true, sys: true },
+      // 'warm' is absent on purpose: its switch is ui.warm, so there is one
+      // source of truth for whether the window is warm.
+      on: { water: false, stand: false, pomo: false, sys: false, warm: false },
+      pinned: { water: true, stand: true, pomo: true, sys: true, warm: true },
       every: { water: 40, stand: 50 },
       snoozeMin: 10,
       glasses: 0,
@@ -192,6 +196,7 @@ export const initialState = (): AppState => ({
       pomoSet: { focusMin: 25, breakMin: 5 },
       statPinned: null,
     },
+    transfer: null,
     appPopover: null,
     appPanel: null,
     notifyAllowed: false,

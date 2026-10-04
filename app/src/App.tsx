@@ -15,6 +15,7 @@ import { setAppPanel, setAppPopover } from './state/commands/apps'
 import { layoutOf } from './state/commands/layout'
 import { bootstrap } from './app/bootstrap'
 import { startReminders } from './app/reminders'
+import { startBundleOpens } from './app/transfer'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { DeleteSessionDialog } from './components/DeleteSessionDialog/DeleteSessionDialog'
 import { EmptyState } from './components/EmptyState/EmptyState'
@@ -22,6 +23,7 @@ import { FirstRun } from './components/FirstRun/FirstRun'
 import { Inspector } from './components/Inspector/Inspector'
 import { NewSessionModal } from './components/NewSessionModal/NewSessionModal'
 import { AppsPanel } from './components/Dock/AppsPanel'
+import { Transfer } from './components/Transfer/Transfer'
 import { Dock } from './components/Dock/Dock'
 import { SessionGrid } from './components/SessionGrid/SessionGrid'
 import { StatusBar } from './components/StatusBar/StatusBar'
@@ -44,7 +46,7 @@ import { useActiveLayout, useHasWorkspaces, useUi } from './state/selectors'
 import { getState, type UiState } from './state/store'
 
 const anyOverlayOpen = (ui: UiState) =>
-  ui.wsMenu || ui.inspector || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
+  ui.wsMenu || ui.inspector || !!ui.transfer || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
 
 /** Capture phase: runs before xterm's own key handling. */
 function onKeyDown(e: KeyboardEvent) {
@@ -150,6 +152,7 @@ export default function App() {
     }
     window.addEventListener('mousedown', closePopovers)
     const stopReminders = startReminders()
+    const stopBundles = startBundleOpens()
     window.addEventListener('keydown', onKeyDown, true)
     // WebView2's page menu (Back, Refresh, Print…) makes no sense in an app;
     // text fields keep theirs for cut/copy/paste.
@@ -167,6 +170,7 @@ export default function App() {
       window.removeEventListener('contextmenu', noPageMenu)
       window.removeEventListener('mousedown', closePopovers)
       stopReminders()
+      void stopBundles.then((off) => off()).catch(() => {})
     }
   }, [])
 
@@ -200,6 +204,7 @@ export default function App() {
         {booted && lockOk && newSession && <NewSessionModal />}
         {booted && lockOk && confirmDelete && <DeleteSessionDialog />}
         {booted && lockOk && !firstRun && <AppsPanel />}
+        {booted && lockOk && <Transfer />}
       </ErrorBoundary>
       <Toast />
     </div>

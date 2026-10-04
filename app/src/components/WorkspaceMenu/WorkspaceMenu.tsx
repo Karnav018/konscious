@@ -12,12 +12,13 @@ import {
   switchWorkspace,
 } from '../../app/actions'
 import { ago, relTo, STATUS_COLOR, STATUS_LABEL, tildify } from '../../lib/format'
+import { pickAndImport } from '../../app/transfer'
 import { CAP } from '../../lib/grid'
 import { shellLabel } from '../../lib/path'
 import { IS_WINDOWS } from '../../lib/platform'
 import { layoutOf } from '../../state/commands/layout'
 import { runtimeOf } from '../../state/commands/runtime'
-import { closeWorkspaceMenu, hoverWorkspace, setWsFilter } from '../../state/commands/ui'
+import { closeWorkspaceMenu, hoverWorkspace, openExport, setWsFilter } from '../../state/commands/ui'
 import {
   useActiveWorkspaceId,
   useLayouts,
@@ -251,10 +252,28 @@ export function WorkspaceMenu() {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 px-3.5 py-[10px] border-t border-line">
+          <div className="flex flex-col gap-2 px-3.5 py-[10px] border-t border-line">
             <span className="text-[11.5px] text-muted">
               {shownLayout.open.length} of {CAP} grid slots used · hidden sessions keep running
             </span>
+            <div className="flex items-center gap-2">
+              {/* Short labels: the heading above already says which workspace,
+                  and the full name makes this row overflow. */}
+              <div
+                onClick={() => void pickAndImport()}
+                title="Import a workspace from a .kon file"
+                className="h-7 px-2.5 flex-none flex items-center rounded-rs border border-line2 cursor-pointer text-[12px] text-muted hover:text-text hover:border-accent"
+              >
+                Import…
+              </div>
+              <div
+                onClick={() => openExport(shown.id)}
+                title={`Export ${shown.name} and its conversations as a .kon file`}
+                className="h-7 px-2.5 flex-none flex items-center rounded-rs border border-line2 cursor-pointer text-[12px] text-muted hover:text-text hover:border-accent"
+              >
+                Export…
+              </div>
+              <span className="flex-1" />
             <div className="flex items-center gap-2 flex-none">
               <div
                 onClick={() => void openNewSession({ workspaceId: shown.id, dir: shown.path })}
@@ -264,6 +283,7 @@ export function WorkspaceMenu() {
                 + New session
               </div>
               <StopAllButton key={shown.id} name={shown.name} workspaceId={shown.id} running={running} />
+            </div>
             </div>
           </div>
         </div>

@@ -176,7 +176,7 @@ function WarmScheduleRow() {
   )
 }
 
-function WarmthRow() {
+export function WarmthRow() {
   const warmth = useUi((u) => u.warmth)
   const on = useWarmOn()
   return (

@@ -6,6 +6,8 @@
 // than redesign around them.
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { toggleWarm } from '../../app/actions'
+
 import {
   APPS,
   appById,
@@ -14,8 +16,11 @@ import {
   BREAK_CHOICES,
   FOCUS_CHOICES,
   isReminder,
+  isVertical,
 } from '../../lib/apps'
 import { askNotifyOnce } from '../../app/reminders'
+import { isWarm } from '../../lib/warmth'
+import { WarmthRow } from '../Settings/Settings'
 import {
   resetPomoRounds,
   setAppOn,
@@ -27,16 +32,18 @@ import {
   setSnoozeMin,
 } from '../../state/commands/apps'
 import { useUi } from '../../state/selectors'
-import { AppsIcon, CloseIcon, DropIcon, StandIcon, TomatoIcon } from '../common/Icon'
+import { getState } from '../../state/store'
+import { AppsIcon, AppsOutlineIcon, CloseIcon, DropIcon, FlameIcon, StandIcon, TomatoIcon } from '../common/Icon'
 
 type Filter = 'All' | 'On' | 'Off'
-const CATEGORIES: AppCategory[] = ['Reminders', 'Timers', 'System']
+const CATEGORIES: AppCategory[] = ['Reminders', 'Timers', 'Display', 'System']
 
 function Glyph({ id, size = 17 }: { id: AppId; size?: number }) {
   if (id === 'water') return <DropIcon size={size} fill={0.55} />
   if (id === 'stand') return <StandIcon size={size} />
   if (id === 'pomo') return <TomatoIcon size={size} />
-  return <AppsIcon size={size - 1} />
+  if (id === 'warm') return <FlameIcon size={size} />
+  return <AppsOutlineIcon size={size - 1} />
 }
 
 function Switch({ on, hue, onClick }: { on: boolean; hue: string; onClick: () => void }) {
@@ -85,10 +92,34 @@ function Choices({ value, options, hue, unit, onPick }: { value: number; options
   )
 }
 
+/** The On/Off word beside an app's name. */
+function AppState({ id, hue }: { id: AppId; hue: string }) {
+  const on = useAppOn(id)
+  return (
+    <span className="text-[10.5px]" style={{ color: on ? hue : 'var(--faint)' }}>
+      {on ? 'On' : 'Off'}
+    </span>
+  )
+}
+
+function AppSwitch({ id, hue }: { id: AppId; hue: string }) {
+  const on = useAppOn(id)
+  return <Switch on={on} hue={hue} onClick={() => void turnOn(id, !on)} />
+}
+
 function Settings({ id }: { id: AppId }) {
   const app = appById(id)
   const apps = useUi((u) => u.apps)
   const label = 'text-[11px] text-faint'
+  // The same component the Settings popover uses, not a copy of it: one
+  // slider and one schedule, wherever you reach them from.
+  if (id === 'warm') {
+    return (
+      <div className="flex flex-col gap-2">
+        <WarmthRow />
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col gap-4">
       {isReminder(app) && (id === 'water' || id === 'stand') && (
@@ -168,7 +199,7 @@ function Settings({ id }: { id: AppId }) {
 
 function Detail({ id }: { id: AppId }) {
   const app = appById(id)
-  const on = useUi((u) => u.apps.on[id])
+  const on = useAppOn(id)
   const [tab, setTab] = useState<'about' | 'settings'>('about')
   const tabCls = (active: boolean) =>
     `h-8 px-[10px] flex items-center text-[12.5px] font-medium cursor-pointer border-b-2 -mb-px ${
@@ -239,10 +270,25 @@ function Detail({ id }: { id: AppId }) {
   )
 }
 
-/** Turning an app on is the one moment we ask about notifications. */
+/** Turning an app on is the one moment we ask about notifications. Warm
+ *  colours is the exception twice over: its switch is the warmth setting
+ *  itself, and it has nothing to notify about. */
 async function turnOn(id: AppId, on: boolean) {
   setAppOn(id, on)
+  // Warm colours has no nudge to notify about; switching the app on is also
+  // what applies the warmth, so the dock, the catalog and the title-bar flame
+  // all still mean the same thing.
+  if (id === 'warm') {
+    const warmNow = getState().ui.warm && isWarm(getState().ui.warmth)
+    if (warmNow !== on) toggleWarm()
+    return
+  }
   if (on) await askNotifyOnce()
+}
+
+/** Whether an app is on, reading warmth from where warmth actually lives. */
+function useAppOn(id: AppId): boolean {
+  return useUi((u) => u.apps.on[id])
 }
 
 export function AppsPanel() {
@@ -259,9 +305,10 @@ export function AppsPanel() {
 
   const matches = useMemo(() => {
     const needle = q.trim().toLowerCase()
+    const isOn = (id: AppId) => apps.on[id]
     return APPS.filter((a) => {
-      if (filt === 'On' && !apps.on[a.id]) return false
-      if (filt === 'Off' && apps.on[a.id]) return false
+      if (filt === 'On' && !isOn(a.id)) return false
+      if (filt === 'Off' && isOn(a.id)) return false
       if (!needle) return true
       return (
         a.name.toLowerCase().includes(needle) ||
@@ -281,20 +328,24 @@ export function AppsPanel() {
         onMouseDown={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
-          top: 8,
-          bottom: 8,
-          [apps.edge === 'left' ? 'left' : 'right']: 8 + 42,
-          width: 'min(360px, calc(100% - 64px))',
+          // Centred on the dock's side, sized to its contents. The prototype
+          // pins it top and bottom, but that is inside a small window mock —
+          // stretched down a real window it is mostly empty.
+          ...(isVertical(apps.edge)
+            ? { top: '50%', transform: 'translateY(-50%)', [apps.edge === 'left' ? 'left' : 'right']: 8 + 42 }
+            : { left: '50%', transform: 'translateX(-50%)', [apps.edge === 'top' ? 'top' : 'bottom']: 8 + 42 }),
+          maxHeight: 'calc(100% - 32px)',
+          width: 'min(360px, calc(100% - 72px))',
           boxShadow: 'var(--shadow)',
         }}
-        className="bg-side border border-line2 rounded-r flex flex-col overflow-hidden"
+        className="bg-raised border border-line2 rounded-r flex flex-col overflow-hidden"
       >
         {detail ? (
           <Detail id={detail} />
         ) : (
           <>
             <div className="flex items-center gap-2 px-3 h-11 border-b border-line flex-none">
-              <AppsIcon size={15} className="text-faint" />
+              <AppsIcon />
               <span className="text-[13px] font-semibold flex-1">Apps</span>
               <span className="font-mono text-[10.5px] text-faint">⌘⇧A</span>
               <div
@@ -366,16 +417,11 @@ export function AppsPanel() {
                         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                           <div className="flex items-baseline gap-2">
                             <span className="text-[12.5px] font-medium">{a.name}</span>
-                            <span
-                              className="text-[10.5px]"
-                              style={{ color: apps.on[a.id] ? a.hue : 'var(--faint)' }}
-                            >
-                              {apps.on[a.id] ? 'On' : 'Off'}
-                            </span>
+                            <AppState id={a.id} hue={a.hue} />
                           </div>
                           <span className="text-[11.5px] text-muted leading-[1.4]">{a.desc}</span>
                         </div>
-                        <Switch on={apps.on[a.id]} hue={a.hue} onClick={() => void turnOn(a.id, !apps.on[a.id])} />
+                        <AppSwitch id={a.id} hue={a.hue} />
                       </div>
                     ))}
                   </div>
@@ -385,7 +431,7 @@ export function AppsPanel() {
                 <div className="flex flex-col gap-1 items-center text-center py-8 px-4">
                   <span className="text-[12.5px]">Nothing matches “{q}”</span>
                   <span className="text-[11.5px] text-muted leading-[1.45]">
-                    Konscious ships with four apps for now. More will follow, and they’ll appear here when they’re
+                    Konscious ships with five apps for now. More will follow, and they’ll appear here when they’re
                     ready.
                   </span>
                 </div>

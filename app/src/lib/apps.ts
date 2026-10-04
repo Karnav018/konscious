@@ -13,8 +13,8 @@
 //
 // Everything here is pure. The dock reads it; nothing in it touches the DOM.
 
-export type AppId = 'water' | 'stand' | 'sys' | 'pomo'
-export type AppCategory = 'Reminders' | 'Timers' | 'System'
+export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm'
+export type AppCategory = 'Reminders' | 'Timers' | 'Display' | 'System'
 
 export interface AppDef {
   id: AppId
@@ -93,6 +93,27 @@ export const APPS: readonly AppDef[] = [
     tags: ['pomodoro', 'focus', 'timer', 'break', 'deep work', 'tomato', '25'],
     can: ['Show a timer in the dock', 'Raise a system notification when a stretch or break ends', 'Keep a count of today’s stretches'],
     ack: 'Start',
+  },
+  {
+    id: 'warm',
+    name: 'Warm colours',
+    // Its switch is the warm-colours setting itself, not a flag of its own:
+    // the title-bar flame and this are one control in two places.
+    short: 'Warm',
+    // The accent, because the obvious hue for warmth is amber and amber is
+    // --warn. It is also honest: this is Konscious's own appearance, not a
+    // thing running beside the sessions.
+    hue: 'var(--accent)',
+    category: 'Display',
+    desc: 'Warms the window toward amber, on a schedule or all day.',
+    long: 'Shifts every colour in the window toward amber, the way f.lux shifts a display, so a late session is easier on your eyes. It warms Konscious only — an app cannot touch the screen’s own colour — and the status colours stay true, so working, waiting and failed read the same at midnight as at noon.',
+    steps: [
+      'Pick how warm with the slider, from neutral to deep amber.',
+      'Choose when: all day, between hours you set, or sunset to sunrise.',
+      'The colour eases across each boundary. Flip it by hand and that holds until the schedule next changes.',
+    ],
+    tags: ['warm', 'night', 'flux', 'f.lux', 'amber', 'colour', 'color', 'temperature', 'eyes', 'shift'],
+    can: ['Change the colours of this window', 'Read your timezone to work out sunset'],
   },
   {
     id: 'sys',

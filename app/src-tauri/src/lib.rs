@@ -1,4 +1,5 @@
 mod claude;
+mod bundle;
 mod clipboard;
 mod commands;
 mod env;
@@ -33,6 +34,9 @@ pub struct AppState {
     pub store: Arc<Store>,
     /// False when another instance holds ~/.claude-workspace/.lock.
     pub lock_ok: bool,
+    /// A `.kon` the system asked us to open. Held because the file can arrive
+    /// before the interface is listening; the frontend collects it at boot.
+    pub pending_bundle: std::sync::Mutex<Option<String>>,
 }
 
 fn window_flags() -> StateFlags {
@@ -206,7 +210,7 @@ pub fn run() {
             });
             let sessions = SessionManager::new(emit, Arc::clone(&env), store.run_dir());
             sessions.start_ticker();
-            app.manage(AppState { env, sessions, store, lock_ok });
+            app.manage(AppState { env, sessions, store, lock_ok, pending_bundle: Default::default() });
             // macOS has an app menu bar (Copy/Paste live there); Windows windows
             // get no menu bar — WebView2 handles clipboard keys natively.
             #[cfg(target_os = "macos")]
@@ -225,6 +229,11 @@ pub fn run() {
             commands::session_memory,
             commands::file_thumbnail,
             commands::system_stats,
+            commands::bundle_pending,
+            commands::bundle_preview,
+            commands::bundle_export,
+            commands::bundle_inspect,
+            commands::bundle_import,
             commands::session_stop,
             commands::session_kill,
             commands::session_restart,
@@ -246,6 +255,22 @@ pub fn run() {
     app.run(|app, event| {
         // ⌘Q / Dock Quit on macOS deliver only `Exit` (never `ExitRequested`),
         // so all cleanup lives here. `shutdown` is idempotent.
+        // Double-clicking a .kon, or "Open with Konscious".
+        if let RunEvent::Opened { urls } = &event {
+            let paths: Vec<String> = urls
+                .iter()
+                .filter_map(|u| u.to_file_path().ok())
+                .map(|p| p.to_string_lossy().into_owned())
+                .filter(|p| p.to_lowercase().ends_with(".kon"))
+                .collect();
+            if let Some(path) = paths.into_iter().next() {
+                if let Some(state) = app.try_state::<AppState>() {
+                    *state.pending_bundle.lock().unwrap_or_else(|e| e.into_inner()) = Some(path.clone());
+                }
+                // Already running: the interface opens the import sheet now.
+                let _ = app.emit("bundle-opened", path);
+            }
+        }
         if let RunEvent::Exit = event {
             let _ = app.save_window_state(window_flags());
             if let Some(state) = app.try_state::<AppState>() {

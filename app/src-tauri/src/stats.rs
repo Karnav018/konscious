@@ -5,6 +5,8 @@
 //! Temperature is an Option: on Apple silicon sysinfo often reports no
 //! components at all, and a quarter of a gauge showing a made-up number would
 //! be worse than one that says it cannot tell.
+use std::sync::{Mutex, OnceLock};
+
 use serde::Serialize;
 use sysinfo::{Components, Disks, MemoryRefreshKind, RefreshKind, System};
 
@@ -84,17 +86,45 @@ pub fn read(sys: &mut System, disks: &mut Disks, components: &mut Components) ->
     }
 }
 
-/// Everything the gauge needs, refreshed per call. Cheap enough for the
-/// dock's few-second cycle; the handles are rebuilt because the gauge is only
-/// read while the dock is on screen.
+/// The probes, built once and kept.
+///
+/// Rebuilding them per call meant re-enumerating the machine's temperature
+/// sensors every few seconds, which on macOS goes through IOKit and the SMC.
+/// Keeping them also means the processor has a previous sample to compare
+/// against, so a reading no longer has to sleep for one.
+struct Probes {
+    sys: System,
+    disks: Disks,
+    components: Components,
+}
+
+static PROBES: OnceLock<Mutex<Probes>> = OnceLock::new();
+
+fn probes() -> &'static Mutex<Probes> {
+    PROBES.get_or_init(|| {
+        let mut sys = System::new_with_specifics(
+            RefreshKind::nothing()
+                .with_cpu(sysinfo::CpuRefreshKind::nothing().with_cpu_usage())
+                .with_memory(MemoryRefreshKind::nothing().with_ram()),
+        );
+        // Processor use is a difference between two samples, so the first
+        // reading needs a baseline to measure from.
+        sys.refresh_cpu_usage();
+        std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+        Mutex::new(Probes {
+            sys,
+            disks: Disks::new_with_refreshed_list(),
+            components: Components::new_with_refreshed_list(),
+        })
+    })
+}
+
+/// Everything the gauge needs. Cheap enough for the dock's few-second cycle.
 pub fn snapshot() -> Stats {
-    let mut sys = System::new_with_specifics(RefreshKind::nothing().with_cpu(sysinfo::CpuRefreshKind::nothing().with_cpu_usage()).with_memory(MemoryRefreshKind::nothing().with_ram()));
-    // CPU usage needs two samples; the first read is always zero otherwise.
-    sys.refresh_cpu_usage();
-    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    let mut disks = Disks::new_with_refreshed_list();
-    let mut components = Components::new_with_refreshed_list();
-    read(&mut sys, &mut disks, &mut components)
+    // A panic in another reader must not poison the gauge for good.
+    let mut p = probes().lock().unwrap_or_else(|e| e.into_inner());
+    let Probes { sys, disks, components } = &mut *p;
+    read(sys, disks, components)
 }
 
 #[cfg(test)]

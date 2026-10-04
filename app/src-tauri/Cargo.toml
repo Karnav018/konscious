@@ -36,6 +36,8 @@ tauri-plugin-notification = "2"
 sysinfo = { version = "0.33", default-features = false, features = ["system", "disk", "component"] }
 # Inlining a dropped image as a data URL for the pane's attachment strip.
 base64 = "0.22"
+# Export and import a workspace as a zip (bundle.rs).
+zip = { version = "2", default-features = false, features = ["deflate"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 portable-pty = "0.9"

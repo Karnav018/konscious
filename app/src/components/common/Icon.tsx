@@ -95,8 +95,29 @@ export const StandIcon = ({ size = 16, ...p }: P) => (
   </svg>
 )
 
-/** The Apps entry at the top of the dock. */
-export const AppsIcon = ({ size = 16, ...p }: P) => (
+/** The Apps entry in the dock: four outlined squares in app hues, so the
+ *  catalog reads as the place the coloured things come from. Not an svg —
+ *  the prototype builds it from four boxes, which keeps the 1.5px borders
+ *  crisp at this size. */
+export const AppsIcon = () => (
+  <span style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 8px)', gap: 3, placeContent: 'center' }}>
+    {['--water', '--stand', '--cpu', '--ram'].map((hue) => (
+      <span
+        key={hue}
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 2,
+          border: `1.5px solid var(${hue})`,
+          background: `color-mix(in srgb, var(${hue}) 22%, transparent)`,
+        }}
+      />
+    ))}
+  </span>
+)
+
+/** The same four squares in one colour, for a header or a list row. */
+export const AppsOutlineIcon = ({ size = 16, ...p }: P) => (
   <svg {...base(size)} strokeWidth={1.7} {...p}>
     <rect x="3.5" y="3.5" width="7" height="7" rx="1.4" />
     <rect x="13.5" y="3.5" width="7" height="7" rx="1.4" />
@@ -104,6 +125,7 @@ export const AppsIcon = ({ size = 16, ...p }: P) => (
     <rect x="13.5" y="13.5" width="7" height="7" rx="1.4" />
   </svg>
 )
+
 
 /** A dropped or pasted file that is not an image. */
 export const FileIcon = ({ size = 12, ...p }: P) => (

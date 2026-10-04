@@ -71,7 +71,17 @@
     "macOS": {
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "kon"
+        ],
+        "name": "Konscious workspace",
+        "description": "A Konscious workspace and its conversations",
+        "role": "Editor"
+      }
+    ]
   },
   "mainBinaryName": "Konscious"
 }

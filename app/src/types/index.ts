@@ -87,6 +87,31 @@ export interface Stats {
   ssdUsed: number
 }
 
+/** A session as it travels in a bundle. */
+export interface BundleSession {
+  id: string
+  name: string
+  kind: Kind
+  /** Its folder, as an offset from the workspace root. */
+  relative: string
+  /** It ran outside the workspace root, so import places it at the root. */
+  outside: boolean
+  claudeSessionId: string | null
+  hasTranscript: boolean
+}
+
+/** What a bundle says about itself, read before anything is written. */
+export interface BundleManifest {
+  version: number
+  app: string
+  platform: string
+  exportedAt: string
+  workspaceName: string
+  sourceRoot: string
+  sessions: BundleSession[]
+  layout: Layout
+}
+
 export interface GitInfo {
   branch: string
   commit: string

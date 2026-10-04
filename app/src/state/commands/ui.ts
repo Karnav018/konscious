@@ -100,6 +100,18 @@ export const clearAttachments = (id: string) =>
     delete d.ui.attachments[id]
   })
 
+export const openExport = (workspaceId: string) =>
+  act('ui/export', (d) => {
+    d.ui.transfer = { kind: 'export', workspaceId }
+    d.ui.wsMenu = false
+  })
+export const openImport = (path: string) =>
+  act('ui/import', (d) => {
+    d.ui.transfer = { kind: 'import', path }
+    d.ui.wsMenu = false
+  })
+export const closeTransfer = () => act('ui/transferClose', (d) => void (d.ui.transfer = null))
+
 export const setPaneMenu = (id: string | null) => act('ui/paneMenu', (d) => void (d.ui.paneMenu = id))
 
 export function openNewSessionDraft(draft: NewSessionDraft) {
@@ -127,6 +139,7 @@ export const cancelDeleteSession = () => act('ui/confirmDeleteCancel', (d) => vo
 export function closeOverlays() {
   act('ui/closeOverlays', (d) => {
     d.ui.confirmDelete = null
+    d.ui.transfer = null
     d.ui.wsMenu = false
     d.ui.inspector = false
     d.ui.paneMenu = null

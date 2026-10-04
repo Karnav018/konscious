@@ -3,7 +3,7 @@ import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import {
   isPermissionGranted,
   requestPermission,
@@ -15,6 +15,7 @@ import { dropPoint } from './dropPoint'
 import { IS_WINDOWS } from './platform'
 import type {
   Attached,
+  BundleManifest,
   Clipboard,
   ContextUsage,
   Limits,
@@ -22,6 +23,7 @@ import type {
   GitInfo,
   InitInfo,
   Kind,
+  Layout,
   SessionInfo,
   SessionMemory,
   Snapshot,
@@ -71,6 +73,37 @@ export const ipc = {
   sessionList: () => invoke<SessionInfo[]>('session_list'),
   sessionMemory: () => invoke<SessionMemory[]>('session_memory'),
   systemStats: () => invoke<Stats>('system_stats'),
+
+  /* ── moving a workspace between machines ───────────────────────── */
+
+  /** Writes a bundle: the workspace, its layout, and each session's Claude
+   *  transcript. Returns what actually went in. */
+  bundleExport: (args: {
+    dest: string
+    workspaceName: string
+    root: string
+    layout: Layout
+    sessions: { id: string; name: string; kind: Kind; cwd: string; claudeSessionId: string | null }[]
+    appVersion: string
+  }) => invoke<{ bytes: number; transcripts: number; missing: number }>('bundle_export', args),
+
+  /** Reads a bundle's manifest without writing anything. */
+  /** What each session would add to a bundle, before one is written. */
+  bundlePreview: (sessions: { id: string; name: string; kind: Kind; cwd: string; claudeSessionId: string | null }[]) =>
+    invoke<{ id: string; bytes: number }[]>('bundle_preview', { sessions }),
+
+  bundleInspect: (path: string) => invoke<BundleManifest>('bundle_inspect', { path }),
+
+  /** A .kon the system asked us to open before the interface was listening. */
+  bundlePending: () => invoke<string | null>('bundle_pending'),
+
+  /** A .kon opened while the app was already running. */
+  onBundleOpened: (cb: (path: string) => void): Promise<UnlistenFn> =>
+    listen<string>('bundle-opened', (e) => cb(e.payload)),
+
+  /** Copies the bundle's transcripts to where Claude will look for them. */
+  bundleImport: (path: string, root: string) =>
+    invoke<{ transcripts: number; missing: number }>('bundle_import', { path, root }),
   fileThumbnail: (path: string) => invoke<string | null>('file_thumbnail', { path }),
   sessionStop: (id: string) => invoke<void>('session_stop', { id }),
   sessionKill: (id: string) => invoke<void>('session_kill', { id }),
@@ -101,6 +134,19 @@ export const ipc = {
       const at = dropPoint(p.position.x, p.position.y, window.devicePixelRatio, IS_WINDOWS)
       cb(p.type === 'over' ? { type: 'over', ...at } : { type: p.type, paths: p.paths, ...at })
     }),
+
+  /** Where to write a bundle. Null when the user backs out. */
+  pickSaveBundle: (defaultName: string): Promise<string | null> =>
+    saveDialog({ defaultPath: defaultName, filters: [{ name: 'Konscious workspace', extensions: ['kon'] }] }),
+
+  /** A bundle to read. */
+  pickBundle: async (): Promise<string | null> => {
+    const picked = await openDialog({
+      multiple: false,
+      filters: [{ name: 'Konscious workspace', extensions: ['kon'] }],
+    })
+    return typeof picked === 'string' ? picked : null
+  },
 
   pickFolder: async (defaultPath?: string): Promise<string | null> => {
     const picked = await openDialog({ directory: true, multiple: false, defaultPath })
