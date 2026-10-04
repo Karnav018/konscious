@@ -79,3 +79,37 @@ export function removeSession(id: string) {
     if (d.ui.confirmDelete === id) d.ui.confirmDelete = null
   })
 }
+
+/**
+ * Forgets a workspace: it leaves the list along with its sessions, its layout
+ * and anything in the interface that pointed at them. The folder on disk is
+ * never touched. If it was the active one, the most recently used of the rest
+ * takes over (none left: first run again).
+ */
+export function removeWorkspace(id: string) {
+  const s = getState()
+  if (!s.workspace.workspaces.some((w) => w.id === id)) return
+  const gone = new Set(Object.values(s.workspace.sessions).filter((m) => m.workspaceId === id).map((m) => m.id))
+  act('workspace/remove', (d) => {
+    d.workspace.workspaces = d.workspace.workspaces.filter((w) => w.id !== id)
+    for (const sid of gone) {
+      delete d.workspace.sessions[sid]
+      delete d.runtime.bySession[sid]
+      delete d.ui.attachments[sid]
+    }
+    delete d.layout.byWorkspace[id]
+    delete d.notes.byWorkspace[id]
+    if (d.workspace.activeId === id) {
+      d.workspace.activeId = [...d.workspace.workspaces].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? null
+    }
+    const ui = d.ui
+    if (ui.wsHover === id) ui.wsHover = null
+    if (ui.confirmRemoveWorkspace === id) ui.confirmRemoveWorkspace = null
+    if (ui.notesSave?.workspaceId === id) ui.notesSave = null
+    if (ui.newSession?.workspaceId === id) ui.newSession = null
+    if (ui.transfer?.kind === 'export' && ui.transfer.workspaceId === id) ui.transfer = null
+    if (ui.paneMenu && gone.has(ui.paneMenu)) ui.paneMenu = null
+    if (ui.confirmDelete && gone.has(ui.confirmDelete)) ui.confirmDelete = null
+    if (ui.fileDrop && gone.has(ui.fileDrop)) ui.fileDrop = null
+  })
+}

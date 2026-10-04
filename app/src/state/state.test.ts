@@ -7,6 +7,8 @@ import { act, actionLog, onInvariantViolation } from './act'
 import { hidePane, layoutOf, openPane, toggleFocus } from './commands/layout'
 import { applyInfo, markStarting } from './commands/runtime'
 import {
+  askDeleteSession,
+  askRemoveWorkspace,
   openNewSessionDraft,
   setPaneMenu,
   setWarmHoursValue,
@@ -14,7 +16,7 @@ import {
   setWarmValue,
   setWarmWhenValue,
 } from './commands/ui'
-import { addSession, addWorkspace, removeSession, setActiveWorkspace, updateSession } from './commands/workspace'
+import { addSession, addWorkspace, removeSession, removeWorkspace, setActiveWorkspace, updateSession } from './commands/workspace'
 import { checkInvariants } from './invariants'
 import { decide } from './machine'
 import { decode, hydrate, migrate, NewerSchemaError, serialize } from './persistence'
@@ -179,6 +181,77 @@ describe('workspaces order themselves by use', () => {
     vi.setSystemTime(3_000)
     setActiveWorkspace(a.id)
     expect(getState().workspace.workspaces.map((w) => w.id)).toEqual([a.id, 'b'])
+  })
+})
+
+describe('removing a workspace', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  /** Three workspaces used in order a, b, c (c most recent), two sessions each. */
+  function three() {
+    const ids = ['/p/a', '/p/b', '/p/c'].map((path, i) => {
+      vi.setSystemTime(1000 * (i + 1))
+      const ws = addWorkspace(path)
+      addSession(meta(`${ws.id}-1`, ws.id))
+      addSession(meta(`${ws.id}-2`, ws.id))
+      openPane(`${ws.id}-1`)
+      return ws.id
+    })
+    return ids as [string, string, string]
+  }
+
+  it('takes its sessions, layout and interface references with it', () => {
+    const [a, b, c] = three()
+    applyInfo(info(`${c}-1`, 1, 'working', true))
+    setPaneMenu(`${c}-1`)
+    askDeleteSession(`${c}-2`)
+    askRemoveWorkspace(c)
+    removeWorkspace(c)
+    const s = getState()
+    expect(s.workspace.workspaces.map((w) => w.id)).toEqual([a, b])
+    expect(Object.keys(s.workspace.sessions).sort()).toEqual([`${a}-1`, `${a}-2`, `${b}-1`, `${b}-2`])
+    expect(s.runtime.bySession[`${c}-1`]).toBeUndefined()
+    expect(s.layout.byWorkspace[c]).toBeUndefined()
+    expect(s.ui.paneMenu).toBeNull()
+    expect(s.ui.confirmDelete).toBeNull()
+    expect(s.ui.confirmRemoveWorkspace).toBeNull()
+    expect(violations).toEqual([])
+  })
+
+  it('hands "active" to the most recently used of the rest', () => {
+    const [a, b, c] = three()
+    vi.setSystemTime(9000)
+    setActiveWorkspace(a) // a is now the most recent; c was active
+    setActiveWorkspace(c)
+    removeWorkspace(c)
+    expect(getState().workspace.activeId).toBe(a)
+    expect(layoutOf(getState().layout.byWorkspace, b).open).toEqual([`${b}-1`])
+    expect(violations).toEqual([])
+  })
+
+  it('leaves the active workspace alone when removing another', () => {
+    const [a, , c] = three()
+    removeWorkspace(a)
+    expect(getState().workspace.activeId).toBe(c)
+    expect(violations).toEqual([])
+  })
+
+  it('removing the last one goes back to first run', () => {
+    const wsId = seed(2)
+    removeWorkspace(wsId)
+    const s = getState()
+    expect(s.workspace.workspaces).toEqual([])
+    expect(s.workspace.activeId).toBeNull()
+    expect(s.workspace.sessions).toEqual({})
+    expect(violations).toEqual([])
+  })
+
+  it('ignores an unknown workspace', () => {
+    seed(1)
+    const before = getState()
+    removeWorkspace('nope')
+    expect(getState()).toBe(before)
   })
 })
 

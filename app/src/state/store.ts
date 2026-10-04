@@ -9,7 +9,20 @@ import { freshPomo, freshReminder } from '../lib/apps'
 import type { Place } from '../lib/sun'
 import type { WarmWhen } from '../lib/warmth'
 import { DEFAULT_K } from '../lib/warmth'
-import type { EnvInfo, InitInfo, Kind, Layout, Limits, Runtime, SessionMeta, Suggestion, Theme, Workspace } from '../types'
+import type {
+  EnvInfo,
+  InitInfo,
+  Kind,
+  Layout,
+  Limits,
+  NotesDest,
+  Runtime,
+  SessionMeta,
+  Suggestion,
+  Theme,
+  Workspace,
+  WorkspaceNotes,
+} from '../types'
 
 export type WsFilter = 'all' | 'working' | 'waiting'
 
@@ -134,12 +147,32 @@ export interface UiState {
   transfer: { kind: 'export'; workspaceId: string } | { kind: 'import'; path: string } | null
   /** Session awaiting typed "delete" confirmation. */
   confirmDelete: string | null
+  /** Workspace awaiting the remove confirmation (RemoveWorkspaceDialog). */
+  confirmRemoveWorkspace: string | null
+  /** The Notes view replaces the grid (sessions keep running behind it). */
+  notesOpen: boolean
+  /** The "Save notes" dialog, while open. */
+  notesSave: NotesSaveDraft | null
+}
+
+/** The Save notes dialog's choices before Save is pressed. */
+export interface NotesSaveDraft {
+  workspaceId: string
+  dest: NotesDest
+  name: string
+  dir: string | null
+  remember: boolean
+}
+
+export interface NotesState {
+  byWorkspace: Record<string, WorkspaceNotes>
 }
 
 export interface AppState {
   workspace: WorkspaceState
   layout: LayoutState
   runtime: RuntimeState
+  notes: NotesState
   ui: UiState
 }
 
@@ -147,6 +180,7 @@ export const initialState = (): AppState => ({
   workspace: { workspaces: [], sessions: {}, activeId: null },
   layout: { byWorkspace: {} },
   runtime: { bySession: {} },
+  notes: { byWorkspace: {} },
   ui: {
     booted: false,
     init: null,
@@ -202,6 +236,9 @@ export const initialState = (): AppState => ({
     notifyAllowed: false,
     attachments: {},
     confirmDelete: null,
+    confirmRemoveWorkspace: null,
+    notesOpen: false,
+    notesSave: null,
   },
 })
 

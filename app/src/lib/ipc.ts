@@ -65,6 +65,10 @@ export const ipc = {
   stateLoad: () => invoke<Snapshot>('state_load'),
   stateSave: (target: string, data: unknown) => invoke<void>('state_save', { target, data }),
   stateDeleteLayout: (id: string) => invoke<void>('state_delete_layout', { id }),
+  /** A removed workspace's layout and notes files. */
+  stateDeleteWorkspace: (id: string) => invoke<void>('state_delete_workspace', { id }),
+  /** Writes notes as Markdown at an absolute .md path; returns the path. */
+  notesExport: (path: string, markdown: string) => invoke<string>('notes_export', { path, markdown }),
 
   sessionStart: (spec: SessionSpec, cols: number, rows: number, onOutput: Channel<ArrayBuffer>) =>
     invoke<SessionInfo>('session_start', { spec, cols, rows, onOutput }),

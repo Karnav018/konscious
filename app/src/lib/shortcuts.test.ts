@@ -51,8 +51,10 @@ describe('macOS shortcuts', () => {
     expect(matchShortcut(key('n', { metaKey: false, ctrlKey: true }))).toBeNull()
     expect(matchShortcut(key('n', { ctrlKey: true }))).toBeNull()
     expect(matchShortcut(key('n', { altKey: true }))).toBeNull()
-    expect(matchShortcut(key('n', { shiftKey: true }))).toBeNull()
-    expect(matchShortcut(key('a', { shiftKey: true }))).toEqual({ type: 'apps' }) // the one ⌘⇧letter we take
+    expect(matchShortcut(key('t', { shiftKey: true }))).toBeNull()
+    // The ⌘⇧ letters we take: Apps and Notes.
+    expect(matchShortcut(key('a', { shiftKey: true }))).toEqual({ type: 'apps' })
+    expect(matchShortcut(key('N', { shiftKey: true }))).toEqual({ type: 'notes' })
     expect(matchShortcut(key('c'))).toBeNull()
     expect(matchShortcut(key('v'))).toBeNull()
     expect(isAppShortcut(key('r', { metaKey: false, ctrlKey: true }))).toBe(false)
@@ -65,6 +67,7 @@ describe('Windows shortcuts', () => {
 
   it('uses Ctrl+Shift so plain Ctrl+letter stays with the terminal', () => {
     expect(win('KeyN', 'N')).toEqual({ type: 'newSession' })
+    // Notes has no Windows shortcut: Ctrl+Shift+N stays New session.
     expect(win('KeyT', 'T')).toEqual({ type: 'newTerminal' })
     expect(win('KeyO', 'O')).toEqual({ type: 'workspaceMenu' })
     expect(win('KeyI', 'I')).toEqual({ type: 'inspector' })

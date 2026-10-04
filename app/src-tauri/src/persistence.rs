@@ -31,6 +31,8 @@ pub struct Snapshot {
     pub config: Option<Value>,
     pub workspaces: Option<Value>,
     pub layouts: BTreeMap<String, Value>,
+    /// Per-workspace notes (tasks + scratch, saved and draft), by workspace id.
+    pub notes: BTreeMap<String, Value>,
     /// Files that failed to parse and were set aside.
     pub corrupt: Vec<String>,
     /// Files recovered from a backup after their main copy was unreadable.
@@ -41,6 +43,7 @@ pub enum Target {
     Config,
     Workspaces,
     Layout(String),
+    Notes(String),
 }
 
 impl Target {
@@ -48,8 +51,9 @@ impl Target {
         match s {
             "config" => Ok(Target::Config),
             "workspaces" => Ok(Target::Workspaces),
-            _ => match s.strip_prefix("layout:") {
-                Some(id) if valid_id(id) => Ok(Target::Layout(id.to_string())),
+            _ => match (s.strip_prefix("layout:"), s.strip_prefix("notes:")) {
+                (Some(id), _) if valid_id(id) => Ok(Target::Layout(id.to_string())),
+                (_, Some(id)) if valid_id(id) => Ok(Target::Notes(id.to_string())),
                 _ => Err(AppError::Invalid(format!("Unknown save target {s:?}"))),
             },
         }
@@ -95,6 +99,7 @@ impl Store {
             Target::Config => self.base.join("config.json"),
             Target::Workspaces => self.base.join("workspaces.json"),
             Target::Layout(id) => self.base.join("layouts").join(format!("{id}.json")),
+            Target::Notes(id) => self.base.join("notes").join(format!("{id}.json")),
         }
     }
 
@@ -120,18 +125,26 @@ impl Store {
         let mut snap = Snapshot::default();
         snap.config = self.read_or_restore(&self.path_for(&Target::Config), &mut snap);
         snap.workspaces = self.read_or_restore(&self.path_for(&Target::Workspaces), &mut snap);
-        if let Ok(dir) = fs::read_dir(self.base.join("layouts")) {
+        snap.layouts = self.load_dir("layouts", &mut snap);
+        snap.notes = self.load_dir("notes", &mut snap);
+        snap
+    }
+
+    /// Every `<id>.json` in a per-workspace folder (layouts/, notes/).
+    fn load_dir(&self, name: &str, snap: &mut Snapshot) -> BTreeMap<String, Value> {
+        let mut out = BTreeMap::new();
+        if let Ok(dir) = fs::read_dir(self.base.join(name)) {
             for entry in dir.flatten() {
                 let path = entry.path();
                 let Some(id) = path.file_stem().and_then(|s| s.to_str()).map(str::to_string) else { continue };
                 if path.extension().is_some_and(|e| e == "json") && valid_id(&id) {
-                    if let Some(v) = self.read_or_restore(&path, &mut snap) {
-                        snap.layouts.insert(id, v);
+                    if let Some(v) = self.read_or_restore(&path, snap) {
+                        out.insert(id, v);
                     }
                 }
             }
         }
-        snap
+        out
     }
 
     /// Main file if valid; if it is corrupt, the newest valid backup (which
@@ -190,11 +203,25 @@ impl Store {
     }
 
     pub fn delete_layout(&self, id: &str) -> AppResult<()> {
+        self.delete(&Target::Layout(id.into()))
+    }
+
+    /// Everything Konscious keeps for one workspace (its layout and notes),
+    /// when the workspace is removed. Missing files are fine.
+    pub fn delete_workspace(&self, id: &str) -> AppResult<()> {
+        self.delete(&Target::Layout(id.into()))?;
+        self.delete(&Target::Notes(id.into()))
+    }
+
+    fn delete(&self, target: &Target) -> AppResult<()> {
+        let (Target::Layout(id) | Target::Notes(id)) = target else {
+            return Err(AppError::Invalid("Only per-workspace files can be deleted".into()));
+        };
         if !valid_id(id) {
             return Err(AppError::Invalid(format!("Bad workspace id {id:?}")));
         }
         let _guard = self.write_lock.locked();
-        match fs::remove_file(self.path_for(&Target::Layout(id.into()))) {
+        match fs::remove_file(self.path_for(target)) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
             _ => Ok(()),
         }
@@ -218,6 +245,25 @@ fn rotate_backups(path: &Path) {
         let _ = fs::rename(backup_path(path, n), backup_path(path, n + 1));
     }
     let _ = fs::copy(path, backup_path(path, 1));
+}
+
+/// Writes notes as a Markdown file the user chose (in the project or any
+/// folder). Only absolute `.md` paths: Konscious never writes anything else
+/// there. The folder is created if it isn't there yet (e.g. `<project>/notes/`).
+pub fn export_markdown(path: &Path, markdown: &str) -> AppResult<PathBuf> {
+    if !path.is_absolute() {
+        return Err(AppError::Invalid(format!("Notes must be saved to an absolute path, not {}", path.display())));
+    }
+    let is_md = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("md"));
+    let has_name = path.file_stem().is_some_and(|n| !n.is_empty());
+    if !is_md || !has_name {
+        return Err(AppError::Invalid(format!("Notes are saved as a .md file, not {}", path.display())));
+    }
+    if path.is_dir() {
+        return Err(AppError::Invalid(format!("{} is a folder", path.display())));
+    }
+    write_atomic(path, markdown.as_bytes())?;
+    Ok(path.to_path_buf())
 }
 
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
@@ -244,6 +290,35 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn notes_round_trip_and_go_with_their_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_path_buf());
+        store.save(&Target::parse("notes:hawk").unwrap(), &json!({"version": 1, "saved": {"tasks": [], "scratch": "x"}})).unwrap();
+        store.save(&Target::parse("layout:hawk").unwrap(), &json!({"version": 1, "mode": "grid"})).unwrap();
+        assert_eq!(store.load().notes["hawk"]["saved"]["scratch"], "x");
+        store.delete_workspace("hawk").unwrap();
+        let snap = store.load();
+        assert!(snap.notes.is_empty() && snap.layouts.is_empty());
+        store.delete_workspace("hawk").unwrap(); // already gone: fine
+        assert!(Target::parse("notes:../etc").is_err());
+    }
+
+    #[test]
+    fn markdown_export_writes_only_md_files_at_absolute_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("project").join("notes").join("hawk-2026-10-04.md");
+        assert_eq!(export_markdown(&out, "# Hawk\n").unwrap(), out);
+        assert_eq!(fs::read_to_string(&out).unwrap(), "# Hawk\n");
+        export_markdown(&out, "# Hawk v2\n").unwrap(); // saving again replaces it
+        assert_eq!(fs::read_to_string(&out).unwrap(), "# Hawk v2\n");
+        assert!(export_markdown(Path::new("notes/hawk.md"), "x").is_err(), "relative");
+        assert!(export_markdown(&dir.path().join("hawk.txt"), "x").is_err(), "not .md");
+        assert!(export_markdown(&dir.path().join(".md"), "x").is_err(), "no name");
+        fs::create_dir_all(dir.path().join("dir.md")).unwrap();
+        assert!(export_markdown(&dir.path().join("dir.md"), "x").is_err(), "a folder");
+    }
 
     #[test]
     fn round_trip_and_layouts() {

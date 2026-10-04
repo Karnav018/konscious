@@ -223,6 +223,8 @@ pub fn run() {
             commands::state_load,
             commands::state_save,
             commands::state_delete_layout,
+            commands::state_delete_workspace,
+            commands::notes_export,
             commands::session_start,
             commands::session_attach,
             commands::session_list,

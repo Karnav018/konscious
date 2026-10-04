@@ -1,9 +1,10 @@
 // App keyboard shortcuts (design keybindings). The window-level capture
 // listener handles them before xterm sees the key.
 //
-// macOS: ⌘N ⌘T ⌘O ⌘I ⌘J ⌘↵ ⌘1–9, ⌘+ ⌘− ⌘0, ⌘⇧←/→ to move a pane.
+// macOS: ⌘N ⌘T ⌘O ⌘I ⌘J ⌘↵ ⌘1–9, ⌘+ ⌘− ⌘0, ⌘⇧←/→ to move a pane, ⌘⇧N for Notes.
 // Windows: Ctrl+Shift+N/T/O/I/J/Enter/1–9/←/→ (Ctrl+letter is the terminal's),
 // Ctrl+= Ctrl+- Ctrl+0 for text size — the Windows Terminal conventions.
+// Notes has no Windows shortcut (Ctrl+Shift+N is New session there).
 import { IS_WINDOWS } from './platform'
 
 export type Shortcut =
@@ -13,6 +14,7 @@ export type Shortcut =
   | { type: 'inspector' }
   | { type: 'jumpWaiting' }
   | { type: 'toggleFocus' }
+  | { type: 'notes' }
   | { type: 'selectPane'; index: number }
   | { type: 'movePane'; delta: 1 | -1 }
   | { type: 'apps' }
@@ -57,7 +59,7 @@ function matchWindows(e: KeyboardEvent): Shortcut | null {
 function matchMac(e: KeyboardEvent): Shortcut | null {
   if (!e.metaKey || e.ctrlKey || e.altKey) return null
   const k = e.key.toLowerCase()
-  if (k === 'n' && !e.shiftKey) return { type: 'newSession' }
+  if (k === 'n') return e.shiftKey ? { type: 'notes' } : { type: 'newSession' }
   if (k === 't' && !e.shiftKey) return { type: 'newTerminal' }
   if (k === 'o' && !e.shiftKey) return { type: 'workspaceMenu' }
   if (k === 'i' && !e.shiftKey) return { type: 'inspector' }

@@ -174,6 +174,8 @@ export interface Snapshot {
   config: Record<string, unknown> | null
   workspaces: Record<string, unknown> | null
   layouts: Record<string, Record<string, unknown>>
+  /** Per-workspace notes files (notes/<id>.json). Absent from older builds. */
+  notes?: Record<string, Record<string, unknown>>
   corrupt: string[]
   /** Recovered from a rolling backup after the main file was unreadable. */
   restored: string[]
@@ -195,3 +197,43 @@ export interface Clipboard {
   /** A picture is on the clipboard (Claude Code reads it itself). */
   image: boolean
 }
+
+/* ── notes ───────────────────────────────────────────────────────── */
+
+/** One line of a workspace's Today list. */
+export interface NoteTask {
+  id: string
+  text: string
+  done: boolean
+  /** The session it was sent to (links it; an @name in the text also does). */
+  sessionId: string | null
+}
+
+export interface Notes {
+  tasks: NoteTask[]
+  scratch: string
+}
+
+/** Where saved notes go: kept in Konscious, a Markdown file in the project's
+ *  notes/ folder, or a Markdown file in a folder the user picked. */
+export type NotesDest = 'app' | 'repo' | 'other'
+
+export interface NotesSavePref {
+  dest: NotesDest
+  /** File name without .md (unused for 'app'). */
+  name: string
+  /** The picked folder, for 'other'. */
+  dir: string | null
+}
+
+/** Everything Konscious keeps about one workspace's notes (notes/<id>.json). */
+export interface WorkspaceNotes {
+  saved: Notes
+  /** Edits not saved yet; kept across restarts. null: nothing unsaved. */
+  draft: Notes | null
+  /** "Always save here" for this workspace. */
+  pref: NotesSavePref | null
+  /** The last save: the file it went to (null: kept in Konscious). */
+  lastSaved: { file: string | null; at: number } | null
+}
+

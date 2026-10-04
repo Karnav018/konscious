@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { jumpWaiting, openNewSession, openTerminalHere, setMode, switchWorkspace } from '../../app/actions'
 import { basename } from '../../lib/path'
 import { IS_WINDOWS, kbd } from '../../lib/platform'
+import { setNotesOpen } from '../../state/commands/notes'
 import { toggleInspector, toggleWorkspaceMenu } from '../../state/commands/ui'
 import {
   useActiveLayout,
@@ -118,6 +119,7 @@ export function TitleBar() {
   const firstRun = !useHasWorkspaces()
   const ws = useActiveWorkspace()
   const layout = useActiveLayout()
+  const notesOpen = useUi((u) => u.notesOpen)
   const counts = useStatusCounts()
   const selected = useSession(layout.selected)
   const selRt = useRuntimeOf(layout.selected)
@@ -140,9 +142,10 @@ export function TitleBar() {
           options={[
             { value: 'grid', label: 'Grid' },
             { value: 'focus', label: 'Focus' },
+            { value: 'notes', label: <span title={IS_WINDOWS ? 'Notes' : 'Notes (⌘⇧N)'}>Notes</span> },
           ]}
-          value={layout.mode}
-          onChange={setMode}
+          value={notesOpen && !firstRun ? 'notes' : layout.mode}
+          onChange={(v) => (v === 'notes' ? setNotesOpen(true) : setMode(v))}
         />
       </div>
 
@@ -174,12 +177,14 @@ export function TitleBar() {
 
       {!firstRun && <UsageBar limits={limits} observedAt={limitsAt} live={limitsLive} />}
 
-      <div className="flex gap-[2px] items-center">
+      {/* When the bar runs out of room the session name gives way (…), never
+          New session: it would wrap onto two lines. */}
+      <div className="flex gap-[2px] items-center min-w-0">
         <SettingsButtons />
         <div
           onClick={() => toggleInspector(inspector)}
           title={`Session details (${kbd('I')})`}
-          className="h-7 max-w-[200px] flex items-center gap-[7px] pl-[10px] pr-2 rounded-rs border bg-pane cursor-pointer flex-none hover:border-line2"
+          className="h-7 max-w-[200px] min-w-[64px] flex items-center gap-[7px] pl-[10px] pr-2 rounded-rs border bg-pane cursor-pointer hover:border-line2"
           style={{ borderColor: inspector ? 'var(--accent)' : 'var(--line)' }}
         >
           {selected ? (
@@ -195,7 +200,7 @@ export function TitleBar() {
         <div
           onClick={() => void openNewSession()}
           title={`New session (${kbd('N')})`}
-          className="h-7 pl-2 pr-[10px] flex items-center gap-1.5 rounded-rs bg-accent text-accent-ink cursor-pointer text-[12.5px] font-medium ml-1"
+          className="h-7 pl-2 pr-[10px] flex items-center gap-1.5 rounded-rs bg-accent text-accent-ink cursor-pointer text-[12.5px] font-medium ml-1 flex-none whitespace-nowrap"
         >
           <PlusIcon />
           New session

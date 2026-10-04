@@ -14,7 +14,7 @@ import { CAP } from '../lib/grid'
 import { ipc } from '../lib/ipc'
 import type { Place } from '../lib/sun'
 import { DEFAULT_K, NEUTRAL_K, WARMEST_K, type WarmWhen } from '../lib/warmth'
-import type { Layout, Limits, SessionMeta, Snapshot, Theme, Workspace } from '../types'
+import type { Layout, Limits, NoteTask, SessionMeta, Snapshot, Theme, Workspace, WorkspaceNotes } from '../types'
 import { act } from './act'
 import { setPersistStatus } from './commands/ui'
 import { repair } from './invariants'
@@ -24,7 +24,7 @@ export const SCHEMA_VERSION = 2
 export const DEFAULT_FONT = 12
 export const FONT_MIN = 9
 export const FONT_MAX = 24
-export type FileKind = 'config' | 'workspaces' | 'layout'
+export type FileKind = 'config' | 'workspaces' | 'layout' | 'notes'
 type Raw = Record<string, unknown>
 export type Migration = (raw: Raw) => Raw
 
@@ -36,6 +36,8 @@ export const MIGRATIONS: Record<FileKind, Record<number, Migration>> = {
   // v2: sessions gained an optional per-pane fontSize (absent = automatic).
   workspaces: { 1: (r) => r },
   layout: { 1: (r) => r },
+  // Notes arrived at schema v2; nothing older exists.
+  notes: { 1: (r) => r },
 }
 
 export class NewerSchemaError extends Error {
@@ -152,11 +154,31 @@ const LayoutFileV1 = z.object({
   selected: z.string().nullable().catch(null),
 })
 
+// Notes: a bad task is dropped (and counted), never the whole file.
+const NoteTaskV1 = z.object({
+  id: z.string().min(1),
+  text: z.string(),
+  done: z.boolean(),
+  sessionId: z.string().nullable().catch(null),
+})
+const NotesV1 = z.object({ tasks: z.array(z.unknown()).catch([]), scratch: z.string().catch('') })
+const NotesFileV1 = z.object({
+  version: z.literal(SCHEMA_VERSION),
+  saved: NotesV1.catch({ tasks: [], scratch: '' }),
+  draft: NotesV1.nullable().catch(null),
+  pref: z
+    .object({ dest: z.enum(['app', 'repo', 'other']), name: z.string(), dir: z.string().nullable().catch(null) })
+    .nullable()
+    .catch(null),
+  lastSaved: z.object({ file: z.string().nullable(), at: z.number() }).nullable().catch(null),
+})
+
 export interface Decoded {
   workspaces: Workspace[]
   sessions: Record<string, SessionMeta>
   activeId: string | null
   layouts: Record<string, Layout>
+  notes: Record<string, WorkspaceNotes>
   theme: Theme
   apps: AppsState
   warm: boolean
@@ -223,11 +245,33 @@ export function decode(snap: Snapshot): Decoded {
       : { mode: 'grid', open: [], recent: [], selected: null }
   }
 
+  const notes: Record<string, WorkspaceNotes> = {}
+  const tasksOf = (raw: unknown[]): NoteTask[] => {
+    const out: NoteTask[] = []
+    for (const t of raw) {
+      const r = NoteTaskV1.safeParse(t)
+      if (r.success) out.push(r.data)
+      else skipped++
+    }
+    return out
+  }
+  for (const w of workspaces) {
+    const n = load('notes', snap.notes?.[w.id], NotesFileV1)
+    if (!n) continue
+    notes[w.id] = {
+      saved: { tasks: tasksOf(n.saved.tasks), scratch: n.saved.scratch },
+      draft: n.draft ? { tasks: tasksOf(n.draft.tasks), scratch: n.draft.scratch } : null,
+      pref: n.pref,
+      lastSaved: n.lastSaved,
+    }
+  }
+
   const cfg = load('config', snap.config, ConfigFileV1)
   return {
     workspaces,
     sessions,
     layouts,
+    notes,
     activeId: cfg?.activeWorkspace ?? null,
     theme: cfg?.theme ?? 'dark',
     apps: appsFrom(cfg?.apps),
@@ -285,6 +329,7 @@ export function hydrate(dec: Decoded) {
     d.workspace.sessions = dec.sessions
     d.workspace.activeId = dec.activeId
     d.layout.byWorkspace = dec.layouts
+    d.notes.byWorkspace = dec.notes
     d.ui.theme = dec.theme
     d.ui.apps = dec.apps
     d.ui.warm = dec.warm
@@ -333,6 +378,10 @@ export function serialize(s: AppState = getState()) {
         { version: SCHEMA_VERSION, ...(s.layout.byWorkspace[w.id] ?? { mode: 'grid', open: [], recent: [], selected: null }) },
       ]),
     ),
+    // Only workspaces that have notes get a notes file.
+    notes: Object.fromEntries(
+      workspaces.filter((w) => s.notes.byWorkspace[w.id]).map((w) => [w.id, { version: SCHEMA_VERSION, ...s.notes.byWorkspace[w.id] }]),
+    ),
   }
 }
 
@@ -350,6 +399,7 @@ function targets(s: AppState) {
     ['config', out.config],
     ['workspaces', out.workspaces],
     ...Object.entries(out.layouts).map(([id, v]) => [`layout:${id}`, v]),
+    ...Object.entries(out.notes).map(([id, v]) => [`notes:${id}`, v]),
   ] as [string, unknown][]
 }
 
@@ -388,7 +438,7 @@ export function startPersistence(dec: Pick<Decoded, 'readonly'>) {
   if (dec.readonly) setPersistStatus({ state: 'readonly', message: dec.readonly })
   for (const [target, data] of targets(getState())) written.set(target, JSON.stringify(data))
   useApp.subscribe(
-    (s) => [s.workspace, s.layout, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.warmWhen, s.ui.warmFrom, s.ui.warmTo, s.ui.warmPlace, s.ui.fontSize, s.ui.limits, s.ui.apps] as const,
+    (s) => [s.workspace, s.layout, s.notes, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.warmWhen, s.ui.warmFrom, s.ui.warmTo, s.ui.warmPlace, s.ui.fontSize, s.ui.limits, s.ui.apps] as const,
     schedule,
     { equalityFn: (a, b) => a.every((x, i) => x === b[i]) },
   )
@@ -404,5 +454,6 @@ export const healed = (dec: Decoded, base: AppState) =>
     d.workspace.sessions = dec.sessions
     d.workspace.activeId = dec.activeId
     d.layout.byWorkspace = dec.layouts
+    d.notes.byWorkspace = dec.notes
     repair(d)
   })

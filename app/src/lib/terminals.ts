@@ -585,6 +585,12 @@ export const terminals = {
     if (text) entries.get(id)?.term.paste(text)
   },
 
+  /** Whether the program asked for bracketed paste — then a multi-line paste
+   *  lands in its prompt instead of running line by line. Claude always does. */
+  bracketedPaste(id: string) {
+    return entries.get(id)?.term.modes.bracketedPasteMode ?? false
+  },
+
   isFocused(id: string) {
     const e = entries.get(id)
     return !!e && !!document.activeElement && e.host.contains(document.activeElement)

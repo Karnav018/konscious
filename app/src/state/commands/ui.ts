@@ -135,10 +135,15 @@ export const askDeleteSession = (id: string) =>
     d.ui.paneMenu = null
   })
 export const cancelDeleteSession = () => act('ui/confirmDeleteCancel', (d) => void (d.ui.confirmDelete = null))
+export const askRemoveWorkspace = (id: string) => act('ui/confirmRemoveWorkspace', (d) => void (d.ui.confirmRemoveWorkspace = id))
+export const cancelRemoveWorkspace = () =>
+  act('ui/confirmRemoveWorkspaceCancel', (d) => void (d.ui.confirmRemoveWorkspace = null))
 
 export function closeOverlays() {
   act('ui/closeOverlays', (d) => {
     d.ui.confirmDelete = null
+    d.ui.confirmRemoveWorkspace = null
+    d.ui.notesSave = null
     d.ui.transfer = null
     d.ui.wsMenu = false
     d.ui.inspector = false

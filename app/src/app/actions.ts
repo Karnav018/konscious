@@ -28,9 +28,11 @@ import {
   setMode as setLayoutMode,
   toggleFocus as toggleLayoutFocus,
 } from '../state/commands/layout'
+import { setNotesOpen } from '../state/commands/notes'
 import { applyInfo, markSpawnFailed, markStarting, setGit, setUnread } from '../state/commands/runtime'
 import {
   askDeleteSession,
+  askRemoveWorkspace,
   closeNewSession,
   closeWorkspaceMenu,
   flash,
@@ -49,6 +51,7 @@ import {
   basename,
   newSessionId,
   removeSession as removeSessionCmd,
+  removeWorkspace as removeWorkspaceCmd,
   setActiveWorkspace,
   updateSession,
 } from '../state/commands/workspace'
@@ -249,6 +252,33 @@ export function requestDeleteSession(id: string) {
   }
 }
 
+/** Opens the confirmation; RemoveWorkspaceDialog decides whether the remove
+ *  has to be typed (it does when Claude sessions would go with it). */
+export const requestRemoveWorkspace = (id: string) => askRemoveWorkspace(id)
+
+/**
+ * Removes a workspace from Konscious: stops and forgets its sessions, drops its
+ * saved layout, and switches to the most recently used remaining workspace.
+ * The folder and its files stay on disk, and Claude keeps each conversation.
+ */
+export function removeWorkspace(id: string) {
+  const s = getState()
+  const ws = s.workspace.workspaces.find((w) => w.id === id)
+  if (!ws) return
+  for (const m of Object.values(s.workspace.sessions)) {
+    if (m.workspaceId !== id) continue
+    void ipc.sessionRemove(m.id).catch(() => {})
+    terminals.dispose(m.id)
+  }
+  removeWorkspaceCmd(id)
+  void ipc.stateDeleteWorkspace(id).catch(() => {})
+  flash(`Removed “${ws.name}” from Konscious. The folder is still on disk.`)
+  const next = getState()
+  const l = layoutOf(next.layout.byWorkspace, next.workspace.activeId)
+  const target = l.selected ?? l.open[0]
+  if (target) requestAnimationFrame(() => terminals.focus(target))
+}
+
 export function renameSession(id: string, name: string) {
   const clean = name.trim()
   if (clean) updateSession(id, { name: clean.slice(0, 200) })
@@ -258,6 +288,8 @@ export function renameSession(id: string, name: string) {
 
 export function selectSession(id: string, opts: { focus?: boolean } = {}) {
   if (!getState().workspace.sessions[id]) return
+  // Picking a session means showing it: Notes steps aside.
+  if (getState().ui.notesOpen) setNotesOpen(false)
   const evicted = openPane(id)
   if (getState().runtime.bySession[id]?.unread) setUnread(id, false)
   if (evicted) {
@@ -305,6 +337,7 @@ export function toggleFocus(id?: string) {
   const s = getState()
   const wsId = s.workspace.activeId
   if (!wsId) return
+  if (s.ui.notesOpen) setNotesOpen(false)
   const target = id ?? layoutOf(s.layout.byWorkspace, wsId).selected
   if (!target) return
   toggleLayoutFocus(wsId, target)
@@ -312,6 +345,7 @@ export function toggleFocus(id?: string) {
 }
 
 export function setMode(mode: LayoutMode) {
+  if (getState().ui.notesOpen) setNotesOpen(false)
   const s = getState()
   const wsId = s.workspace.activeId
   if (!wsId || layoutOf(s.layout.byWorkspace, wsId).mode === mode) return

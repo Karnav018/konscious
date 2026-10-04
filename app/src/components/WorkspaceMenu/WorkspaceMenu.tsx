@@ -7,6 +7,7 @@ import {
   openNewSession,
   pickWorkspaceFolder,
   requestDeleteSession,
+  requestRemoveWorkspace,
   selectSession,
   stopWorkspaceSessions,
   switchWorkspace,
@@ -30,7 +31,7 @@ import {
 import type { WsFilter } from '../../state/store'
 import type { SessionMeta } from '../../types'
 import { formatBytes, totalOf, useSessionMemory } from '../../lib/memory'
-import { FolderIcon, StopIcon, TrashIcon } from '../common/Icon'
+import { CloseIcon, FolderIcon, StopIcon, TrashIcon } from '../common/Icon'
 import { StatusGlyph, useNow } from '../common/StatusGlyph'
 
 const FILTERS: { v: WsFilter; l: string }[] = [
@@ -133,7 +134,7 @@ export function WorkspaceMenu() {
                 key={w.id}
                 onMouseEnter={() => wsHover !== w.id && hoverWorkspace(w.id)}
                 onClick={() => switchWorkspace(w.id)}
-                className="flex items-center gap-[10px] p-2 rounded-rs cursor-pointer"
+                className="group/ws relative flex items-center gap-[10px] p-2 rounded-rs cursor-pointer"
                 style={{ background: hov ? 'var(--sel)' : 'transparent' }}
               >
                 <FolderIcon size={16} className="flex-none" style={{ color: w.id === activeId ? 'var(--accent)' : 'var(--faint)' }} />
@@ -143,7 +144,7 @@ export function WorkspaceMenu() {
                     {tildify(w.path, home)}
                   </span>
                 </div>
-                <div className="flex flex-col items-end gap-[2px] flex-none">
+                <div className="flex flex-col items-end gap-[2px] flex-none transition-opacity group-hover/ws:opacity-0">
                   <span className="font-mono text-[11px] text-muted">
                     {ss.length}
                     {held > 0 && <span className="text-faint"> · {formatBytes(held)}</span>}
@@ -154,6 +155,19 @@ export function WorkspaceMenu() {
                   >
                     {note}
                   </span>
+                </div>
+                {/* Hover reveals it in place of the counts. Removing only takes the
+                    folder off Konscious's list; the dialog says what goes with it. */}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    requestRemoveWorkspace(w.id)
+                  }}
+                  title={`Remove ${w.name} from Konscious…`}
+                  aria-label={`Remove ${w.name} from Konscious`}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 grid place-items-center rounded-rs text-faint opacity-0 transition-opacity group-hover/ws:opacity-100 hover:text-err hover:bg-hover"
+                >
+                  <CloseIcon />
                 </div>
               </div>
             )

@@ -41,6 +41,10 @@ export function checkInvariants(s: AppState): string[] {
     if (!sessions[id]) v.push(`attachments kept for missing session ${id}`)
   }
   if (s.ui.confirmDelete && !sessions[s.ui.confirmDelete]) v.push(`delete confirmation for missing session ${s.ui.confirmDelete}`)
+  for (const id of Object.keys(s.notes.byWorkspace)) if (!wsIds.has(id)) v.push(`notes for missing workspace ${id}`)
+  if (s.ui.notesSave && !wsIds.has(s.ui.notesSave.workspaceId)) v.push('notes save dialog for a missing workspace')
+  if (s.ui.confirmRemoveWorkspace && !wsIds.has(s.ui.confirmRemoveWorkspace))
+    v.push(`remove confirmation for missing workspace ${s.ui.confirmRemoveWorkspace}`)
   return v
 }
 
@@ -84,4 +88,8 @@ export function repair(d: Draft<AppState>): void {
     if (!sessions[id]) delete d.ui.attachments[id]
   }
   if (d.ui.confirmDelete && !sessions[d.ui.confirmDelete]) d.ui.confirmDelete = null
+  for (const id of Object.keys(d.notes.byWorkspace)) if (!d.workspace.workspaces.some((w) => w.id === id)) delete d.notes.byWorkspace[id]
+  if (d.ui.notesSave && !d.workspace.workspaces.some((w) => w.id === d.ui.notesSave!.workspaceId)) d.ui.notesSave = null
+  if (d.ui.confirmRemoveWorkspace && !d.workspace.workspaces.some((w) => w.id === d.ui.confirmRemoveWorkspace))
+    d.ui.confirmRemoveWorkspace = null
 }

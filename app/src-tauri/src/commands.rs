@@ -70,6 +70,21 @@ pub async fn state_save(state: State<'_, AppState>, target: String, data: Value)
     blocking(move || store.save(&Target::parse(&target)?, &data)).await
 }
 
+/// Removing a workspace: its layout and notes files go too.
+#[tauri::command]
+pub async fn state_delete_workspace(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    let store = Arc::clone(&state.store);
+    blocking(move || store.delete_workspace(&id)).await
+}
+
+/// Saves notes as a Markdown file where the user chose; returns the path.
+#[tauri::command]
+pub async fn notes_export(path: String, markdown: String) -> AppResult<String> {
+    blocking(move || crate::persistence::export_markdown(std::path::Path::new(&path), &markdown))
+        .await
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 pub async fn state_delete_layout(state: State<'_, AppState>, id: String) -> AppResult<()> {
     state.store.delete_layout(&id)

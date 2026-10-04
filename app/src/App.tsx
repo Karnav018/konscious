@@ -18,6 +18,7 @@ import { startReminders } from './app/reminders'
 import { startBundleOpens } from './app/transfer'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { DeleteSessionDialog } from './components/DeleteSessionDialog/DeleteSessionDialog'
+import { RemoveWorkspaceDialog } from './components/RemoveWorkspaceDialog/RemoveWorkspaceDialog'
 import { EmptyState } from './components/EmptyState/EmptyState'
 import { FirstRun } from './components/FirstRun/FirstRun'
 import { Inspector } from './components/Inspector/Inspector'
@@ -25,6 +26,8 @@ import { NewSessionModal } from './components/NewSessionModal/NewSessionModal'
 import { AppsPanel } from './components/Dock/AppsPanel'
 import { Transfer } from './components/Transfer/Transfer'
 import { Dock } from './components/Dock/Dock'
+import { NotesView } from './components/Notes/Notes'
+import { NotesSaveDialog } from './components/Notes/NotesSaveDialog'
 import { SessionGrid } from './components/SessionGrid/SessionGrid'
 import { StatusBar } from './components/StatusBar/StatusBar'
 import { TitleBar } from './components/TitleBar/TitleBar'
@@ -32,8 +35,10 @@ import { Toast } from './components/Toast/Toast'
 import { WorkspaceMenu } from './components/WorkspaceMenu/WorkspaceMenu'
 import { IS_WINDOWS, isBrowserKey } from './lib/platform'
 import { matchShortcut } from './lib/shortcuts'
+import { closeNotesSave, toggleNotesOpen } from './state/commands/notes'
 import {
   cancelDeleteSession,
+  cancelRemoveWorkspace,
   closeOverlays,
   closeSettingsMenu,
   flash,
@@ -46,7 +51,7 @@ import { useActiveLayout, useHasWorkspaces, useUi } from './state/selectors'
 import { getState, type UiState } from './state/store'
 
 const anyOverlayOpen = (ui: UiState) =>
-  ui.wsMenu || ui.inspector || !!ui.transfer || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete
+  ui.wsMenu || ui.inspector || !!ui.transfer || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete || !!ui.confirmRemoveWorkspace || !!ui.notesSave
 
 /** Capture phase: runs before xterm's own key handling. */
 function onKeyDown(e: KeyboardEvent) {
@@ -73,6 +78,8 @@ function onKeyDown(e: KeyboardEvent) {
         return jumpWaiting()
       case 'toggleFocus':
         return toggleFocus()
+      case 'notes':
+        return toggleNotesOpen()
       case 'selectPane':
         return selectPaneIndex(sc.index)
       case 'apps':
@@ -91,7 +98,9 @@ function onKeyDown(e: KeyboardEvent) {
     // Escape belongs to Claude unless an overlay is open.
     e.preventDefault()
     e.stopPropagation()
-    if (s.ui.confirmDelete) cancelDeleteSession()
+    if (s.ui.notesSave) closeNotesSave()
+    else if (s.ui.confirmRemoveWorkspace) cancelRemoveWorkspace()
+    else if (s.ui.confirmDelete) cancelDeleteSession()
     else if (s.ui.renaming) setRenaming(false)
     else closeOverlays()
     return
@@ -139,6 +148,9 @@ export default function App() {
   const inspector = useUi((u) => u.inspector)
   const newSession = useUi((u) => u.newSession)
   const confirmDelete = useUi((u) => u.confirmDelete)
+  const confirmRemoveWs = useUi((u) => u.confirmRemoveWorkspace)
+  const notesOpen = useUi((u) => u.notesOpen)
+  const notesSave = useUi((u) => u.notesSave)
   const firstRun = !useHasWorkspaces()
   const layout = useActiveLayout()
 
@@ -184,12 +196,27 @@ export default function App() {
     <SessionGrid />
   )
 
+  const showNotes = booted && lockOk && !firstRun && notesOpen
+
   return (
     <div className="h-full min-w-[1080px] flex flex-col bg-win relative overflow-hidden text-text">
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 min-h-0 flex flex-col p-2 gap-2 bg-win relative">
-          <ErrorBoundary label="main">{main}</ErrorBoundary>
+          {/* Notes covers the stage; the panes stay laid out (hidden, inert)
+              underneath so the terminals keep their size and keep running. */}
+          <div className="flex-1 min-h-0 flex flex-col relative">
+            <div className={`flex-1 min-h-0 flex flex-col ${showNotes ? 'invisible' : ''}`} inert={showNotes}>
+              <ErrorBoundary label="main">{main}</ErrorBoundary>
+            </div>
+            {showNotes && (
+              <div className="absolute inset-0 flex">
+                <ErrorBoundary label="notes">
+                  <NotesView />
+                </ErrorBoundary>
+              </div>
+            )}
+          </div>
           {booted && lockOk && !firstRun && (
             <ErrorBoundary compact label="dock">
               <Dock />
@@ -203,6 +230,8 @@ export default function App() {
         {booted && lockOk && wsMenu && !firstRun && <WorkspaceMenu />}
         {booted && lockOk && newSession && <NewSessionModal />}
         {booted && lockOk && confirmDelete && <DeleteSessionDialog />}
+        {booted && lockOk && confirmRemoveWs && <RemoveWorkspaceDialog />}
+        {booted && lockOk && notesSave && <NotesSaveDialog />}
         {booted && lockOk && !firstRun && <AppsPanel />}
         {booted && lockOk && <Transfer />}
       </ErrorBoundary>

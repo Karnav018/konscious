@@ -159,6 +159,20 @@ export const MinimizeIcon = ({ size = 13, ...p }: P) => (
   </svg>
 )
 
+export const NotesIcon = ({ size = 15, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+    <path d="M14 3v6h6M8 13h8M8 17h5" />
+  </svg>
+)
+
+/** ➜ — put this into a session's prompt. */
+export const SendIcon = ({ size = 13, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+)
+
 export const CloseIcon = ({ size = 13, ...p }: P) => (
   <svg {...base(size)} strokeWidth={1.5} {...p}>
     <path d="M18 6 6 18M6 6l12 12" />
