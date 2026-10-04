@@ -22,9 +22,17 @@ on:
       tag:
         description: Existing tag to build and publish (e.g. v0.2.0)
         required: true
+      mac_from_run:
+        description: >-
+          Optional. Run ID of an earlier run of this workflow, for the same
+          version, whose macOS build to reuse instead of building it again —
+          for when only the Windows build needs redoing.
+        required: false
+        default: ''
 
 permissions:
   contents: write
+  actions: read # fetch the macOS build from an earlier run (mac_from_run)
 
 env:
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -33,6 +41,8 @@ env:
 jobs:
   macos:
     name: macOS (universal)
+    # Skipped when a previous run's macOS build is reused (mac_from_run).
+    if: ${{ !inputs.mac_from_run }}
     runs-on: macos-14
     defaults:
       run:
@@ -154,6 +164,11 @@ jobs:
   publish:
     name: Publish release
     needs: [macos, windows]
+    # Both builds from this run, or this run's Windows build plus the macOS
+    # build of an earlier run (mac_from_run).
+    if: >-
+      ${{ !cancelled() && needs.windows.result == 'success' &&
+      (needs.macos.result == 'success' || (needs.macos.result == 'skipped' && inputs.mac_from_run != '')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -163,6 +178,26 @@ jobs:
         with:
           path: assets
           merge-multiple: true
+      - name: Fetch the macOS build from run ${{ inputs.mac_from_run }}
+        if: ${{ inputs.mac_from_run != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: macos
+          path: assets
+          run-id: ${{ inputs.mac_from_run }}
+          github-token: ${{ github.token }}
+
+      # Every file must be this version, so a reused build from another
+      # release can never be published under this tag.
+      - name: Check the builds are complete and this version
+        run: |
+          version=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          ls -lh assets
+          for f in "Konscious-${version}-universal.dmg" \
+                   "Konscious_${version}_universal.app.tar.gz" "Konscious_${version}_universal.app.tar.gz.sig" \
+                   "Konscious_${version}_x64-setup.exe" "Konscious_${version}_x64-setup.exe.sig"; do
+            [ -f "assets/$f" ] || { echo "✗ missing assets/$f"; exit 1; }
+          done
 
       # One manifest for both platforms, written only once both builds are in:
       # a release with a half-filled latest.json would silently stop updates
