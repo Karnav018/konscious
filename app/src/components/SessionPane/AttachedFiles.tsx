@@ -4,13 +4,15 @@
 // the prompt belongs to Claude, so there is no per-file remove — taking one
 // path back out of a line the app cannot read would be guesswork. Clear sends
 // Ctrl+U, which genuinely empties the input (Ctrl+Y restores it in Claude).
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { fileKind, fileName } from '../../lib/attach'
+import { tildify } from '../../lib/format'
 import { ctrl } from '../../lib/platform'
-import { ipc } from '../../lib/ipc'
+import { errorMessage, ipc } from '../../lib/ipc'
 import { terminals } from '../../lib/terminals'
-import { clearAttachments } from '../../state/commands/ui'
+import { clearAttachments, flash } from '../../state/commands/ui'
 import { useUi } from '../../state/selectors'
 import { CloseIcon, FileIcon } from '../common/Icon'
 
@@ -29,19 +31,48 @@ function useThumbnail(path: string): string | null {
   return url
 }
 
+/** Hovering a chip shows the file at a size you can read. Above the strip,
+ *  outside the pane: the strip scrolls sideways, which would clip it. */
+function Preview({ path, url, at }: { path: string; url: string | null; at: DOMRect }) {
+  const home = useUi((u) => u.init?.home)
+  const left = Math.max(8, Math.min(at.left, window.innerWidth - 300))
+  return createPortal(
+    <div
+      className="fixed z-[60] pointer-events-none p-1.5 bg-raised border border-line2 rounded-r shadow-pop flex flex-col gap-1.5"
+      style={{ left, bottom: window.innerHeight - at.top + 6, maxWidth: 292 }}
+      role="tooltip"
+    >
+      {url && <img src={url} alt="" className="block max-w-[280px] max-h-[200px] w-auto h-auto rounded-rs object-contain" />}
+      <div className="px-1 pb-0.5 flex flex-col gap-0.5 min-w-0">
+        <span className="text-[12px] font-medium whitespace-nowrap overflow-hidden text-ellipsis">{fileName(path)}</span>
+        <span className="font-mono text-[10.5px] text-muted whitespace-nowrap overflow-hidden text-ellipsis">{tildify(path, home)}</span>
+        <span className="text-[10.5px] text-faint">Click to open</span>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 function Chip({ path }: { path: string }) {
   const url = useThumbnail(path)
   const name = fileName(path)
   const kind = fileKind(path)
+  const ref = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState<DOMRect | null>(null)
   return (
     <div
+      ref={ref}
       onClick={(e) => {
         e.stopPropagation()
-        void ipc.openFile(path).catch(() => {})
+        setHover(null)
+        void ipc.openFile(path).catch((err) => flash(`Couldn't open ${name}: ${errorMessage(err)}`))
       }}
-      title={`${path}\nClick to open`}
+      onMouseEnter={() => setHover(ref.current?.getBoundingClientRect() ?? null)}
+      onMouseLeave={() => setHover(null)}
+      aria-label={`Open ${name}`}
       className="h-7 max-w-[180px] flex-none flex items-center gap-1.5 pl-1 pr-2 rounded-rs border border-line2 bg-pane cursor-pointer hover:border-accent"
     >
+      {hover && <Preview path={path} url={url} at={hover} />}
       {url ? (
         <img src={url} alt="" className="w-5 h-5 rounded-[3px] object-cover flex-none" />
       ) : (

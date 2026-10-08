@@ -20,8 +20,12 @@ const THRESHOLD = 4
 
 export interface PaneDrag {
   id: string
-  /** The pane the cursor is over, when dropping there would move anything. */
+  /** The pane whose slot the cursor is over, when dropping there would move
+   *  anything. Kept while the cursor crosses a gap, so the preview holds still. */
   over: string | null
+  /** How far the pointer has moved since the press (px): the pane follows it. */
+  dx: number
+  dy: number
 }
 
 /** Handlers to spread on a pane's drag surface (its header and grip). */
@@ -37,7 +41,6 @@ export interface PaneReorder {
   canLeft: boolean
   canRight: boolean
   dragging: boolean
-  dropTarget: boolean
 }
 
 /** The pane at a point on screen (CSS px). Also used by file drops. */
@@ -45,7 +48,12 @@ export function paneUnder(x: number, y: number): string | null {
   return document.elementFromPoint(x, y)?.closest(PANE_SEL)?.getAttribute('data-pane-id') ?? null
 }
 
-export function usePaneDrag(onDrop: (id: string, targetId: string) => void) {
+/**
+ * `slotAt` says whose slot a point is in. The grid answers from the slots as
+ * they were when the drag began, not from what's on screen: the panes slide
+ * about while previewing the move, and asking them would flicker back and forth.
+ */
+export function usePaneDrag(onDrop: (id: string, targetId: string) => void, slotAt: (x: number, y: number) => string | null = paneUnder) {
   const [drag, setDrag] = useState<PaneDrag | null>(null)
   const press = useRef<{ id: string; x: number; y: number; moved: boolean; over: string | null } | null>(null)
 
@@ -69,14 +77,11 @@ export function usePaneDrag(onDrop: (id: string, targetId: string) => void) {
         if (!p.moved) {
           if (Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y) < THRESHOLD) return
           p.moved = true
-          setDrag({ id: p.id, over: null })
         }
-        const under = paneUnder(e.clientX, e.clientY)
-        const over = under && under !== p.id ? under : null
-        if (over !== p.over) {
-          p.over = over
-          setDrag({ id: p.id, over })
-        }
+        const under = slotAt(e.clientX, e.clientY)
+        // Back over its own slot: no move. Over a gap: keep the last answer.
+        if (under) p.over = under === p.id ? null : under
+        setDrag({ id: p.id, over: p.over, dx: e.clientX - p.x, dy: e.clientY - p.y })
       },
       onPointerUp: () => {
         const p = press.current
@@ -85,7 +90,7 @@ export function usePaneDrag(onDrop: (id: string, targetId: string) => void) {
       },
       onPointerCancel: stop,
     }),
-    [onDrop, stop],
+    [onDrop, stop, slotAt],
   )
 
   // Escape drops the drag where it started; the cursor says "grabbing"

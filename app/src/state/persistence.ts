@@ -10,11 +10,12 @@ import { produce } from 'immer'
 import { z } from 'zod'
 
 import { APPS, type AppId } from '../lib/apps'
-import { CAP } from '../lib/grid'
+import { CAP, emptyLayout } from '../lib/grid'
+import { DEFAULT_GRID } from '../lib/layouts'
 import { ipc } from '../lib/ipc'
 import type { Place } from '../lib/sun'
 import { DEFAULT_K, NEUTRAL_K, WARMEST_K, type WarmWhen } from '../lib/warmth'
-import type { Layout, Limits, NoteTask, SessionMeta, Snapshot, Theme, Workspace, WorkspaceNotes } from '../types'
+import type { Layout, LayoutNode, Limits, NoteTask, SessionMeta, Snapshot, Theme, Workspace, WorkspaceNotes } from '../types'
 import { act } from './act'
 import { setPersistStatus } from './commands/ui'
 import { repair } from './invariants'
@@ -146,12 +147,24 @@ const ConfigFileV1 = z.object({
   fontSize: z.number().min(FONT_MIN).max(FONT_MAX).catch(DEFAULT_FONT),
   activeWorkspace: z.string().nullable().catch(null),
 })
+// A dragged arrangement: panes and splits (whether it fits the panes is
+// checked where it's used, in lib/layouts.ts).
+const LayoutNodeV: z.ZodType<LayoutNode> = z.lazy(() =>
+  z.union([
+    z.object({ leaf: z.number().int().nonnegative() }),
+    z.object({ dir: z.enum(['row', 'col']), kids: z.array(LayoutNodeV).min(2), w: z.array(z.number().positive().finite()) }),
+  ]),
+)
+
 const LayoutFileV1 = z.object({
   version: z.literal(SCHEMA_VERSION),
   mode: z.enum(['grid', 'focus']).catch('grid'),
   open: z.array(z.string()).catch([]),
   recent: z.array(z.string()).catch([]),
   selected: z.string().nullable().catch(null),
+  // Grid layouts; files from before them have neither and get even, balanced rows.
+  grid: z.enum(['balanced', 'lead', 'columns', 'strip', 'free']).catch(DEFAULT_GRID).optional(),
+  trees: z.record(z.string(), LayoutNodeV).catch({}).optional(),
 })
 
 // Notes: a bad task is dropped (and counted), never the whole file.
@@ -241,8 +254,8 @@ export function decode(snap: Snapshot): Decoded {
   for (const w of workspaces) {
     const l = load('layout', snap.layouts[w.id], LayoutFileV1)
     layouts[w.id] = l
-      ? { mode: l.mode, open: l.open.slice(0, CAP), recent: l.recent, selected: l.selected }
-      : { mode: 'grid', open: [], recent: [], selected: null }
+      ? { mode: l.mode, open: l.open.slice(0, CAP), recent: l.recent, selected: l.selected, grid: l.grid ?? DEFAULT_GRID, trees: l.trees ?? {} }
+      : emptyLayout()
   }
 
   const notes: Record<string, WorkspaceNotes> = {}
@@ -375,7 +388,7 @@ export function serialize(s: AppState = getState()) {
     layouts: Object.fromEntries(
       workspaces.map((w) => [
         w.id,
-        { version: SCHEMA_VERSION, ...(s.layout.byWorkspace[w.id] ?? { mode: 'grid', open: [], recent: [], selected: null }) },
+        { version: SCHEMA_VERSION, ...(s.layout.byWorkspace[w.id] ?? emptyLayout()) },
       ]),
     ),
     // Only workspaces that have notes get a notes file.

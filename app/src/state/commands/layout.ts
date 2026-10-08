@@ -9,7 +9,7 @@ import {
   selectPane as selectIn,
   toggleFocus as focusIn,
 } from '../../lib/grid'
-import type { Layout, LayoutMode } from '../../types'
+import type { GridLayoutId, Layout, LayoutMode, LayoutNode } from '../../types'
 import { act } from '../act'
 import { touchWorkspace } from './touch'
 import { getState } from '../store'
@@ -76,4 +76,23 @@ export function toggleFocus(wsId: string, id: string) {
 
 export function setMode(wsId: string, mode: LayoutMode) {
   apply('layout/setMode', wsId, (l) => (l.mode === mode ? l : { ...l, mode }))
+}
+
+/** Picking a layout shows the grid in it (from Focus too). */
+export function setGridLayout(wsId: string, grid: GridLayoutId) {
+  apply('layout/grid', wsId, (l) => (l.grid === grid && l.mode === 'grid' ? l : { ...l, grid, mode: 'grid' }))
+}
+
+/** A dragged (or regrouped) arrangement, kept for these panes. */
+export function setLayoutTree(wsId: string, key: string, tree: LayoutNode) {
+  apply('layout/resize', wsId, (l) => ({ ...l, trees: { ...l.trees, [key]: tree } }))
+}
+
+/** ⌘⇧= and the menu: the layout's own arrangement again, at even sizes. */
+export function evenOutLayout(wsId: string, key: string) {
+  apply('layout/evenOut', wsId, (l) => {
+    if (!l.trees[key]) return l
+    const { [key]: _gone, ...trees } = l.trees
+    return { ...l, trees }
+  })
 }

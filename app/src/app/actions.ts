@@ -195,6 +195,9 @@ export async function reattachSession(info: SessionInfo) {
     flash(errorMessage(e))
   } finally {
     terminals.release(info.id)
+    // It's running: what's typed goes straight to it. (A fresh pane holds
+    // typing until its session starts — which a reattached one never does.)
+    if (info.running) terminals.started(info.id, null)
     if (meta.kind === 'claude' && info.running) terminals.nudge(info.id)
   }
 }

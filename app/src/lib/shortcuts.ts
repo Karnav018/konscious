@@ -1,10 +1,12 @@
 // App keyboard shortcuts (design keybindings). The window-level capture
 // listener handles them before xterm sees the key.
 //
-// macOS: ⌘N ⌘T ⌘O ⌘I ⌘J ⌘↵ ⌘1–9, ⌘+ ⌘− ⌘0, ⌘⇧←/→ to move a pane, ⌘⇧N for Notes.
+// macOS: ⌘N ⌘T ⌘O ⌘I ⌘J ⌘↵ ⌘1–9, ⌘= ⌘− ⌘0, ⌘⇧←/→ to move a pane, ⌘⇧N for Notes,
+// ⌘L / ⌘⇧L to cycle grid layouts, ⌘⌥1–5 to pick one, ⌘⇧= to even out sizes.
 // Windows: Ctrl+Shift+N/T/O/I/J/Enter/1–9/←/→ (Ctrl+letter is the terminal's),
 // Ctrl+= Ctrl+- Ctrl+0 for text size — the Windows Terminal conventions.
-// Notes has no Windows shortcut (Ctrl+Shift+N is New session there).
+// Notes has no Windows shortcut (Ctrl+Shift+N is New session there); of the
+// layout keys only Ctrl+Shift+L (next layout) — the rest are in the dock menu.
 import { IS_WINDOWS } from './platform'
 
 export type Shortcut =
@@ -15,6 +17,9 @@ export type Shortcut =
   | { type: 'jumpWaiting' }
   | { type: 'toggleFocus' }
   | { type: 'notes' }
+  | { type: 'cycleLayout'; delta: 1 | -1 }
+  | { type: 'pickLayout'; index: number }
+  | { type: 'evenOut' }
   | { type: 'selectPane'; index: number }
   | { type: 'movePane'; delta: 1 | -1 }
   | { type: 'apps' }
@@ -40,6 +45,7 @@ const WIN_KEYS: Record<string, Shortcut> = {
   Enter: { type: 'toggleFocus' },
   NumpadEnter: { type: 'toggleFocus' },
   KeyA: { type: 'apps' },
+  KeyL: { type: 'cycleLayout', delta: 1 },
   ArrowLeft: { type: 'movePane', delta: -1 },
   ArrowRight: { type: 'movePane', delta: 1 },
 }
@@ -57,8 +63,16 @@ function matchWindows(e: KeyboardEvent): Shortcut | null {
 }
 
 function matchMac(e: KeyboardEvent): Shortcut | null {
-  if (!e.metaKey || e.ctrlKey || e.altKey) return null
+  if (!e.metaKey || e.ctrlKey) return null
+  // ⌘⌥1–5 picks a grid layout. `code`: with ⌥ held, the digits type symbols.
+  if (e.altKey) {
+    const digit = /^Digit([1-5])$/.exec(e.code)
+    return digit ? { type: 'pickLayout', index: Number(digit[1]) - 1 } : null
+  }
   const k = e.key.toLowerCase()
+  if (k === 'l') return { type: 'cycleLayout', delta: e.shiftKey ? -1 : 1 }
+  // ⌘⇧= evens out pane sizes; ⌘= (no Shift) stays bigger text.
+  if (e.shiftKey && e.code === 'Equal') return { type: 'evenOut' }
   if (k === 'n') return e.shiftKey ? { type: 'notes' } : { type: 'newSession' }
   if (k === 't' && !e.shiftKey) return { type: 'newTerminal' }
   if (k === 'o' && !e.shiftKey) return { type: 'workspaceMenu' }

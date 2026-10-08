@@ -1,4 +1,4 @@
-import { dropSession } from '../../lib/grid'
+import { dropSession, emptyLayout } from '../../lib/grid'
 import { basename } from '../../lib/path'
 import type { SessionMeta, Workspace } from '../../types'
 import { act } from '../act'
@@ -34,7 +34,7 @@ export function addWorkspace(path: string): Workspace {
   act('workspace/add', (d) => {
     d.workspace.workspaces.push(ws)
     d.workspace.activeId = id
-    d.layout.byWorkspace[id] = { mode: 'grid', open: [], recent: [], selected: null }
+    d.layout.byWorkspace[id] = emptyLayout()
   })
   return ws
 }

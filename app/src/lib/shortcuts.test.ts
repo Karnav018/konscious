@@ -52,7 +52,8 @@ describe('macOS shortcuts', () => {
     expect(matchShortcut(key('n', { ctrlKey: true }))).toBeNull()
     expect(matchShortcut(key('n', { altKey: true }))).toBeNull()
     expect(matchShortcut(key('t', { shiftKey: true }))).toBeNull()
-    // The ⌘⇧ letters we take: Apps and Notes.
+    // The ⌘⇧ letters we take: Apps, Notes and layouts (back).
+    expect(matchShortcut(key('L', { shiftKey: true }))).toEqual({ type: 'cycleLayout', delta: -1 })
     expect(matchShortcut(key('a', { shiftKey: true }))).toEqual({ type: 'apps' })
     expect(matchShortcut(key('N', { shiftKey: true }))).toEqual({ type: 'notes' })
     expect(matchShortcut(key('c'))).toBeNull()
@@ -68,6 +69,7 @@ describe('Windows shortcuts', () => {
   it('uses Ctrl+Shift so plain Ctrl+letter stays with the terminal', () => {
     expect(win('KeyN', 'N')).toEqual({ type: 'newSession' })
     // Notes has no Windows shortcut: Ctrl+Shift+N stays New session.
+    expect(win('KeyL', 'L')).toEqual({ type: 'cycleLayout', delta: 1 })
     expect(win('KeyT', 'T')).toEqual({ type: 'newTerminal' })
     expect(win('KeyO', 'O')).toEqual({ type: 'workspaceMenu' })
     expect(win('KeyI', 'I')).toEqual({ type: 'inspector' })
@@ -87,5 +89,20 @@ describe('Windows shortcuts', () => {
     expect(win('Equal', '=', { shiftKey: false })).toEqual({ type: 'fontSize', delta: 1 })
     expect(win('Minus', '-', { shiftKey: false })).toEqual({ type: 'fontSize', delta: -1 })
     expect(win('Digit0', '0', { shiftKey: false })).toEqual({ type: 'fontSize', delta: 0 })
+  })
+})
+
+describe('grid layout shortcuts (macOS)', () => {
+  it('⌘L cycles, ⌘⌥1–5 picks, ⌘⇧= evens out', () => {
+    expect(matchShortcut(key('l'))).toEqual({ type: 'cycleLayout', delta: 1 })
+    expect(matchShortcut(key('¡', { altKey: true, code: 'Digit1' }))).toEqual({ type: 'pickLayout', index: 0 })
+    expect(matchShortcut(key('∞', { altKey: true, code: 'Digit5' }))).toEqual({ type: 'pickLayout', index: 4 })
+    expect(matchShortcut(key('ª', { altKey: true, code: 'Digit6' }))).toBeNull()
+    expect(matchShortcut(key('+', { shiftKey: true, code: 'Equal' }))).toEqual({ type: 'evenOut' })
+  })
+
+  it('⌘= is still bigger text, and a + key of its own too', () => {
+    expect(matchShortcut(key('=', { code: 'Equal' }))).toEqual({ type: 'fontSize', delta: 1 })
+    expect(matchShortcut(key('+', { code: 'NumpadAdd' }))).toEqual({ type: 'fontSize', delta: 1 })
   })
 })

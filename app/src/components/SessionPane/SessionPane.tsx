@@ -156,6 +156,7 @@ export function SessionPane({
   multi,
   focused,
   reorder,
+  highlight = false,
 }: {
   id: string
   selected: boolean
@@ -163,6 +164,8 @@ export function SessionPane({
   focused: boolean
   /** Set when this pane can be moved to another slot; null when it can't. */
   reorder: PaneReorder | null
+  /** Lit while a divider beside it is hovered or dragged. */
+  highlight?: boolean
 }) {
   const meta = useSession(id)
   const rt = useRuntimeOf(id)
@@ -199,15 +202,15 @@ export function SessionPane({
       }}
       className="group/pane flex flex-col min-w-0 min-h-0 bg-pane border rounded-r overflow-hidden relative"
       style={{
-        borderColor: reorder?.dropTarget || fileOver || (selected && multi) ? 'var(--accent)' : 'var(--line)',
-        boxShadow: fileOver ? 'inset 0 0 0 1px var(--accent)' : undefined,
-        // The pane being carried fades; the one under the cursor stays lit.
-        opacity: reorder?.dragging ? 0.45 : 1,
+        borderColor: reorder?.dragging || fileOver || highlight || (selected && multi) ? 'var(--accent)' : 'var(--line)',
+        // The pane being carried is lifted off the grid and follows the pointer.
+        boxShadow: fileOver ? 'inset 0 0 0 1px var(--accent)' : reorder?.dragging ? 'var(--shadow)' : undefined,
+        opacity: reorder?.dragging ? 0.94 : 1,
       }}
     >
       <div
         {...reorder?.handle}
-        className={`h-9 flex-none flex items-center gap-2 ${reorder ? 'pl-1.5' : 'pl-3'} pr-1.5 border-b border-line`}
+        className={`h-8 flex-none flex items-center gap-2 ${reorder ? 'pl-1.5' : 'pl-3'} pr-1.5 border-b border-line`}
       >
         {reorder && (
           <div
@@ -255,7 +258,7 @@ export function SessionPane({
         <div
           data-pane-menu
           onMouseDown={(e) => e.stopPropagation()}
-          className="absolute top-[34px] right-[56px] w-[236px] p-1 bg-raised border border-line2 rounded-rs shadow-pop z-[5] flex flex-col"
+          className="absolute top-[30px] right-[56px] w-[236px] p-1 bg-raised border border-line2 rounded-rs shadow-pop z-[5] flex flex-col"
         >
           <FontSizeRow id={id} pinned={meta.fontSize} />
           <div className="h-px bg-line mx-1 my-1" />
@@ -274,15 +277,6 @@ export function SessionPane({
               <span className="font-mono text-[10.5px] text-faint">{m.key ?? ''}</span>
             </div>
           ))}
-        </div>
-      )}
-
-      {reorder?.dropTarget && (
-        <div
-          className="absolute inset-0 z-[4] grid place-items-center pointer-events-none"
-          style={{ background: 'var(--accentSoft)' }}
-        >
-          <span className="px-2.5 py-1 rounded-rs bg-raised border border-accent shadow-pop text-[12px]">Move here</span>
         </div>
       )}
 

@@ -32,6 +32,12 @@ export interface SessionMeta {
 
 export type LayoutMode = 'grid' | 'focus'
 
+/** How Grid arranges its panes (see lib/layouts.ts). */
+export type GridLayoutId = 'balanced' | 'lead' | 'columns' | 'strip' | 'free'
+/** A grid arrangement: a pane (its index in the grid order), or a split that
+ *  lays its kids out in a row or a column, sized by weight. */
+export type LayoutNode = { leaf: number } | { dir: 'row' | 'col'; kids: LayoutNode[]; w: number[] }
+
 export interface Layout {
   mode: LayoutMode
   /** Sessions shown in the grid, in display order (max 6). */
@@ -39,6 +45,11 @@ export interface Layout {
   /** Most recently used first; drives least-recently-used eviction. */
   recent: string[]
   selected: string | null
+  /** The arrangement Grid uses. */
+  grid: GridLayoutId
+  /** Arrangements changed by dragging, per arrangement key (lib/layouts.ts).
+   *  Absent: the layout's own, at even sizes. */
+  trees: Record<string, LayoutNode>
 }
 
 export interface SessionInfo {

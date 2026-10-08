@@ -43,6 +43,7 @@ import {
 import { useRuntimes, useUi } from '../../state/selectors'
 import { AppsIcon, DropIcon, FlameIcon, StandIcon, TomatoIcon } from '../common/Icon'
 import { Gauge, Ring } from './Gauge'
+import { LayoutTile } from './LayoutTile'
 
 /** How long untouched before an auto-minimising dock shrinks to just Apps. */
 const TUCK_MS = 3000
@@ -527,6 +528,9 @@ export function Dock() {
           <Divider vertical={vertical} />
         </>
       )}
+
+      {/* How the grid is arranged: part of the workspace, so above the apps. */}
+      {!tucked && <LayoutTile edge={edge} size={TILE} />}
 
       <div
         onClick={(e) => {

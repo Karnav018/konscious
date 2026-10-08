@@ -43,7 +43,11 @@ export const setAppPinned = (id: AppId, pinned: boolean) =>
     if (!pinned && d.ui.appPopover === id) d.ui.appPopover = null
   })
 
-export const setAppPopover = (id: AppId | null) => act('apps/popover', (d) => void (d.ui.appPopover = id))
+export const setAppPopover = (id: AppId | null) =>
+  act('apps/popover', (d) => {
+    d.ui.appPopover = id
+    if (id) d.ui.layoutMenu = false
+  })
 export const setAppPanel = (panel: AppId | 'catalog' | null) =>
   act('apps/panel', (d) => {
     d.ui.appPanel = panel

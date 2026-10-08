@@ -14,6 +14,7 @@ import {
 import { setAppPanel, setAppPopover } from './state/commands/apps'
 import { layoutOf } from './state/commands/layout'
 import { bootstrap } from './app/bootstrap'
+import { cycleGridLayout, evenOutPanes, pickGridLayout } from './app/layouts'
 import { startReminders } from './app/reminders'
 import { startBundleOpens } from './app/transfer'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
@@ -27,6 +28,7 @@ import { AppsPanel } from './components/Dock/AppsPanel'
 import { Transfer } from './components/Transfer/Transfer'
 import { Dock } from './components/Dock/Dock'
 import { NotesView } from './components/Notes/Notes'
+import { LayoutHud } from './components/SessionGrid/LayoutHud'
 import { NotesSaveDialog } from './components/Notes/NotesSaveDialog'
 import { SessionGrid } from './components/SessionGrid/SessionGrid'
 import { StatusBar } from './components/StatusBar/StatusBar'
@@ -34,6 +36,7 @@ import { TitleBar } from './components/TitleBar/TitleBar'
 import { Toast } from './components/Toast/Toast'
 import { WorkspaceMenu } from './components/WorkspaceMenu/WorkspaceMenu'
 import { IS_WINDOWS, isBrowserKey } from './lib/platform'
+import { GRID_LAYOUTS } from './lib/layouts'
 import { matchShortcut } from './lib/shortcuts'
 import { closeNotesSave, toggleNotesOpen } from './state/commands/notes'
 import {
@@ -43,6 +46,7 @@ import {
   closeSettingsMenu,
   flash,
   setBooted,
+  setLayoutMenu,
   setRenaming,
   toggleInspector,
   toggleWorkspaceMenu,
@@ -80,6 +84,12 @@ function onKeyDown(e: KeyboardEvent) {
         return toggleFocus()
       case 'notes':
         return toggleNotesOpen()
+      case 'cycleLayout':
+        return cycleGridLayout(sc.delta)
+      case 'pickLayout':
+        return pickGridLayout(GRID_LAYOUTS[sc.index].id, { hud: true })
+      case 'evenOut':
+        return evenOutPanes()
       case 'selectPane':
         return selectPaneIndex(sc.index)
       case 'apps':
@@ -161,6 +171,7 @@ export default function App() {
       if (ui.paneMenu && !el.closest?.('[data-pane-menu]')) openPaneMenu(null)
       if (ui.settingsMenu && !el.closest?.('[data-settings-menu],[data-settings-button]')) closeSettingsMenu()
       if (ui.appPopover && !el.closest?.('[data-dock]')) setAppPopover(null)
+      if (ui.layoutMenu && !el.closest?.('[data-dock]')) setLayoutMenu(false)
     }
     window.addEventListener('mousedown', closePopovers)
     const stopReminders = startReminders()
@@ -202,13 +213,14 @@ export default function App() {
     <div className="h-full min-w-[1080px] flex flex-col bg-win relative overflow-hidden text-text">
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-2 gap-2 bg-win relative">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-1 gap-2 bg-win relative">
           {/* Notes covers the stage; the panes stay laid out (hidden, inert)
               underneath so the terminals keep their size and keep running. */}
           <div className="flex-1 min-h-0 flex flex-col relative">
             <div className={`flex-1 min-h-0 flex flex-col ${showNotes ? 'invisible' : ''}`} inert={showNotes}>
               <ErrorBoundary label="main">{main}</ErrorBoundary>
             </div>
+            {booted && lockOk && !firstRun && !showNotes && <LayoutHud />}
             {showNotes && (
               <div className="absolute inset-0 flex">
                 <ErrorBoundary label="notes">

@@ -127,7 +127,7 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="h-[46px] flex-none flex items-center gap-[14px] pr-[10px] border-b border-line bg-side relative z-[23]"
+      className="h-[46px] flex-none flex items-center gap-2 pr-[10px] border-b border-line bg-side relative z-[23]"
       // 84px clears the macOS traffic lights; Windows has a native title bar.
       style={{ paddingLeft: fullscreen || IS_WINDOWS ? 14 : 84 }}
     >

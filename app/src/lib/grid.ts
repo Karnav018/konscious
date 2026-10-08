@@ -2,10 +2,11 @@
 // holds at most CAP panes; opening one more hides the least recently used
 // pane (its process keeps running). Pure functions — unit tested.
 import type { Layout } from '../types'
+import { DEFAULT_GRID } from './layouts'
 
 export const CAP = 6
 
-export const emptyLayout = (): Layout => ({ mode: 'grid', open: [], recent: [], selected: null })
+export const emptyLayout = (): Layout => ({ mode: 'grid', open: [], recent: [], selected: null, grid: DEFAULT_GRID, trees: {} })
 
 /** 1–3 panes side by side, 4 → 2×2, 5–6 → 3×2; Focus is always 1×1. */
 export function gridDims(n: number, focus: boolean): { cols: number; rows: number } {

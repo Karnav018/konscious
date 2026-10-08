@@ -29,7 +29,7 @@ export function StatusBar() {
 
   // Three equal columns keep the version centred whatever the sides say.
   return (
-    <div className="h-[26px] flex-none grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-3.5 border-t border-line bg-side font-mono text-[10.5px] text-faint">
+    <div className="h-5 flex-none grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-3.5 border-t border-line bg-side font-mono text-[10.5px] leading-none text-faint">
       <span className="whitespace-nowrap overflow-hidden text-ellipsis">{left}</span>
       <span className="flex items-center gap-4 whitespace-nowrap">
         {version && <span title="Konscious version">v{version}</span>}

@@ -153,6 +153,13 @@ export interface UiState {
   notesOpen: boolean
   /** The "Save notes" dialog, while open. */
   notesSave: NotesSaveDraft | null
+  /** The dock's Grid layout menu. */
+  layoutMenu: boolean
+  /** Bumped to flash the layout picture in the middle of the stage (⌘L). */
+  layoutHud: number
+  /** "N panes now — try …": shown once per pane mix ("4:2" = 4 panes,
+   *  2 terminals) until taken or waved off. Not saved. */
+  layoutNudge: { show: string | null; seen: Record<string, true> }
 }
 
 /** The Save notes dialog's choices before Save is pressed. */
@@ -239,6 +246,9 @@ export const initialState = (): AppState => ({
     confirmRemoveWorkspace: null,
     notesOpen: false,
     notesSave: null,
+    layoutMenu: false,
+    layoutHud: 0,
+    layoutNudge: { show: null, seen: {} },
   },
 })
 

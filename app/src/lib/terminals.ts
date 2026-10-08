@@ -22,8 +22,10 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 import type { Kind, Theme } from '../types'
 import { Channel, ipc } from './ipc'
 import { IS_WINDOWS } from './platform'
-import { attachFiles } from '../state/commands/ui'
+import { attachFiles, clearAttachments } from '../state/commands/ui'
+import { getState } from '../state/store'
 import { pathsForTerminal } from './paste'
+import { claudeCaret, claudeInputRows, keysToDelete, type Row } from './selectionDelete'
 import { isAppShortcut } from './shortcuts'
 import { NEUTRAL_K, warmColor } from './warmth'
 
@@ -279,6 +281,39 @@ export function clearsInput(
   return ev.key === 'Backspace' || ev.key === 'Delete'
 }
 
+const isDeleteKey = (ev: KeyboardEvent) =>
+  (ev.key === 'Backspace' || ev.key === 'Delete') && !ev.metaKey && !ev.ctrlKey && !ev.altKey
+
+/** What deletes the selected text from the program's prompt, or null when
+ *  the selection isn't in it (see selectionDelete.ts). */
+function selectionDeleteKeys(e: Entry): string | null {
+  const pos = e.term.getSelectionPosition()
+  if (!pos) return null
+  const buf = e.term.buffer.active
+  const rows = (y: number): Row => {
+    const line = buf.getLine(y)
+    const out: Row = []
+    for (let x = 0; line && x < line.length; x++) {
+      const c = line.getCell(x)
+      if (c) out.push({ ch: c.getChars(), w: c.getWidth(), inv: !!c.isInverse() })
+    }
+    return out
+  }
+  // xterm: 0-based columns, absolute rows, end exclusive. A selection ending
+  // at the start of a row really ends at the end of the row before.
+  const sel = { sy: pos.start.y, sx: pos.start.x, ey: pos.end.y, ex: pos.end.x }
+  if (sel.ex === 0 && sel.ey > sel.sy) {
+    sel.ey -= 1
+    sel.ex = e.term.cols
+  }
+  const cursor = { y: buf.baseY + buf.cursorY, x: buf.cursorX }
+  if (e.kind === 'claude') {
+    const input = claudeInputRows((y) => buf.getLine(y)?.translateToString(true) ?? '', buf.baseY + e.term.rows - 1)
+    return input ? keysToDelete(sel, claudeCaret(rows, input, cursor), rows, input) : null
+  }
+  return keysToDelete(sel, cursor, rows)
+}
+
 /** Keys xterm must not turn into bytes. App shortcuts are also stopped by
  *  the window capture listener; this is the backstop. */
 function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
@@ -301,6 +336,16 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
       e.term.clearSelection()
       void ipc.terminalWrite(e.id, '\x15')
       return false
+    }
+    // Text selected in the prompt, then Delete: type what deletes it.
+    if (isDeleteKey(ev) && e.term.hasSelection()) {
+      const keys = selectionDeleteKeys(e)
+      if (keys) {
+        ev.preventDefault()
+        e.term.clearSelection()
+        void ipc.terminalWrite(e.id, keys)
+        return false
+      }
     }
     if (ev.metaKey && !ev.ctrlKey && !ev.altKey && ev.key.toLowerCase() === 'v') {
       // Handled here (not by the menu's paste event) so copied files paste
@@ -396,6 +441,8 @@ export const terminals = {
       held: false, written: 0, waiters: [], fontOverride: null, pendingInput: [], selectedAll: false,
     }
     term.onData((data) => {
+      // Enter sends the prompt, and the files attached to it with it.
+      if (data === '\r' && getState().ui.attachments[id]?.length) clearAttachments(id)
       if (entry.pendingInput) {
         entry.pendingInput.push(data)
         startHook?.(id) // typing into a queued session starts it now

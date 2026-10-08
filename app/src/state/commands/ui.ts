@@ -144,6 +144,7 @@ export function closeOverlays() {
     d.ui.confirmDelete = null
     d.ui.confirmRemoveWorkspace = null
     d.ui.notesSave = null
+    d.ui.layoutMenu = false
     d.ui.transfer = null
     d.ui.wsMenu = false
     d.ui.inspector = false
@@ -153,3 +154,22 @@ export function closeOverlays() {
     d.ui.renaming = false
   })
 }
+
+/* ── grid layouts ─────────────────────────────────────────────────── */
+
+export const setLayoutMenu = (open: boolean) =>
+  act('ui/layoutMenu', (d) => {
+    d.ui.layoutMenu = open
+    if (open) d.ui.appPopover = null
+  })
+
+export const showLayoutHud = () => act('ui/layoutHud', (d) => void d.ui.layoutHud++)
+
+export const showLayoutNudge = (countKey: string | null) => act('ui/layoutNudge', (d) => void (d.ui.layoutNudge.show = countKey))
+
+/** Taken or waved off: this pane mix won't suggest again (this run). */
+export const settleLayoutNudge = (countKey: string) =>
+  act('ui/layoutNudgeSeen', (d) => {
+    d.ui.layoutNudge.seen[countKey] = true
+    d.ui.layoutNudge.show = null
+  })
