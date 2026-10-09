@@ -1,5 +1,6 @@
 // User intents → state commands + terminal registry + IPC. Components call
 // these; they never talk to ipc, terminals or `act` directly.
+import { enabled } from '../lib/connectors'
 import { CAP } from '../lib/grid'
 import { errorMessage, ipc, type SessionSpec } from '../lib/ipc'
 import { trimSep } from '../lib/path'
@@ -69,6 +70,9 @@ const specOf = (m: SessionMeta, fork = false): SessionSpec => ({
   cwd: m.cwd,
   claudeSessionId: m.claudeSessionId,
   fork,
+  // Read at start, so switching a connector on reaches the next session
+  // rather than one already running. A shell has no MCP client to tell.
+  connectors: m.kind === 'claude' ? enabled(getState().ui.apps.connectors) : [],
 })
 
 export function expandHome(path: string): string {

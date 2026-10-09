@@ -45,6 +45,11 @@ export interface SessionSpec {
   claudeSessionId: string | null
   /** Resume into a copy (`--fork-session`); one-shot. */
   fork?: boolean
+  /** MCP servers to offer this session, already filtered to the ones that
+   *  are on. Empty means no --mcp-config at all. Sent per session rather
+   *  than read by Rust from the config, so a change reaches new sessions
+   *  only — a running one keeps what it started with. */
+  connectors?: { name: string; url: string }[]
 }
 
 export interface IpcError {

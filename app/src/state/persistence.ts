@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { APPS, type AppId } from '../lib/apps'
 import { DEFAULT_CUTOFF_MIN, DEFAULT_LIMIT_MG, MAX_MG, trim } from '../lib/caffeine'
 import { DEFAULT_ALERT_MIN } from '../lib/sitting'
+import { CUSTOM_CAP, validName, validUrl } from '../lib/connectors'
 import { type IslandApp, ISLAND_KEYS } from '../lib/island'
 import { CAP, emptyLayout } from '../lib/grid'
 import { DEFAULT_GRID } from '../lib/layouts'
@@ -141,6 +142,15 @@ const ConfigFileV1 = z.object({
       island: z.record(z.string(), z.boolean()).catch({}).optional(),
       /** A short chime when a nudge arrives. */
       sound: z.boolean().catch(true).optional(),
+      /** Connectors. Validated again in lib/connectors before anything is
+       *  written, so a hand-edited file cannot smuggle in an http server. */
+      connectors: z
+        .object({
+          builtin: z.record(z.string(), z.boolean()).catch({}),
+          custom: z.array(z.object({ name: z.string(), url: z.string() })).max(32).catch([]),
+        })
+        .catch({ builtin: {}, custom: [] })
+        .optional(),
       /** Caffeine. The log is a rolling day, trimmed on load as well as on
        *  use, so a config left for a week does not come back full. */
       caff: z
@@ -373,11 +383,20 @@ function appsFrom(saved: unknown): AppsState {
   // the one thing this app must not do. Today's tally and the longest
   // stretch are facts, and they are kept.
   const sit = got.sit ? { ...base.sit, ...got.sit, streakSince: null, alerted: false } : base.sit
+  // Only entries that still pass today's rules survive a load, so tightening
+  // them later drops what no longer qualifies rather than writing it out.
+  const connectors = got.connectors
+    ? {
+        builtin: { ...base.connectors.builtin, ...got.connectors.builtin },
+        custom: (got.connectors.custom ?? []).filter((c) => validName(c.name) && validUrl(c.url)).slice(0, CUSTOM_CAP),
+      }
+    : base.connectors
   return {
     ...base,
     ...got,
     caff,
     sit,
+    connectors,
     on: flags<AppId>(got.on, base.on, appIds),
     pinned: flags<AppId>(got.pinned, base.pinned, appIds),
     island: flags<IslandApp>(got.island, base.island, ISLAND_KEYS),

@@ -97,7 +97,7 @@ fn stress_many_flooding_sessions() {
         let healthy = i % 2 == 0;
         let c = Counter::default();
         counters.locked().insert(id.clone(), (c.clone(), healthy));
-        let spec = SessionSpec { id: id.clone(), kind: Kind::Shell, name: id.clone(), cwd: cwd.clone(), claude_session_id: None, fork: false };
+        let spec = SessionSpec { id: id.clone(), kind: Kind::Shell, name: id.clone(), cwd: cwd.clone(), claude_session_id: None, fork: false, connectors: vec![] };
         m.start(spec, 120, 32, Some(Box::new(c))).expect("start");
         m.write(&id, FLOOD.as_bytes().to_vec()).unwrap();
     }
