@@ -1,4 +1,5 @@
-//! This machine's processor, memory, disk and temperature, for the dock gauge.
+//! This machine's processor, memory, disk, temperature and graphics, for the
+//! dock gauge.
 //!
 //! All four are read in one place and handed over as percentages, except the
 //! temperature, which is degrees Celsius on a gauge that tops out at 105.
@@ -21,6 +22,10 @@ pub struct Stats {
     pub ssd: f32,
     /// Hottest component in °C, or None when this machine will not say.
     pub tmp: Option<f32>,
+    /// Graphics use, 0–100, or None where we have no way to ask.
+    pub gpu: Option<f32>,
+    /// Graphics memory in use, in bytes, for the detail line.
+    pub gpu_used: Option<u64>,
     /// Figures behind the percentages, for the detail lines.
     pub cores: usize,
     pub ram_total: u64,
@@ -73,11 +78,14 @@ pub fn read(sys: &mut System, disks: &mut Disks, components: &mut Components) ->
         })
         .unwrap_or((0, 0));
 
+    let (gpu, gpu_used) = graphics();
     Stats {
         cpu: cpu.clamp(0.0, 100.0),
         ram: pct(sys.used_memory(), sys.total_memory()),
         ssd: pct(ssd_used, ssd_total),
         tmp: temperature(components),
+        gpu,
+        gpu_used,
         cores: cpus.len(),
         ram_total: sys.total_memory(),
         ram_used: sys.used_memory(),
@@ -163,5 +171,116 @@ mod tests {
             s.ssd,
             s.tmp.map_or("not reported".into(), |t| format!("{t:.0}°C"))
         );
+    }
+}
+
+/* ── graphics ─────────────────────────────────────────────────────── */
+
+/// What the graphics chip is doing, and how much memory it holds.
+///
+/// sysinfo does not report this, and the usual macOS answer, `powermetrics`,
+/// needs sudo — not something to ask of anyone for a dock gauge. The driver
+/// publishes the same figures in the IO registry, readable by anyone, which
+/// is what this reads. A read costs about ten milliseconds.
+///
+/// An Intel Mac has two accelerators, integrated and discrete; the busier one
+/// is the honest answer, since that is the one doing the work.
+#[cfg(target_os = "macos")]
+pub fn graphics() -> (Option<f32>, Option<u64>) {
+    let out = std::process::Command::new("/usr/sbin/ioreg")
+        .args(["-r", "-d", "1", "-w", "0", "-c", "IOAccelerator"])
+        .output();
+    match out {
+        Ok(o) if o.status.success() => parse_ioreg(&String::from_utf8_lossy(&o.stdout)),
+        _ => (None, None),
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn graphics() -> (Option<f32>, Option<u64>) {
+    // Windows keeps this behind PDH's GPU engine counters, which need rather
+    // more plumbing than a gauge is worth until someone asks. The gauge drops
+    // a stat the machine will not report, so it simply shows four.
+    (None, None)
+}
+
+/// Pulls the two figures out of ioreg's output. Kept apart from the command
+/// so it can be tested against the real text on any platform.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn parse_ioreg(text: &str) -> (Option<f32>, Option<u64>) {
+    fn after<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+        let at = line.find(key)? + key.len();
+        Some(line[at..].trim_start_matches(['=', ' ']))
+    }
+    fn number(rest: &str) -> Option<f64> {
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
+        digits.parse().ok()
+    }
+    let mut busiest: Option<f32> = None;
+    let mut memory: Option<u64> = None;
+    // The dictionary is one long line with comma-separated entries, so the
+    // fields are found by key rather than by position.
+    for field in text.split(',') {
+        if field.contains("\"Device Utilization %\"") {
+            if let Some(v) = after(field, "\"Device Utilization %\"").and_then(number) {
+                let v = v.clamp(0.0, 100.0) as f32;
+                busiest = Some(busiest.map_or(v, |b: f32| b.max(v)));
+            }
+        } else if field.contains("\"In use system memory\"") && !field.contains("(driver)") {
+            if let Some(v) = after(field, "\"In use system memory\"").and_then(number) {
+                let v = v as u64;
+                memory = Some(memory.map_or(v, |m: u64| m.max(v)));
+            }
+        }
+    }
+    (busiest, memory)
+}
+
+#[cfg(test)]
+mod gpu_tests {
+    use super::*;
+
+    /// Real output from an Apple silicon Mac, trimmed to the dictionary.
+    const SAMPLE: &str = r#"    "PerformanceStatistics" = {"In use system memory (driver)"=0,"Alloc system memory"=1981677568,"Tiler Utilization %"=31,"recoveryCount"=0,"Renderer Utilization %"=30,"Device Utilization %"=31,"In use system memory"=466354176}"#;
+
+    #[test]
+    fn reads_the_figures_the_driver_publishes() {
+        let (used, mem) = parse_ioreg(SAMPLE);
+        assert_eq!(used, Some(31.0));
+        assert_eq!(mem, Some(466_354_176));
+    }
+
+    #[test]
+    fn does_not_mistake_the_driver_s_own_memory_for_the_gpu_s() {
+        // "In use system memory (driver)" is 0 and sits before the real one.
+        assert_eq!(parse_ioreg(SAMPLE).1, Some(466_354_176));
+    }
+
+    #[test]
+    fn takes_the_busier_of_two_accelerators() {
+        // An Intel Mac reports integrated and discrete separately.
+        let two = format!("{SAMPLE}\n{}", SAMPLE.replace("\"Device Utilization %\"=31", "\"Device Utilization %\"=74"));
+        assert_eq!(parse_ioreg(&two).0, Some(74.0));
+    }
+
+    #[test]
+    fn says_nothing_rather_than_guess_when_there_is_nothing_to_read() {
+        assert_eq!(parse_ioreg(""), (None, None));
+        assert_eq!(parse_ioreg("+-o AppleARMPE  <class IOPlatformExpertDevice>"), (None, None));
+    }
+
+    #[test]
+    fn keeps_a_percentage_a_percentage() {
+        let odd = SAMPLE.replace("\"Device Utilization %\"=31", "\"Device Utilization %\"=512");
+        assert_eq!(parse_ioreg(&odd).0, Some(100.0));
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn reads_this_machine() {
+        let (used, mem) = graphics();
+        let used = used.expect("a Mac publishes this");
+        assert!((0.0..=100.0).contains(&used), "implausible utilisation: {used}");
+        assert!(mem.is_some_and(|m| m > 0), "a running machine holds some graphics memory");
     }
 }

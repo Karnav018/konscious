@@ -56,6 +56,9 @@
   --caff: #ab8a72;
   --sys: #e8dccb;
   --cpu: #8fa2ff;
+  /* Graphics. Cyan is the one band the palette had left — green is --ok,
+     amber is --warn, violet is --info and --pomo. */
+  --gpu: #0aa8c0;
   --ram: #f29cc4;
   --ssd: #d9c7a7;
   --tmp: #7fc8f0;
@@ -102,6 +105,7 @@
   --caff: #6b5040;
   --sys: #4a4240;
   --cpu: #4a5fd6;
+  --gpu: #0a5f78;
   --ram: #c2457f;
   --ssd: #7a6a4c;
   --tmp: #2a86b8;

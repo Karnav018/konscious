@@ -246,6 +246,9 @@ export const isReminder = (a: AppDef): boolean => a.everyMin !== undefined
 /** The system stats gauge cycles through these, in this order. */
 export const METRICS = [
   { key: 'cpu', label: 'CPU', short: 'CPU', hue: 'var(--cpu)' },
+  // Next to the processor, because they are the two that answer "why is this
+  // machine busy" and you want to see them one after the other.
+  { key: 'gpu', label: 'Graphics', short: 'GPU', hue: 'var(--gpu)' },
   { key: 'ram', label: 'Memory', short: 'RAM', hue: 'var(--ram)' },
   { key: 'ssd', label: 'Disk', short: 'SSD', hue: 'var(--ssd)' },
   { key: 'tmp', label: 'Temperature', short: 'TEMP', hue: 'var(--tmp)' },

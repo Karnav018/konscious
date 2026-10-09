@@ -91,6 +91,10 @@ export interface Stats {
   ram: number
   ssd: number
   tmp: number | null
+  /** Graphics use, or null where the machine will not say. */
+  gpu: number | null
+  /** Graphics memory held, in bytes. */
+  gpuUsed: number | null
   cores: number
   ramTotal: number
   ramUsed: number

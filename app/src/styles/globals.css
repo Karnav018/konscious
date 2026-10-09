@@ -26,6 +26,7 @@
   --color-caff: var(--caff);
   --color-sys: var(--sys);
   --color-cpu: var(--cpu);
+  --color-gpu: var(--gpu);
   --color-ram: var(--ram);
   --color-ssd: var(--ssd);
   --color-tmp: var(--tmp);
