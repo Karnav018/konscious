@@ -3,11 +3,21 @@
 // A reminder is state, not a timer: lib/apps.ts decides from the clock whether
 // a nudge is owed. This checks that every few seconds and writes only when a
 // nudge actually crosses into being due — so the action log sees one entry per
-// nudge, not one per tick. The notification goes out at the same moment, once.
+// nudge, not one per tick.
+//
+// Every nudge leaves through announce(), which is the single choke point: one
+// island alert, one system notification, and neither of them twice. The
+// island matters because a system notification can be refused — macOS may
+// never have been asked, or may have been told no — and then the dock is the
+// only place a reminder lands, which is not somewhere you are looking. The
+// island is inside our own window, so it cannot be turned off. Its one honest
+// limit is that it is invisible while the window is.
 import { appById, isDue, pomoNotice, pomoOver } from '../lib/apps'
+import { type IslandApp, PHASE_ALERT_MS } from '../lib/island'
 import { ipc } from '../lib/ipc'
 import { repaintIfDue } from './actions'
 import { advancePomo, markDue, setNotifyAllowed } from '../state/commands/apps'
+import { pushIsland } from '../state/commands/island'
 import { getState } from '../state/store'
 
 /** A pomodoro phase must not end late, so the tick is a second. The work
@@ -22,6 +32,19 @@ function sessionWaiting(): boolean {
   return Object.values(s.runtime.bySession).some((r) => r.status === 'waiting')
 }
 
+/**
+ * One nudge, said once, in every place it should be said.
+ *
+ * The island is opt-in per app and works without any system permission; the
+ * notification needs one and may not have it. Either can be missing; the two
+ * together are why a reminder is never silently lost.
+ */
+function announce(app: IslandApp, title: string, body: string, ttlMs?: number) {
+  const s = getState()
+  if (s.ui.apps.island[app]) pushIsland({ app, title, body, ...(ttlMs === undefined ? {} : { ttlMs }) })
+  if (s.ui.notifyAllowed) ipc.notify(title, body)
+}
+
 function tick(now = Date.now()) {
   // The warm schedule crosses its boundaries unattended; this follows them.
   repaintIfDue()
@@ -29,13 +52,14 @@ function tick(now = Date.now()) {
   const waiting = sessionWaiting()
 
   // A pomodoro phase that has run out hands over to the next one, and says so
-  // once. A break follows focus; focus follows a break.
+  // once. A break follows focus; focus follows a break. The alert is brief
+  // because the phase it starts is itself a live activity in the island.
   if (s.ui.apps.on.pomo && pomoOver(s.ui.apps.pomo, now)) {
     const ended = s.ui.apps.pomo.phase
     advancePomo(now)
-    if (s.ui.notifyAllowed && ended !== 'idle') {
+    if (ended !== 'idle') {
       const said = pomoNotice(ended, s.ui.apps.pomoSet)
-      ipc.notify(said.title, said.body)
+      announce('pomo', said.title, said.body, PHASE_ALERT_MS)
     }
   }
 
@@ -46,8 +70,7 @@ function tick(now = Date.now()) {
     if (!isDue({ every: s.ui.apps.every[id], state, sessionWaiting: waiting, now })) continue
     markDue(id, now)
     const app = appById(id)
-    // One notification per nudge. The dock shows it either way.
-    if (s.ui.notifyAllowed) ipc.notify(app.name, app.desc)
+    announce(id, app.name, app.desc)
   }
 }
 

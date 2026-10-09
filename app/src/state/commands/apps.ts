@@ -1,5 +1,7 @@
 // Mini app commands. The rules are pure functions in lib/apps.ts; these put
 // their results into the committed state.
+import type { Draft } from 'immer'
+
 import {
   acknowledged,
   type AppId,
@@ -14,10 +16,20 @@ import {
   startFocus,
   stopPomo,
 } from '../../lib/apps'
+import { type IslandApp, withoutApp } from '../../lib/island'
 import { act } from '../act'
-import { getState } from '../store'
+import { type AppState, getState } from '../store'
 
 type ReminderId = 'water' | 'stand'
+
+/** Dealt with: the app's nudge leaves the notch island too. The dock popover
+ *  and the island call the same commands, so clearing belongs here rather
+ *  than in either of them. */
+function dealtWith(d: Draft<AppState>, app: IslandApp) {
+  const gone = d.ui.island.events.filter((e) => e.app === app).map((e) => e.id)
+  d.ui.island.events = withoutApp(d.ui.island.events, app)
+  if (d.ui.island.expanded && gone.includes(d.ui.island.expanded)) d.ui.island.expanded = null
+}
 
 export const setDockPlace = (edge: Edge, along: number) =>
   act('apps/dockPlace', (d) => {
@@ -33,7 +45,10 @@ export const setAppOn = (id: AppId, on: boolean, now = Date.now()) =>
   act('apps/setOn', (d) => {
     d.ui.apps.on[id] = on
     if (on && (id === 'water' || id === 'stand')) d.ui.apps.reminders[id] = freshReminder(now)
-    if (!on && d.ui.appPopover === id) d.ui.appPopover = null
+    if (!on) {
+      if (d.ui.appPopover === id) d.ui.appPopover = null
+      dealtWith(d, id)
+    }
   })
 
 /** Hiding an app from the dock is not turning it off, which the catalog says. */
@@ -71,6 +86,7 @@ export function acknowledge(id: ReminderId, now = Date.now()) {
   const fresh = getState().ui.apps.glassesOn !== today
   act('apps/acknowledge', (d) => {
     d.ui.apps.reminders[id] = acknowledged(now)
+    dealtWith(d, id)
     if (id === 'water') {
       d.ui.apps.glasses = (fresh ? 0 : d.ui.apps.glasses) + 1
       d.ui.apps.glassesOn = today
@@ -83,6 +99,7 @@ export function snooze(id: ReminderId, now = Date.now()) {
   const minutes = getState().ui.apps.snoozeMin
   act('apps/snooze', (d) => {
     d.ui.apps.reminders[id] = snoozed(d.ui.apps.reminders[id], minutes, now)
+    dealtWith(d, id)
     d.ui.appPopover = null
   })
 }
@@ -91,6 +108,7 @@ export function snooze(id: ReminderId, now = Date.now()) {
 export const skip = (id: ReminderId, now = Date.now()) =>
   act('apps/skip', (d) => {
     d.ui.apps.reminders[id] = skipped(now)
+    dealtWith(d, id)
     d.ui.appPopover = null
   })
 
@@ -107,7 +125,11 @@ export const startPomo = (now = Date.now()) =>
     d.ui.apps.pomo = startFocus(d.ui.apps.pomoSet, d.ui.apps.pomo, now)
   })
 
-export const stopPomoTimer = () => act('apps/pomoStop', (d) => void (d.ui.apps.pomo = stopPomo(d.ui.apps.pomo)))
+export const stopPomoTimer = () =>
+  act('apps/pomoStop', (d) => {
+    d.ui.apps.pomo = stopPomo(d.ui.apps.pomo)
+    dealtWith(d, 'pomo')
+  })
 
 /** A phase ran out: the next one starts itself. */
 export const advancePomo = (now = Date.now()) =>

@@ -23,6 +23,7 @@ import { StatusGlyph } from '../common/StatusGlyph'
 import { UpdateChip } from '../common/UpdateChip'
 import { UsageBar } from '../common/Usage'
 import { Wordmark } from '../common/Wordmark'
+import { Island } from '../Island/Island'
 import { QuickMenu, SettingsButtons, SettingsMenu } from '../Settings/Settings'
 
 const wsSegment =
@@ -206,6 +207,11 @@ export function TitleBar() {
           New session
         </div>
       </div>
+
+      {/* The island floats over the bar's middle and spills below it when an
+          alert opens. It is a child of the bar so it sits in the bar's own
+          stacking context, above the dock. */}
+      <Island />
 
       {settingsMenu === 'all' && <SettingsMenu />}
       {settingsMenu === 'quick' && <QuickMenu />}

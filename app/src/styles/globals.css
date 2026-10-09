@@ -139,3 +139,62 @@ input {
 @media (prefers-reduced-motion: reduce) {
   .cw-spinner-strip { animation: none; }
 }
+
+/* Notch island (components/Island). Black in both themes, like the hardware
+   it borrows its shape from, so every colour inside it is a literal rather
+   than a token: a token flips with the theme and would vanish. */
+
+/* Drink water: a full drop revealed from the bottom over the outline, so the
+   level animates without animating SVG geometry. */
+.cw-drop-fill {
+  animation: cw-drop 2600ms ease-in-out infinite;
+}
+@keyframes cw-drop {
+  0% { clip-path: inset(100% 0 0 0); }
+  55%, 80% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(100% 0 0 0); }
+}
+
+/* Stand up: the figure hops, twice, then waits. */
+.cw-hop {
+  animation: cw-hop 1900ms ease-in-out infinite;
+}
+@keyframes cw-hop {
+  0%, 22%, 62%, 100% { transform: translateY(0); }
+  32% { transform: translateY(-3px); }
+  42% { transform: translateY(0); }
+  52% { transform: translateY(-1.5px); }
+}
+
+/* A break: the line twice over, slid by half its width, so it never shows a
+   gap as it wraps. */
+.cw-marquee {
+  display: flex;
+  width: max-content;
+  animation: cw-marquee 12s linear infinite;
+  will-change: transform;
+}
+@keyframes cw-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* One word at a time instead, crossfading, for anyone who asked for less
+   motion: a marquee is exactly the movement that setting is about. */
+.cw-word {
+  animation: cw-word 3s ease-in-out infinite;
+}
+@keyframes cw-word {
+  0%, 100% { opacity: 0.3; }
+  25%, 75% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cw-drop-fill,
+  .cw-hop,
+  .cw-marquee {
+    animation: none;
+  }
+  /* Still a drop with water in it, just not a moving one. */
+  .cw-drop-fill { clip-path: inset(45% 0 0 0); }
+}

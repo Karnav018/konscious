@@ -10,6 +10,7 @@ import { produce } from 'immer'
 import { z } from 'zod'
 
 import { APPS, type AppId } from '../lib/apps'
+import { type IslandApp, ISLAND_KEYS } from '../lib/island'
 import { CAP, emptyLayout } from '../lib/grid'
 import { DEFAULT_GRID } from '../lib/layouts'
 import { ipc } from '../lib/ipc'
@@ -134,6 +135,8 @@ const ConfigFileV1 = z.object({
         .catch({ focusMin: 25, breakMin: 5 })
         .optional(),
       statPinned: z.enum(['cpu', 'ram', 'ssd', 'tmp']).nullable().catch(null).optional(),
+      /** Per app: whether its nudges also show in the notch island. */
+      island: z.record(z.string(), z.boolean()).catch({}).optional(),
       reminders: z
         .record(
           z.string(),
@@ -307,14 +310,17 @@ export function decode(snap: Snapshot): Decoded {
 function appsFrom(saved: unknown): AppsState {
   const base = initialState().ui.apps
   const got = (saved ?? {}) as Partial<AppsState>
-  const flags = (from: unknown, fallback: Record<string, boolean>) => {
-    const m = { ...fallback } as Record<AppId, boolean>
-    for (const app of APPS) {
-      const v = (from as Record<string, unknown> | null | undefined)?.[app.id]
-      if (typeof v === 'boolean') m[app.id] = v
+  // Only keys we know are taken from the file, so a flag for an app that no
+  // longer exists cannot linger in state.
+  const flags = <K extends string>(from: unknown, fallback: Record<K, boolean>, keys: readonly K[]) => {
+    const m = { ...fallback }
+    for (const k of keys) {
+      const v = (from as Record<string, unknown> | null | undefined)?.[k]
+      if (typeof v === 'boolean') m[k] = v
     }
     return m
   }
+  const appIds = APPS.map((a) => a.id)
   // A pomodoro that was running when the app quit is not resumed: a phase
   // that ended hours ago is not a phase.
   const pomo = got.pomo && got.pomo.phase !== 'idle' ? { ...got.pomo, phase: 'idle' as const, endsAt: null } : base.pomo
@@ -326,8 +332,9 @@ function appsFrom(saved: unknown): AppsState {
   return {
     ...base,
     ...got,
-    on: flags(got.on, base.on),
-    pinned: flags(got.pinned, base.pinned),
+    on: flags<AppId>(got.on, base.on, appIds),
+    pinned: flags<AppId>(got.pinned, base.pinned, appIds),
+    island: flags<IslandApp>(got.island, base.island, ISLAND_KEYS),
     every: { ...base.every, ...got.every },
     pomo,
     pomoSet: { ...base.pomoSet, ...got.pomoSet },

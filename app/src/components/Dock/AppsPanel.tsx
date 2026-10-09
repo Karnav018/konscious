@@ -19,6 +19,7 @@ import {
   isVertical,
 } from '../../lib/apps'
 import { askNotifyOnce } from '../../app/reminders'
+import { canAnnounce } from '../../lib/island'
 import { isWarm } from '../../lib/warmth'
 import { WarmthRow } from '../Settings/Settings'
 import {
@@ -31,6 +32,7 @@ import {
   setPomoLength,
   setSnoozeMin,
 } from '../../state/commands/apps'
+import { setAppIsland } from '../../state/commands/island'
 import { useUi } from '../../state/selectors'
 import { getState } from '../../state/store'
 import { AppsIcon, AppsOutlineIcon, CloseIcon, DropIcon, FlameIcon, StandIcon, TomatoIcon } from '../common/Icon'
@@ -175,6 +177,19 @@ function Settings({ id }: { id: AppId }) {
             </div>
           )}
         </>
+      )}
+
+      {canAnnounce(id) && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex flex-col">
+            <span className="text-[12px]">Show in notch</span>
+            <span className="text-[11px] text-muted leading-[1.4]">
+              Its nudge appears in the pill at the top of the window, which works even with system notifications
+              off.
+            </span>
+          </div>
+          <Switch on={apps.island[id]} hue={app.hue} onClick={() => setAppIsland(id, !apps.island[id])} />
+        </div>
       )}
 
       <div className="flex items-center gap-2">
