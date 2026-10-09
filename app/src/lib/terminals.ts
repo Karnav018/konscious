@@ -21,7 +21,7 @@ import { type ITheme, Terminal } from '@xterm/xterm'
 
 import type { Kind, Theme } from '../types'
 import { Channel, ipc } from './ipc'
-import { IS_WINDOWS } from './platform'
+import { IS_LINUX, IS_PC, IS_WINDOWS } from './platform'
 import { attachFiles, clearAttachments } from '../state/commands/ui'
 import { getState } from '../state/store'
 import { pathsForTerminal } from './paste'
@@ -250,9 +250,9 @@ let lastPasteAt = -Infinity
 /**
  * Paste the way Windows Terminal does. The clipboard is read natively because
  * WebView2 gives the page only the *names* of files copied in Explorer: copied
- * files paste as their (quoted) paths, otherwise the text. On macOS, with only
- * a picture on the clipboard, a Claude pane gets ⌃V — Claude Code reads the
- * image itself (Windows uses a different key, so it is left alone there).
+ * files paste as their (quoted) paths, otherwise the text. On macOS and Linux,
+ * with only a picture on the clipboard, a Claude pane gets ⌃V — Claude Code
+ * reads the image itself (Windows uses a different key, so it is left alone).
  */
 async function pasteClipboard(e: Entry) {
   const now = performance.now()
@@ -355,11 +355,13 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
       return false
     }
   }
-  if (IS_WINDOWS && ev.ctrlKey && !ev.altKey && !ev.metaKey) {
+  if (IS_PC && ev.ctrlKey && !ev.altKey && !ev.metaKey) {
     const k = ev.key.toLowerCase()
     // Windows Terminal conventions (no Edit menu here): Ctrl+C copies when
-    // text is selected and is ^C otherwise; Ctrl+Shift+C always copies.
-    if (k === 'c' && (ev.shiftKey || e.term.hasSelection())) {
+    // text is selected and is ^C otherwise; Ctrl+Shift+C always copies. On
+    // Linux so does Ctrl+Insert (omarchy's Super+C), copied here because
+    // WebKitGTK would empty the clipboard when nothing is selected.
+    if ((k === 'c' && (ev.shiftKey || e.term.hasSelection())) || (IS_LINUX && k === 'insert' && !ev.shiftKey)) {
       if (ev.type === 'keydown') {
         ev.preventDefault()
         const text = e.term.getSelection()
@@ -379,8 +381,10 @@ function keyFilter(e: Entry, ev: KeyboardEvent): boolean {
       return false
     }
     // Ctrl+V / Ctrl+Shift+V: pasted here (not by WebView2) so files copied
-    // in Explorer paste as paths; see pasteClipboard.
-    if (k === 'v') {
+    // in Explorer paste as paths; see pasteClipboard. On Linux plain Ctrl+V
+    // stays the program's, as in every Linux terminal: it is how Claude Code
+    // pastes an image there.
+    if (k === 'v' && (ev.shiftKey || !IS_LINUX)) {
       if (ev.type === 'keydown') {
         ev.preventDefault()
         void pasteClipboard(e)

@@ -167,8 +167,47 @@ mod mac {
 #[cfg(target_os = "macos")]
 pub use mac::read;
 
-/// Linux: no clipboard reader yet, so ⌃V pastes whatever the webview gives it.
-#[cfg(not(any(windows, target_os = "macos")))]
-pub fn read() -> Clipboard {
-    Clipboard::default()
+/// Linux: GTK's clipboard, which speaks both Wayland and X11. File managers
+/// put copied files on it as a `text/uri-list`. GTK lives on the main thread,
+/// so `commands::clipboard_read` calls this there.
+#[cfg(target_os = "linux")]
+mod linux {
+    use gtk::{gdk, glib};
+
+    use super::Clipboard;
+
+    pub fn read() -> Clipboard {
+        let cb = gtk::Clipboard::get(&gdk::SELECTION_CLIPBOARD);
+        Clipboard {
+            paths: paths(cb.wait_for_uris().iter().map(|u| u.as_str())),
+            text: cb.wait_for_text().map(|s| s.to_string()).filter(|s| !s.is_empty()),
+            image: cb.wait_is_image_available(),
+        }
+    }
+
+    /// Local files only, as paths: `file:///a%20b` is `/a b`.
+    pub(super) fn paths<'a>(uris: impl Iterator<Item = &'a str>) -> Vec<String> {
+        uris.filter_map(|u| glib::filename_from_uri(u).ok())
+            .map(|(p, _)| p.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::paths;
+
+        #[test]
+        fn copied_files_paste_as_their_paths() {
+            let uris = ["file:///home/k/Screen%20Shot%201.png", "file:///home/k/notes%20(v2).md", "file:///tmp/%E2%9C%93"];
+            assert_eq!(paths(uris.into_iter()), ["/home/k/Screen Shot 1.png", "/home/k/notes (v2).md", "/tmp/✓"]);
+        }
+
+        #[test]
+        fn anything_but_a_local_file_is_left_out() {
+            assert!(paths(["https://example.com/a.png", "not a uri", ""].into_iter()).is_empty());
+        }
+    }
 }
+
+#[cfg(target_os = "linux")]
+pub use linux::read;

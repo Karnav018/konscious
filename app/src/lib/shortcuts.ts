@@ -3,11 +3,12 @@
 //
 // macOS: ⌘N ⌘T ⌘O ⌘I ⌘J ⌘↵ ⌘1–9, ⌘= ⌘− ⌘0, ⌘⇧←/→ to move a pane, ⌘⇧N for Notes,
 // ⌘L / ⌘⇧L to cycle grid layouts, ⌘⌥1–5 to pick one, ⌘⇧= to even out sizes.
-// Windows: Ctrl+Shift+N/T/O/I/J/Enter/1–9/←/→ (Ctrl+letter is the terminal's),
-// Ctrl+= Ctrl+- Ctrl+0 for text size — the Windows Terminal conventions.
+// Windows and Linux: Ctrl+Shift+N/T/O/I/J/Enter/1–9/←/→ (Ctrl+letter is the
+// terminal's), Ctrl+= Ctrl+- Ctrl+0 for text size — the Windows Terminal
+// conventions.
 // Notes has no Windows shortcut (Ctrl+Shift+N is New session there); of the
 // layout keys only Ctrl+Shift+L (next layout) — the rest are in the dock menu.
-import { IS_WINDOWS } from './platform'
+import { IS_PC } from './platform'
 
 export type Shortcut =
   | { type: 'newSession' }
@@ -25,7 +26,7 @@ export type Shortcut =
   | { type: 'apps' }
   | { type: 'fontSize'; delta: 1 | -1 | 0 }
 
-export function matchShortcut(e: KeyboardEvent, win = IS_WINDOWS): Shortcut | null {
+export function matchShortcut(e: KeyboardEvent, win = IS_PC): Shortcut | null {
   return win ? matchWindows(e) : matchMac(e)
 }
 

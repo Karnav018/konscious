@@ -519,14 +519,17 @@ mod tests {
         let b = m.start(spec("s1", Kind::Shell, cwd), 80, 24, None).unwrap();
         assert_eq!(a.run_id, b.run_id, "second start must not respawn");
         m.stop("s1").unwrap();
+        // The exit is reported after the trailing output drains (EOF_DRAIN), a
+        // moment after `running` drops, and the event comes last — wait for it.
+        let completed = || events.locked().iter().any(|(n, v)| n == EV_STATUS && v["status"] == "completed");
         let deadline = Instant::now() + Duration::from_secs(5);
-        while m.list()[0].running && Instant::now() < deadline {
+        while !completed() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(20));
         }
+        assert!(completed());
         let info = &m.list()[0];
         assert!(!info.running);
         assert_eq!(info.status, Status::Completed);
-        assert!(events.locked().iter().any(|(n, v)| n == EV_STATUS && v["status"] == "completed"));
     }
 
     #[test]

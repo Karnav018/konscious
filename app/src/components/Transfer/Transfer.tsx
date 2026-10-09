@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { ipc } from '../../lib/ipc'
+import { IS_LINUX, IS_WINDOWS } from '../../lib/platform'
 import { bundleName, placements, size } from '../../lib/transfer'
 import { layoutOf } from '../../state/commands/layout'
 import { closeTransfer, flash } from '../../state/commands/ui'
@@ -16,7 +17,6 @@ import { useUi } from '../../state/selectors'
 import { getState } from '../../state/store'
 import type { BundleManifest } from '../../types'
 
-const IS_WINDOWS = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
 
 const sheet = 'flex flex-col bg-raised border border-line2 rounded-r overflow-hidden'
 const head = 'px-[22px] pt-5 flex flex-col gap-1 flex-none'
@@ -157,7 +157,7 @@ function ExportSheet({ workspaceId }: { workspaceId: string }) {
           </div>
           <div className={foot}>
             <div className={ghost} onClick={() => void ipc.revealInFinder(done.path).catch(() => {})}>
-              Show in Finder
+              {IS_LINUX ? 'Show in folder' : 'Show in Finder'}
             </div>
             <div className={solid} onClick={closeTransfer}>
               Done
@@ -186,7 +186,7 @@ function ExportSheet({ workspaceId }: { workspaceId: string }) {
             <div className="flex justify-between gap-3 px-3 py-2.5 border-b border-line">
               <span className="text-[12.5px] text-muted flex-none">Manifest</span>
               <span className={`${mono} truncate`}>
-                Konscious {getState().ui.init?.version} · {IS_WINDOWS ? 'Windows' : 'macOS'}
+                Konscious {getState().ui.init?.version} · {IS_WINDOWS ? 'Windows' : IS_LINUX ? 'Linux' : 'macOS'}
               </span>
             </div>
             <div className="flex justify-between gap-3 px-3 py-2.5 border-b border-line">

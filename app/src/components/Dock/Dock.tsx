@@ -27,6 +27,7 @@ import {
   pomoProgress,
 } from '../../lib/apps'
 import { clock } from '../../lib/format'
+import { kbdShift } from '../../lib/platform'
 import { isWarm } from '../../lib/warmth'
 import { WarmthRow } from '../Settings/Settings'
 import {
@@ -537,7 +538,7 @@ export function Dock() {
           e.stopPropagation()
           setAppPanel('catalog')
         }}
-        title="Apps (⌘⇧A)"
+        title={`Apps (${kbdShift('A')})`}
         style={{ width: TILE, height: TILE, borderRadius: 7 }}
         className="grid place-items-center cursor-pointer hover:bg-sel"
       >

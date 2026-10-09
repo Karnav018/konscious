@@ -215,6 +215,13 @@ pub fn run() {
             // get no menu bar — WebView2 handles clipboard keys natively.
             #[cfg(target_os = "macos")]
             app.set_menu(build_menu(app.handle())?)?;
+            // A tiling window manager sizes the window to its tile, and one
+            // that won't go that small gets squeezed to fit, text and all. Let
+            // it tile into half of a laptop screen (the interface fits 640px).
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_min_size(Some(tauri::LogicalSize::new(640.0, 400.0)))?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -319,6 +326,12 @@ mod tests {
         assert_eq!(data_dir_in(home.path()), old, "not moved from under a running app");
         assert!(old.join("workspaces.json").is_file());
         drop(lock);
+        // A child that a test running alongside forks at this moment holds a
+        // copy of the lock's fd until its exec closes it; let that pass.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while locked(&old) && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         assert_eq!(data_dir_in(home.path()), home.path().join(".konscious"), "moved once it quits");
     }
 

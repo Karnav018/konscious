@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 
 import { jumpWaiting, openNewSession, openTerminalHere, setMode, switchWorkspace } from '../../app/actions'
 import { basename } from '../../lib/path'
-import { IS_WINDOWS, kbd } from '../../lib/platform'
+import { IS_PC, IS_WINDOWS, kbd } from '../../lib/platform'
 import { setNotesOpen } from '../../state/commands/notes'
 import { toggleInspector, toggleWorkspaceMenu } from '../../state/commands/ui'
 import {
@@ -128,10 +128,13 @@ export function TitleBar() {
     <div
       data-tauri-drag-region
       className="h-[46px] flex-none flex items-center gap-2 pr-[10px] border-b border-line bg-side relative z-[23]"
-      // 84px clears the macOS traffic lights; Windows has a native title bar.
-      style={{ paddingLeft: fullscreen || IS_WINDOWS ? 14 : 84 }}
+      // 84px clears the macOS traffic lights; Windows and Linux have a native title bar.
+      style={{ paddingLeft: fullscreen || IS_PC ? 14 : 84 }}
     >
-      <div data-tauri-drag-region className="flex items-center flex-none">
+      {/* Below 1080px wide — only Linux tiles go there — the bar sheds the
+          logo, the usage rings (Claude's status line shows them too) and the
+          New session label, so the workspace and session names keep room. */}
+      <div data-tauri-drag-region className="flex items-center flex-none max-[700px]:hidden">
         <Wordmark size={17} className="pointer-events-none" />
       </div>
 
@@ -142,7 +145,7 @@ export function TitleBar() {
           options={[
             { value: 'grid', label: 'Grid' },
             { value: 'focus', label: 'Focus' },
-            { value: 'notes', label: <span title={IS_WINDOWS ? 'Notes' : 'Notes (⌘⇧N)'}>Notes</span> },
+            { value: 'notes', label: <span title={IS_PC ? 'Notes' : 'Notes (⌘⇧N)'}>Notes</span> },
           ]}
           value={notesOpen && !firstRun ? 'notes' : layout.mode}
           onChange={(v) => (v === 'notes' ? setNotesOpen(true) : setMode(v))}
@@ -175,7 +178,11 @@ export function TitleBar() {
 
       <div data-tauri-drag-region className="flex-1 self-stretch" />
 
-      {!firstRun && <UsageBar limits={limits} observedAt={limitsAt} live={limitsLive} />}
+      {!firstRun && (
+        <div className="contents max-[900px]:hidden">
+          <UsageBar limits={limits} observedAt={limitsAt} live={limitsLive} />
+        </div>
+      )}
 
       {/* When the bar runs out of room the session name gives way (…), never
           New session: it would wrap onto two lines. */}
@@ -203,7 +210,7 @@ export function TitleBar() {
           className="h-7 pl-2 pr-[10px] flex items-center gap-1.5 rounded-rs bg-accent text-accent-ink cursor-pointer text-[12.5px] font-medium ml-1 flex-none whitespace-nowrap"
         >
           <PlusIcon />
-          New session
+          <span className="max-[720px]:hidden">New session</span>
         </div>
       </div>
 

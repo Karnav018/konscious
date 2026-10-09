@@ -299,7 +299,9 @@ mod tests {
                 .stdout(std::process::Stdio::piped())
                 .spawn()
                 .unwrap();
-            child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+            // Hooks that never read stdin may exit before this write lands
+            // (EPIPE); that is fine, as it is for Claude.
+            let _ = child.stdin.take().unwrap().write_all(stdin.as_bytes());
             let out = child.wait_with_output().unwrap();
             assert!(out.status.success());
             assert!(out.stdout.is_empty(), "{event} must not print to stdout");
@@ -336,7 +338,7 @@ mod tests {
             .stdout(std::process::Stdio::piped())
             .spawn()
             .unwrap();
-        child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+        let _ = child.stdin.take().unwrap().write_all(stdin.as_bytes()); // EPIPE is fine, see above
         let out = child.wait_with_output().unwrap();
         (out.status.success(), String::from_utf8_lossy(&out.stdout).to_string())
     }
