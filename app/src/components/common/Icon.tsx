@@ -87,6 +87,37 @@ export const TomatoIcon = ({ size = 16, ...p }: P) => (
   </svg>
 )
 
+/** Now playing. A quaver, which says "a track" without saying "a speaker". */
+export const NoteIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <path d="M9 18V6.2l8-1.6v3.2L9 9.4" />
+    <circle cx="6.6" cy="18" r="2.4" />
+  </svg>
+)
+
+export const PlayIcon = ({ size = 13, ...p }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <path d="M8 5.5v13l11-6.5z" />
+  </svg>
+)
+
+export const PauseIcon = ({ size = 13, ...p }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <rect x="7" y="5.5" width="3.4" height="13" rx="1" />
+    <rect x="13.6" y="5.5" width="3.4" height="13" rx="1" />
+  </svg>
+)
+
+/** Skip. `back` turns it round for previous. */
+export const SkipIcon = ({ size = 13, back = false, ...p }: P & { back?: boolean }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <g transform={back ? 'translate(24 0) scale(-1 1)' : undefined}>
+      <path d="M6 6v12l9-6z" />
+      <rect x="16.4" y="6" width="2.6" height="12" rx="1" />
+    </g>
+  </svg>
+)
+
 /** Caffeine. A cup with a handle; `fill` draws what is still in you, the
  *  same way the water drop shows the level. */
 export const CupIcon = ({ size = 16, fill = 0, ...p }: P & { fill?: number }) => {

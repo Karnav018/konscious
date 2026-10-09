@@ -63,6 +63,10 @@
      never looks like a session waiting or failed. */
   --hot: #ff7ae0;
   --pomo: #9b7ef0;
+  /* Now playing. A pale lilac: the violet band is crowded (--info, --pomo,
+     --cpu), so this sits above all of them in lightness rather than beside
+     them in hue. */
+  --music: #dcc9ff;
   color-scheme: dark;
 }
 
@@ -103,5 +107,6 @@
   --tmp: #2a86b8;
   --hot: #c026a8;
   --pomo: #6b4fd0;
+  --music: #5d2a8f;
   color-scheme: light;
 }

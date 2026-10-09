@@ -9,6 +9,7 @@
 // This reads the real values out of tokens.css, so the test cannot drift away
 // from the stylesheet, and compares them in OKLab, where distance is roughly
 // what the eye separates.
+/// <reference types="node" />
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 

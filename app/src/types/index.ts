@@ -98,6 +98,26 @@ export interface Stats {
   ssdUsed: number
 }
 
+/** A track, as a player describes it (src-tauri/src/media.rs). */
+export interface NowPlaying {
+  /** The player's own name — "Spotify", "Music", or on Windows whichever app
+   *  owns the system's Now Playing session. */
+  app: string
+  title: string
+  artist: string
+  playing: boolean
+  positionMs: number
+  durationMs: number
+  artworkUrl: string | null
+}
+
+export interface MediaState {
+  now: NowPlaying | null
+  /** macOS refused the Apple event. Told apart from "nothing is playing",
+   *  because the two want completely different things from the user. */
+  denied: boolean
+}
+
 /** A session as it travels in a bundle. */
 export interface BundleSession {
   id: string

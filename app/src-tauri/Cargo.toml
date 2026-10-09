@@ -55,6 +55,10 @@ objc2-app-kit = { version = "0.3", default-features = false, features = ["std", 
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString", "NSURL"] }
 
 [target.'cfg(windows)'.dependencies]
+# media.rs: the system's own Now Playing session (GSMTC), which every app
+# reports into, browsers included. The version Tauri already builds, so
+# nothing extra is compiled.
+windows = { version = "0.61", features = ["Media_Control", "Foundation"] }
 # GetShortPathNameW: shell-neutral paths for the status-line command.
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",

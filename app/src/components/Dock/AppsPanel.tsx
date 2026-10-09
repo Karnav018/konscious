@@ -20,6 +20,8 @@ import {
 } from '../../lib/apps'
 import { askNotifyOnce } from '../../app/reminders'
 import { atClock, CUTOFF_CHOICES, DRINKS, LIMIT_CHOICES, mg as mgText, todayTotal } from '../../lib/caffeine'
+import { AUTOMATION_SETTINGS, useNowPlaying } from '../../lib/media'
+import { ipc } from '../../lib/ipc'
 import { ALERT_CHOICES, span } from '../../lib/sitting'
 import { canAnnounce } from '../../lib/island'
 import { isWarm } from '../../lib/warmth'
@@ -50,18 +52,20 @@ import {
   CupIcon,
   DropIcon,
   FlameIcon,
+  NoteIcon,
   StandIcon,
   TomatoIcon,
 } from '../common/Icon'
 
 type Filter = 'All' | 'On' | 'Off'
-const CATEGORIES: AppCategory[] = ['Reminders', 'Health', 'Timers', 'Display', 'System']
+const CATEGORIES: AppCategory[] = ['Reminders', 'Health', 'Timers', 'Media', 'Display', 'System']
 
 function Glyph({ id, size = 17 }: { id: AppId; size?: number }) {
   if (id === 'water') return <DropIcon size={size} fill={0.55} />
   if (id === 'stand') return <StandIcon size={size} />
   if (id === 'caff') return <CupIcon size={size} fill={0.55} />
   if (id === 'sit') return <ChairIcon size={size} />
+  if (id === 'music') return <NoteIcon size={size} />
   if (id === 'pomo') return <TomatoIcon size={size} />
   if (id === 'warm') return <FlameIcon size={size} />
   return <AppsOutlineIcon size={size - 1} />
@@ -90,6 +94,49 @@ function Switch({ on, hue, onClick }: { on: boolean; hue: string; onClick: () =>
         }}
         className="rounded-pill"
       />
+    </div>
+  )
+}
+
+/**
+ * Now playing has nothing to configure — but it does have the one thing in
+ * the app that can be refused outside it.
+ *
+ * Automation consent is keyed to the code signature, and Konscious is signed
+ * ad hoc, so the signature changes with every build: expect to be asked again
+ * after an update. And macOS does not ask twice if you decline, so a refusal
+ * has to be reported here with a way out, or the app would simply look broken.
+ */
+function MusicSettings() {
+  const on = useUi((u) => u.apps.on.music)
+  const media = useNowPlaying(on)
+  return (
+    <div className="flex flex-col gap-3">
+      {media.denied ? (
+        <div className="p-2.5 rounded-rs border bg-pane flex flex-col gap-2" style={{ borderColor: 'var(--warn)' }}>
+          <span className="text-[12px] font-medium">Not allowed to ask the players</span>
+          <span className="text-[11.5px] text-muted leading-[1.45]">
+            macOS is blocking Konscious from asking Spotify and Music what is playing. It won’t ask you again, so
+            it has to be allowed in System Settings › Privacy &amp; Security › Automation.
+          </span>
+          <div
+            onClick={() => void ipc.openUrl(AUTOMATION_SETTINGS).catch(() => {})}
+            className="h-7 flex items-center justify-center rounded-rs border border-line2 cursor-pointer text-[11.5px] text-muted hover:text-text hover:border-accent"
+          >
+            Open Automation settings
+          </div>
+        </div>
+      ) : (
+        <span className="text-[11.5px] text-muted leading-[1.45]">
+          {media.now
+            ? `Reading ${media.now.app}.`
+            : 'Nothing playing. Konscious asks Spotify and Music directly, so audio in a browser tab is invisible to it.'}
+        </span>
+      )}
+      <span className="text-[11px] text-faint leading-[1.45]">
+        Because this build is signed ad hoc, macOS treats every update as a new app and will ask for permission
+        again after one.
+      </span>
     </div>
   )
 }
@@ -217,6 +264,8 @@ function Settings({ id }: { id: AppId }) {
           )}
         </>
       )}
+
+      {id === 'music' && <MusicSettings />}
 
       {id === 'sit' && (
         <>
@@ -556,7 +605,7 @@ export function AppsPanel() {
                 <div className="flex flex-col gap-1 items-center text-center py-8 px-4">
                   <span className="text-[12.5px]">Nothing matches “{q}”</span>
                   <span className="text-[11.5px] text-muted leading-[1.45]">
-                    Konscious ships with seven apps for now. More will follow, and they’ll appear here when
+                    Konscious ships with eight apps for now. More will follow, and they’ll appear here when
                     they’re ready.
                   </span>
                 </div>

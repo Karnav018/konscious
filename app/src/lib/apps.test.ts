@@ -30,6 +30,7 @@ import {
   snoozed,
   TEMP_MAX,
 } from './apps'
+import { canAnnounce, ISLAND_KEYS } from './island'
 
 const now = 1_700_000_000_000
 const min = (n: number) => n * 60_000
@@ -38,10 +39,11 @@ const due = (over: Partial<Parameters<typeof isDue>[0]> = {}) =>
 
 describe('the catalog', () => {
   it('ships every app in a category, in catalog order', () => {
-    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'warm', 'sys'])
+    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'music', 'warm', 'sys'])
     expect(APPS.filter((a) => a.category === 'Reminders').map((a) => a.id)).toEqual(['water', 'stand'])
     expect(APPS.filter((a) => a.category === 'Health').map((a) => a.id)).toEqual(['sit', 'caff'])
     expect(APPS.filter((a) => a.category === 'Timers').map((a) => a.id)).toEqual(['pomo'])
+    expect(APPS.filter((a) => a.category === 'Media').map((a) => a.id)).toEqual(['music'])
     expect(APPS.filter((a) => a.category === 'Display').map((a) => a.id)).toEqual(['warm'])
     expect(APPS.filter((a) => a.category === 'System').map((a) => a.id)).toEqual(['sys'])
   })
@@ -63,6 +65,28 @@ describe('the catalog', () => {
 
   it('says what every app can do, for the catalog and later the permissions', () => {
     for (const app of APPS) expect(app.can.length).toBeGreaterThan(0)
+  })
+
+  it('declares `announces` for exactly the apps whose copy promises the notch', () => {
+    // These drifted apart once: Caffeine and Sitting announced through the
+    // island while a hand-written list left them out, so their "Show in
+    // notch" switch never appeared and the setting could not be saved. The
+    // catalog's own words are the check.
+    for (const app of APPS) {
+      const promises = app.can.some((c) => c.toLowerCase().includes('notch'))
+      expect(app.announces === true, `--${app.id}: can[] ${promises ? 'promises' : 'does not promise'} the notch`).toBe(
+        promises,
+      )
+    }
+  })
+
+  it('offers a notch switch for every app that can announce, and no others', () => {
+    const announcing = APPS.filter((a) => a.announces).map((a) => a.id)
+    expect(announcing).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'music'])
+    for (const app of APPS) expect(canAnnounce(app.id)).toBe(app.announces === true)
+    // And every app is a key, so a saved preference is never dropped on load.
+    for (const app of APPS) expect(ISLAND_KEYS).toContain(app.id)
+    expect(ISLAND_KEYS).toHaveLength(APPS.length)
   })
 
   it('tells the two sitting apps apart in its own copy', () => {

@@ -28,10 +28,23 @@ import {
   placeIsland,
   rankActivities,
 } from '../../lib/island'
+import { BARS, barTiming, needsMarquee, progress, trackLabel, useNowPlaying } from '../../lib/media'
+import { ipc } from '../../lib/ipc'
 import { acknowledge, skip, snooze } from '../../state/commands/apps'
 import { dismissIsland, expandIsland } from '../../state/commands/island'
 import { useUi } from '../../state/selectors'
-import { CloseIcon, DropIcon, StandIcon, TomatoIcon } from '../common/Icon'
+import {
+  ChairIcon,
+  CloseIcon,
+  CupIcon,
+  DropIcon,
+  NoteIcon,
+  PauseIcon,
+  PlayIcon,
+  SkipIcon,
+  StandIcon,
+  TomatoIcon,
+} from '../common/Icon'
 import { Ring } from '../Dock/Gauge'
 
 // Sizes from the brief. Idle is a sliver rather than nothing, so the island
@@ -52,9 +65,8 @@ const FAINT = 'rgba(255, 255, 255, 0.3)'
 type ReminderId = 'water' | 'stand'
 const isReminderId = (app: IslandApp): app is ReminderId => app === 'water' || app === 'stand'
 
-/** The app's own hue, which still reads on black in both themes. Music has no
- *  catalog entry until it gets its app, so it borrows the foreground. */
-const hueOf = (app: IslandApp): string => (app === 'music' ? WHITE : appById(app).hue)
+/** The app's own hue, which still reads on black in both themes. */
+const hueOf = (app: IslandApp): string => appById(app).hue
 
 function useReducedMotion(): boolean {
   const query = '(prefers-reduced-motion: reduce)'
@@ -89,6 +101,9 @@ function Glyph({ app, progress, hue }: { app: IslandApp; progress: number | null
       </span>
     )
   }
+  if (app === 'caff') return <CupIcon size={17} fill={0.6} />
+  if (app === 'sit') return <ChairIcon size={17} />
+  if (app === 'music') return <NoteIcon size={16} />
   if (app === 'pomo') {
     return progress === null ? (
       <TomatoIcon size={17} />
@@ -99,6 +114,56 @@ function Glyph({ app, progress, hue }: { app: IslandApp; progress: number | null
     )
   }
   return <TomatoIcon size={17} />
+}
+
+/** Five bars that read as a spectrum. They are not one: a real spectrum needs
+ *  system audio capture, which costs a Screen Recording prompt, and that is
+ *  far too much consent for a decoration. They stop when the music does. */
+function Bars({ playing, hue }: { playing: boolean; hue: string }) {
+  return (
+    <span className="flex items-end gap-[2px] flex-none" style={{ height: 13 }} aria-hidden>
+      {Array.from({ length: BARS }, (_, i) => {
+        const t = barTiming(i)
+        return (
+          <span
+            key={i}
+            className={`cw-bar${playing ? '' : ' cw-bar-still'}`}
+            style={{
+              width: 2,
+              height: 13,
+              borderRadius: 1,
+              background: hue,
+              opacity: playing ? 0.9 : 0.4,
+              animationDuration: `${t.durationMs}ms`,
+              animationDelay: `${t.delayMs}ms`,
+            }}
+          />
+        )
+      })}
+    </span>
+  )
+}
+
+/** A title too long for the pill, scrolling. Short ones sit still. */
+function Scrolling({ text, reduced }: { text: string; reduced: boolean }) {
+  if (reduced || !needsMarquee(text)) {
+    return (
+      <span className="text-[12px] block overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: WHITE }}>
+        {text}
+      </span>
+    )
+  }
+  return (
+    <span className="block overflow-hidden">
+      <span className="cw-marquee">
+        {[0, 1].map((n) => (
+          <span key={n} className="text-[12px] whitespace-nowrap pr-6" style={{ color: WHITE }}>
+            {text}
+          </span>
+        ))}
+      </span>
+    </span>
+  )
 }
 
 /** One dot per activity, the filled one being the activity on show. */
@@ -192,7 +257,24 @@ export function Island() {
 
   // A running pomodoro is a live activity: derived, not pushed, so it ends by
   // no longer being derived rather than by expiring.
+  // Polled only while the app is on and allowed in the notch, so someone who
+  // never switches it on is never asked for Automation permission at all.
+  const musicOn = useUi((u) => u.apps.on.music) && islandOn.music
+  const media = useNowPlaying(musicOn)
+
   const live: IslandEvent[] = []
+  if (media.now && media.since !== null) {
+    // `at` is when playback started, not when we last looked: a moment that
+    // moved every two seconds would always rank newest and would starve
+    // every alert behind it.
+    live.push({
+      id: `music-live-${media.since}`,
+      app: 'music',
+      kind: 'live',
+      title: trackLabel(media.now),
+      at: media.since,
+    })
+  }
   if (pomoOn && islandOn.pomo && pomo.phase !== 'idle' && pomo.endsAt !== null) {
     const total = (pomo.phase === 'focus' ? pomoSet.focusMin : pomoSet.breakMin) * 60_000
     live.push({
@@ -256,7 +338,8 @@ export function Island() {
   const height = mode === 'idle' ? IDLE.h : mode === 'compact' ? COMPACT.h : actions ? ACTIONS_H : ALERT.h
   const hue = cur ? hueOf(cur.app) : WHITE
   const livePomo = cur?.kind === 'live' && cur.app === 'pomo'
-  const progress = livePomo ? pomoProgress(pomo, pomoSet, now) : null
+  const liveMusic = cur?.kind === 'live' && cur.app === 'music' && !!media.now
+  const ringFill = livePomo ? pomoProgress(pomo, pomoSet, now) : null
   const btn =
     'h-7 px-2.5 flex items-center justify-center rounded-rs text-[12px] cursor-pointer whitespace-nowrap flex-none'
 
@@ -298,11 +381,13 @@ export function Island() {
         <div className="flex flex-col h-full">
           <div className="flex items-center gap-2 px-2.5 flex-none" style={{ height: COMPACT.h }}>
             <span style={{ color: hue, width: 20, height: 20 }} className="grid place-items-center flex-none">
-              <Glyph app={cur.app} progress={progress} hue={hue} />
+              <Glyph app={cur.app} progress={ringFill} hue={hue} />
             </span>
 
             <span className="flex-1 min-w-0 overflow-hidden">
-              {livePomo && pomo.phase === 'break' ? (
+              {liveMusic && media.now ? (
+                <Scrolling text={trackLabel(media.now)} reduced={reduced} />
+              ) : livePomo && pomo.phase === 'break' ? (
                 <BreakLine reduced={reduced} now={now} />
               ) : livePomo ? (
                 <span className="text-[12px] font-mono tabular-nums" style={{ color: WHITE }}>
@@ -321,6 +406,8 @@ export function Island() {
                 </span>
               )}
             </span>
+
+            {liveMusic && <Bars playing={!!media.now?.playing} hue={hue} />}
 
             {count > 1 && <Dots count={count} at={at} onPick={setI} />}
 
@@ -341,6 +428,72 @@ export function Island() {
 
           {open && (
             <div className="px-2.5 pb-2.5 flex flex-col gap-2 flex-1 min-h-0">
+              {liveMusic && media.now && (
+                <div className="flex items-center gap-2.5">
+                  {media.now.artworkUrl ? (
+                    // Spotify hands out a URL; Music does not, and Windows
+                    // gives a stream rather than a link. Hence the fallback.
+                    <img
+                      src={media.now.artworkUrl}
+                      alt=""
+                      style={{ width: 34, height: 34, borderRadius: 4 }}
+                      className="flex-none object-cover"
+                    />
+                  ) : (
+                    <span
+                      style={{ width: 34, height: 34, borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: hue }}
+                      className="flex-none grid place-items-center"
+                    >
+                      <NoteIcon size={16} />
+                    </span>
+                  )}
+                  <span className="flex-1 min-w-0 flex flex-col">
+                    <span
+                      className="text-[11.5px] overflow-hidden text-ellipsis whitespace-nowrap"
+                      style={{ color: DIM }}
+                    >
+                      {media.now.artist || media.now.app}
+                    </span>
+                    <span className="text-[10.5px]" style={{ color: FAINT }}>
+                      {media.now.app}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-0.5 flex-none">
+                    {(
+                      [
+                        ['prev', <SkipIcon key="p" size={13} back />, 'Previous'],
+                        [
+                          'toggle',
+                          media.now.playing ? <PauseIcon key="t" size={13} /> : <PlayIcon key="t" size={13} />,
+                          media.now.playing ? 'Pause' : 'Play',
+                        ],
+                        ['next', <SkipIcon key="n" size={13} />, 'Next'],
+                      ] as const
+                    ).map(([action, glyph, label]) => (
+                      <span
+                        key={action}
+                        title={label}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void ipc.mediaControl(action).catch(() => {})
+                        }}
+                        style={{ color: WHITE }}
+                        className="w-7 h-7 grid place-items-center rounded-rs cursor-pointer hover:bg-white/10"
+                      >
+                        {glyph}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              )}
+              {liveMusic && media.now && media.now.durationMs > 0 && (
+                <span style={{ height: 2, borderRadius: 1, background: 'rgba(255,255,255,0.14)' }} className="block">
+                  <span
+                    style={{ width: `${progress(media.now) * 100}%`, height: 2, borderRadius: 1, background: hue }}
+                    className="block"
+                  />
+                </span>
+              )}
               {cur.body && (
                 <span className="text-[11.5px] leading-[1.4]" style={{ color: DIM }}>
                   {cur.body}

@@ -363,6 +363,22 @@ pub async fn system_idle_secs() -> AppResult<Option<f64>> {
     Ok(crate::idle::idle_secs())
 }
 
+/// What is playing, and whether we were allowed to look. Blocking: on macOS
+/// this runs osascript, which can take a moment even with its own timeout.
+#[tauri::command]
+pub async fn media_now() -> AppResult<crate::media::MediaState> {
+    Ok(tauri::async_runtime::spawn_blocking(crate::media::now).await.unwrap_or_default())
+}
+
+/// Play/pause, next or previous, on whichever player is playing.
+#[tauri::command]
+pub async fn media_control(action: String) -> AppResult<bool> {
+    let Some(what) = crate::media::Action::parse(&action) else {
+        return Ok(false);
+    };
+    Ok(tauri::async_runtime::spawn_blocking(move || crate::media::control(what)).await.unwrap_or(false))
+}
+
 #[tauri::command]
 pub async fn file_thumbnail(path: String) -> AppResult<Option<String>> {
     Ok(crate::preview::thumbnail(&path))

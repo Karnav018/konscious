@@ -31,6 +31,7 @@
   --color-tmp: var(--tmp);
   --color-hot: var(--hot);
   --color-pomo: var(--pomo);
+  --color-music: var(--music);
   --color-hover: var(--hover);
   --color-sel: var(--sel);
   --color-overlay: var(--overlay);
@@ -199,4 +200,34 @@ input {
   }
   /* Still a drop with water in it, just not a moving one. */
   .cw-drop-fill { clip-path: inset(45% 0 0 0); }
+}
+
+/* Now playing: five bars that look like a spectrum without being one.
+   A real one would mean capturing system audio — Core Audio process taps, or
+   ScreenCaptureKit and the Screen Recording permission — which is a lot of
+   consent to ask for a decoration. Each bar's duration and delay come from
+   lib/media.ts so they never move as a block. */
+.cw-bar {
+  transform-origin: bottom;
+  animation-name: cw-bar;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: transform;
+}
+@keyframes cw-bar {
+  from { transform: scaleY(0.25); }
+  to { transform: scaleY(1); }
+}
+/* Paused rather than removed, so the row keeps its height and the bars stay
+   where they stopped instead of snapping flat. */
+.cw-bar-still {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cw-bar {
+    animation: none;
+    transform: scaleY(0.55);
+  }
 }

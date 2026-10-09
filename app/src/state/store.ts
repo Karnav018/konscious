@@ -241,8 +241,8 @@ export const initialState = (): AppState => ({
       autoMinimise: false,
       // 'warm' is absent on purpose: its switch is ui.warm, so there is one
       // source of truth for whether the window is warm.
-      on: { water: false, stand: false, sit: false, caff: false, pomo: false, sys: false, warm: false },
-      pinned: { water: true, stand: true, sit: true, caff: true, pomo: true, sys: true, warm: true },
+      on: { water: false, stand: false, sit: false, caff: false, pomo: false, music: false, sys: false, warm: false },
+      pinned: { water: true, stand: true, sit: true, caff: true, pomo: true, music: true, sys: true, warm: true },
       every: { water: 40, stand: 50 },
       snoozeMin: 10,
       glasses: 0,
@@ -254,7 +254,7 @@ export const initialState = (): AppState => ({
       pomo: freshPomo(),
       pomoSet: { focusMin: 25, breakMin: 5 },
       statPinned: null,
-      island: { water: true, stand: true, sit: true, caff: true, pomo: true, sys: true, warm: true, music: true },
+      island: { water: true, stand: true, sit: true, caff: true, pomo: true, music: true, sys: true, warm: true },
     },
     transfer: null,
     appPopover: null,

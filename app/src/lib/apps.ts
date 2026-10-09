@@ -13,8 +13,8 @@
 //
 // Everything here is pure. The dock reads it; nothing in it touches the DOM.
 
-export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit'
-export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Display' | 'System'
+export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit' | 'music'
+export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Media' | 'Display' | 'System'
 
 export interface AppDef {
   id: AppId
@@ -33,6 +33,11 @@ export interface AppDef {
   tags: readonly string[]
   /** What the app can do, which later becomes the permission model. */
   can: readonly string[]
+  /** Whether this app has anything to say — a nudge, or something running
+   *  worth showing. Only these get a "Show in notch" switch, and only these
+   *  are allowed through announce(). Declared here so the switch and the
+   *  behaviour cannot drift apart, which they did once. */
+  announces?: boolean
   /** Minutes between nudges, for a reminder. Absent for a gauge. */
   everyMin?: number
   /** What the popover's acknowledge button says. */
@@ -61,6 +66,7 @@ export const APPS: readonly AppDef[] = [
       'Raise a system notification',
       'Keep a count for today',
     ],
+    announces: true,
     everyMin: 40,
     ack: 'Had a glass',
   },
@@ -79,6 +85,7 @@ export const APPS: readonly AppDef[] = [
     ],
     tags: ['posture', 'break', 'move', 'health'],
     can: ['Show a tile in the dock', 'Show a nudge in the notch at the top of the window', 'Raise a system notification'],
+    announces: true,
     everyMin: 50,
     ack: 'Done',
   },
@@ -103,6 +110,7 @@ export const APPS: readonly AppDef[] = [
       'Read how long since this machine last had a key or click',
       'Keep today’s total and your longest stretch',
     ],
+    announces: true,
     ack: 'Up now',
   },
   {
@@ -125,6 +133,7 @@ export const APPS: readonly AppDef[] = [
       'Raise a system notification',
       'Keep what you logged for the last day',
     ],
+    announces: true,
     ack: 'Logged',
   },
   {
@@ -140,6 +149,7 @@ export const APPS: readonly AppDef[] = [
       'Start it. The tile shows how much is left, and one notification goes out when the stretch ends.',
       'The break starts itself, and the next stretch follows it. Stop whenever.',
     ],
+    announces: true,
     tags: ['pomodoro', 'focus', 'timer', 'break', 'deep work', 'tomato', '25'],
     can: [
       'Show a timer in the dock',
@@ -148,6 +158,27 @@ export const APPS: readonly AppDef[] = [
       'Keep a count of today’s stretches',
     ],
     ack: 'Start',
+  },
+  {
+    id: 'music',
+    name: 'Now playing',
+    short: 'Music',
+    hue: 'var(--music)',
+    category: 'Media',
+    desc: 'What is playing, in the notch, with skip and pause.',
+    long: 'Shows the track playing in the pill at the top of the window, with buttons to pause or skip, so you can deal with a song without leaving your sessions. On macOS it asks Spotify and Music directly — the first time, macOS will ask whether to allow that. It cannot see audio playing in a browser tab, which is a limit of the only interface Apple offers for this. On Windows it reads the system’s own Now Playing, which every app reports into, browsers included.',
+    steps: [
+      'Switch it on. On macOS, allow Konscious to control Spotify or Music when asked.',
+      'The notch shows the track while something plays, with a spectrum beside it.',
+      'Click it for the artist, the artwork and the transport buttons.',
+    ],
+    announces: true,
+    tags: ['music', 'spotify', 'now playing', 'media', 'track', 'song', 'player', 'audio', 'pause', 'skip'],
+    can: [
+      'Show what is playing in the notch at the top of the window',
+      'Ask Spotify and Music what is playing, and tell them to pause or skip',
+      'Read the system’s Now Playing session (Windows)',
+    ],
   },
   {
     id: 'warm',

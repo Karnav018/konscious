@@ -28,6 +28,8 @@ import {
 } from '../../lib/apps'
 import { cupFill, DRINKS, inBody, MAX_MG, mg as mgText, todayTotal } from '../../lib/caffeine'
 import { clock } from '../../lib/format'
+import { AUTOMATION_SETTINGS, progress as trackProgress, trackLabel, useNowPlaying } from '../../lib/media'
+import { ipc } from '../../lib/ipc'
 import { sitFill, span, streakMs } from '../../lib/sitting'
 import { isWarm } from '../../lib/warmth'
 import { WarmthRow } from '../Settings/Settings'
@@ -46,7 +48,19 @@ import {
   undoDose,
 } from '../../state/commands/apps'
 import { useRuntimes, useUi } from '../../state/selectors'
-import { AppsIcon, ChairIcon, CupIcon, DropIcon, FlameIcon, StandIcon, TomatoIcon } from '../common/Icon'
+import {
+  AppsIcon,
+  ChairIcon,
+  CupIcon,
+  DropIcon,
+  FlameIcon,
+  NoteIcon,
+  PauseIcon,
+  PlayIcon,
+  SkipIcon,
+  StandIcon,
+  TomatoIcon,
+} from '../common/Icon'
 import { Gauge, Ring } from './Gauge'
 import { LayoutTile } from './LayoutTile'
 
@@ -161,6 +175,7 @@ function AppGlyph({ id, fill }: { id: AppId; fill: number }) {
   if (id === 'stand') return <StandIcon size={15} />
   if (id === 'caff') return <CupIcon size={15} fill={fill} />
   if (id === 'sit') return <ChairIcon size={15} />
+  if (id === 'music') return <NoteIcon size={15} />
   if (id === 'pomo') return <TomatoIcon size={15} />
   return <AppsIcon />
 }
@@ -273,6 +288,131 @@ function CaffTile({ edge, size, now }: { edge: Edge; size: number; now: number }
             >
               Undo the last one
             </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Now playing: the track, and the three buttons. The island is where this
+ *  mostly lives; the tile is for when the window is too narrow for the island
+ *  or the notch is switched off. */
+function MusicTile({ edge, size }: { edge: Edge; size: number }) {
+  const on = useUi((u) => u.apps.on.music)
+  const open = useUi((u) => u.appPopover === 'music')
+  // Polled while the tile is in the dock, which is the point of the hook's
+  // gate: switched off, no Apple event is ever sent.
+  const media = useNowPlaying(on)
+  const hue = 'var(--music)'
+  const playing = !!media.now?.playing
+  const btn = 'w-8 h-8 grid place-items-center rounded-rs cursor-pointer text-muted hover:text-text hover:bg-sel'
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        onClick={(e) => {
+          e.stopPropagation()
+          setAppPopover(open ? null : 'music')
+        }}
+        title={media.now ? `${trackLabel(media.now)}${playing ? '' : ' · paused'}` : 'Now playing'}
+        style={{ width: size, height: size, borderRadius: 7, background: open ? 'var(--sel)' : 'transparent' }}
+        className="grid place-items-center cursor-pointer hover:bg-sel"
+      >
+        <span
+          style={{
+            width: GLYPH,
+            height: GLYPH,
+            borderRadius: 6,
+            border: `1.5px solid ${hue}`,
+            background: playing ? `color-mix(in srgb, ${hue} 20%, transparent)` : 'transparent',
+            color: hue,
+          }}
+          className={`grid place-items-center${media.now ? '' : ' opacity-50'}`}
+        >
+          <NoteIcon size={15} />
+        </span>
+      </div>
+      {open && (
+        <div
+          data-dock-popover
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', ...popoverSide(edge, size), width: 246, boxShadow: 'var(--shadow)' }}
+          className="p-2.5 bg-raised border border-line2 rounded-r z-[40] flex flex-col gap-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <span style={{ color: hue }}>
+              <NoteIcon size={16} />
+            </span>
+            <span className="text-[12.5px] font-medium flex-1">Now playing</span>
+          </div>
+
+          {media.denied ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-[11.5px] text-muted leading-[1.45]">
+                macOS is not letting Konscious ask Spotify or Music what is playing.
+              </span>
+              <div
+                onClick={() => void ipc.openUrl(AUTOMATION_SETTINGS).catch(() => {})}
+                className="h-7 flex items-center justify-center rounded-rs border border-line2 cursor-pointer text-[11.5px] text-muted hover:text-text hover:border-accent"
+              >
+                Open Automation settings
+              </div>
+            </div>
+          ) : media.now ? (
+            <>
+              <div className="flex items-center gap-2.5">
+                {media.now.artworkUrl ? (
+                  <img
+                    src={media.now.artworkUrl}
+                    alt=""
+                    style={{ width: 38, height: 38, borderRadius: 4 }}
+                    className="flex-none object-cover"
+                  />
+                ) : (
+                  <span
+                    style={{ width: 38, height: 38, borderRadius: 4, borderColor: 'var(--line2)', color: hue }}
+                    className="flex-none grid place-items-center rounded-rs border"
+                  >
+                    <NoteIcon size={17} />
+                  </span>
+                )}
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <span className="text-[12px] font-medium overflow-hidden text-ellipsis whitespace-nowrap">
+                    {media.now.title}
+                  </span>
+                  <span className="text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap">
+                    {media.now.artist || media.now.app}
+                  </span>
+                </div>
+              </div>
+              {media.now.durationMs > 0 && (
+                <span className="block rounded-pill" style={{ height: 3, background: 'var(--line2)' }}>
+                  <span
+                    className="block rounded-pill"
+                    style={{ width: `${trackProgress(media.now) * 100}%`, height: 3, background: hue }}
+                  />
+                </span>
+              )}
+              <div className="flex items-center justify-center gap-1">
+                <div className={btn} title="Previous" onClick={() => void ipc.mediaControl('prev').catch(() => {})}>
+                  <SkipIcon size={14} back />
+                </div>
+                <div
+                  className={btn}
+                  title={playing ? 'Pause' : 'Play'}
+                  onClick={() => void ipc.mediaControl('toggle').catch(() => {})}
+                >
+                  {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+                </div>
+                <div className={btn} title="Next" onClick={() => void ipc.mediaControl('next').catch(() => {})}>
+                  <SkipIcon size={14} />
+                </div>
+              </div>
+            </>
+          ) : (
+            <span className="text-[11.5px] text-muted leading-[1.45]">
+              Nothing playing. Konscious can see Spotify and Music; audio in a browser tab is invisible to it.
+            </span>
           )}
         </div>
       )}
@@ -743,6 +883,8 @@ export function Dock() {
             <CaffTile key={a.id} edge={edge} size={TILE} now={now} />
           ) : a.id === 'sit' ? (
             <SitTile key={a.id} edge={edge} size={TILE} now={now} />
+          ) : a.id === 'music' ? (
+            <MusicTile key={a.id} edge={edge} size={TILE} />
           ) : a.id === 'warm' ? (
             <WarmTile key={a.id} size={TILE} edge={edge} />
           ) : (

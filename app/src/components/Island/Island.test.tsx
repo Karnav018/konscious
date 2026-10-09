@@ -2,6 +2,19 @@
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// Only the subscription is stood in for: the pure helpers around it stay
+// real, so the test still exercises what the component does with a reading.
+let reading: import('../../lib/media').Snapshot = { now: null, since: null, denied: false }
+vi.mock('../../lib/media', async (orig) => {
+  const actual = await orig<typeof import('../../lib/media')>()
+  return { ...actual, useNowPlaying: () => reading }
+})
+vi.mock('../../lib/ipc', () => ({
+  ipc: { mediaControl: vi.fn(async () => true), openUrl: vi.fn(async () => {}) },
+  errorMessage: (e: unknown) => String(e),
+}))
+
+import { ipc } from '../../lib/ipc'
 import { Island } from './Island'
 import { COLLAPSE_MS } from '../../lib/island'
 import { setAppOn } from '../../state/commands/apps'
@@ -33,6 +46,8 @@ describe('the notch island', () => {
 
   beforeEach(() => {
     useApp.setState(initialState(), true)
+    reading = { now: null, since: null, denied: false }
+    vi.clearAllMocks()
   })
   afterEach(() => {
     cleanup()
@@ -152,6 +167,70 @@ describe('the notch island', () => {
     const r = render(<Island />)
     // A clock, not a title: the live tile shows how much is left.
     expect(r.container.querySelector('[data-island]')!.textContent).toMatch(/\d+:\d\d/)
+  })
+
+  it('shows the track while music plays', () => {
+    setAppOn('music', true)
+    reading = {
+      now: {
+        app: 'Spotify',
+        title: 'Teardrop',
+        artist: 'Massive Attack',
+        playing: true,
+        positionMs: 30_000,
+        durationMs: 330_000,
+        artworkUrl: null,
+      },
+      since: Date.now() - 30_000,
+      denied: false,
+    }
+    const r = render(<Island />)
+    expect(r.getByText(/Teardrop/)).toBeTruthy()
+    // And a spectrum beside it, which is five bars and not a real one.
+    expect(r.container.querySelectorAll('.cw-bar')).toHaveLength(5)
+  })
+
+  it('shows nothing for a track that is only paused', () => {
+    setAppOn('music', true)
+    // Paused means no start time, so there is no live activity to rank.
+    reading = {
+      now: {
+        app: 'Spotify',
+        title: 'Teardrop',
+        artist: 'Massive Attack',
+        playing: false,
+        positionMs: 30_000,
+        durationMs: 330_000,
+        artworkUrl: null,
+      },
+      since: null,
+      denied: false,
+    }
+    const r = render(<Island />)
+    expect(r.queryByText(/Teardrop/)).toBeNull()
+  })
+
+  it('controls the player from the expanded pill', () => {
+    setAppOn('music', true)
+    const now = {
+      app: 'Spotify',
+      title: 'Teardrop',
+      artist: 'Massive Attack',
+      playing: true,
+      positionMs: 30_000,
+      durationMs: 330_000,
+      artworkUrl: null,
+    }
+    reading = { now, since: Date.now() - 30_000, denied: false }
+    const r = render(<Island />)
+    fireEvent.click(r.container.querySelector('[data-island]')!)
+    expect(r.getByText('Massive Attack')).toBeTruthy()
+    fireEvent.click(r.getByTitle('Pause'))
+    expect(ipc.mediaControl).toHaveBeenCalledWith('toggle')
+    fireEvent.click(r.getByTitle('Next'))
+    expect(ipc.mediaControl).toHaveBeenCalledWith('next')
+    fireEvent.click(r.getByTitle('Previous'))
+    expect(ipc.mediaControl).toHaveBeenCalledWith('prev')
   })
 
   it('says nothing for an app told not to use the notch', () => {

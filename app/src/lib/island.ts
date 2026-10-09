@@ -17,11 +17,11 @@
 //
 // Everything in this file is pure. The component reads it; nothing here
 // touches the DOM.
-import { type AppId } from './apps'
+import { type AppId, APPS, appById } from './apps'
 
-/** Music is not a mini app — it has no tile and no switch of its own — but it
- *  announces like one, so the island treats it as another source. */
-export type IslandApp = AppId | 'music'
+/** Every app is a possible source. This was once `AppId | 'music'`, before
+ *  Now playing earned a catalog entry of its own. */
+export type IslandApp = AppId
 
 export type IslandKind = 'alert' | 'live'
 
@@ -87,13 +87,16 @@ function fitsCentred(barW: number, leftRight: number, rightLeft: number, w: numb
   return mid - half >= leftRight + gutter && mid + half <= rightLeft - gutter
 }
 
-/** Every source that can have a "Show in notch" switch. */
-export const ISLAND_KEYS: readonly IslandApp[] = ['water', 'stand', 'pomo', 'warm', 'sys', 'music']
+/** Every app, so a per-app flag is never dropped on load for want of being
+ *  listed. Derived rather than written out: the hand-written version silently
+ *  missed Caffeine and Sitting, which meant their notch setting could not be
+ *  turned off and would not have survived a restart. */
+export const ISLAND_KEYS: readonly IslandApp[] = APPS.map((a) => a.id)
 
-/** The ones with something to announce. Warm colours changes how the window
- *  looks and the stats gauge is a gauge; neither has news. */
-const ANNOUNCES: readonly IslandApp[] = ['water', 'stand', 'pomo', 'music']
-export const canAnnounce = (app: IslandApp): boolean => ANNOUNCES.includes(app)
+/** The ones with something to announce, as the catalog declares it. Warm
+ *  colours changes how the window looks and the stats gauge is a gauge;
+ *  neither has news. */
+export const canAnnounce = (app: IslandApp): boolean => appById(app).announces === true
 
 /** During a break the island says what a break is for, scrolling. */
 export const BREAK_MARQUEE = '☕ Break · stretch · breathe · look away 🌿'

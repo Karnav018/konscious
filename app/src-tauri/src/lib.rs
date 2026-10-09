@@ -6,6 +6,7 @@ mod env;
 mod error;
 mod git;
 mod idle;
+mod media;
 mod memory;
 mod persistence;
 mod preview;
@@ -233,6 +234,8 @@ pub fn run() {
             commands::file_thumbnail,
             commands::system_stats,
             commands::system_idle_secs,
+            commands::media_now,
+            commands::media_control,
             commands::bundle_pending,
             commands::bundle_preview,
             commands::bundle_export,
