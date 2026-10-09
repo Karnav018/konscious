@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
-import { formatSize, latestApi, latestPage, parseRelease, type Os, type Release } from './release'
+import { useLinuxFormat } from './linuxFormat'
+import { formatSize, LINUX_FORMATS, latestApi, latestPage, parseRelease, type Os, type Release } from './release'
 import { site } from './site'
 
 /** The newest release when the site was built (vite.config.ts), or null. */
@@ -77,9 +78,11 @@ export interface DownloadOption {
   size?: string
 }
 
-/** Download buttons for every platform, pointing at the newest release. */
+/** Download buttons for every platform, pointing at the newest release.
+ *  Linux's is the package the visitor picked (linuxFormat.ts). */
 export function useDownloads() {
   const release = useRelease()
+  const format = useLinuxFormat()
   const option = (os: Os): DownloadOption => {
     const file = release?.installers[os]
     return {
@@ -91,11 +94,24 @@ export function useDownloads() {
       size: file ? formatSize(file.bytes) : undefined,
     }
   }
+  const linux = (): DownloadOption => {
+    const kind = LINUX_FORMATS.find((f) => f.id === format) ?? LINUX_FORMATS[0]
+    // A page that cached the release before formats existed knows only the AppImage.
+    const file = release?.linux?.[format] ?? (format === 'appimage' ? release?.installers.linux : undefined)
+    return {
+      os: 'linux',
+      label: site.downloads.linux.label,
+      detail: kind.detail,
+      url: file?.url ?? release?.page ?? latestPage,
+      name: file?.name,
+      size: file ? formatSize(file.bytes) : undefined,
+    }
+  }
   return {
     version: release?.version,
     page: release?.page ?? latestPage,
     mac: option('mac'),
     windows: option('windows'),
-    linux: option('linux'),
+    linux: linux(),
   }
 }
