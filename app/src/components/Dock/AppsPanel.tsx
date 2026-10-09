@@ -19,6 +19,7 @@ import {
   isVertical,
 } from '../../lib/apps'
 import { askNotifyOnce } from '../../app/reminders'
+import { kbdShift } from '../../lib/platform'
 import { isWarm } from '../../lib/warmth'
 import { WarmthRow } from '../Settings/Settings'
 import {
@@ -347,7 +348,7 @@ export function AppsPanel() {
             <div className="flex items-center gap-2 px-3 h-11 border-b border-line flex-none">
               <AppsIcon />
               <span className="text-[13px] font-semibold flex-1">Apps</span>
-              <span className="font-mono text-[10.5px] text-faint">⌘⇧A</span>
+              <span className="font-mono text-[10.5px] text-faint">{kbdShift('A')}</span>
               <div
                 onClick={() => setAppPanel(null)}
                 className="w-6 h-6 grid place-items-center rounded-rs text-faint cursor-pointer hover:bg-hover hover:text-text"

@@ -215,6 +215,13 @@ pub fn run() {
             // get no menu bar — WebView2 handles clipboard keys natively.
             #[cfg(target_os = "macos")]
             app.set_menu(build_menu(app.handle())?)?;
+            // A tiling window manager sizes the window to its tile, and one
+            // that won't go that small gets squeezed to fit, text and all. Let
+            // it tile into half of a laptop screen (the interface fits 640px).
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_min_size(Some(tauri::LogicalSize::new(640.0, 400.0)))?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

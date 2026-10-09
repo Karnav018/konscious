@@ -54,6 +54,11 @@ objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard", "NSPasteboardItem"] }
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString", "NSURL"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# GTK's clipboard: what Ctrl+Shift+V pastes into a pane (copied files → their
+# paths). Same version Tauri already builds on Linux, so nothing extra is compiled.
+gtk = "0.18"
+
 [target.'cfg(windows)'.dependencies]
 # GetShortPathNameW: shell-neutral paths for the status-line command.
 windows-sys = { version = "0.59", features = [

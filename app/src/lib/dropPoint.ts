@@ -7,6 +7,8 @@
 //   Retina scale would aim every drop at half the distance from the corner.
 // - Windows: real screen pixels (ScreenToClient), so they are divided by the
 //   display scale.
+// - Linux: GTK widget coordinates, which are logical pixels like macOS
+//   points, so they too are used as they are.
 export function dropPoint(x: number, y: number, scale: number, windows: boolean) {
   const s = windows && scale > 0 ? scale : 1
   return { x: x / s, y: y / s }

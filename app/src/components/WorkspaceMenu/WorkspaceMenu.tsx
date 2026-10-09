@@ -90,7 +90,7 @@ export function WorkspaceMenu() {
   const wsHover = useUi((u) => u.wsHover)
   const wsFilter = useUi((u) => u.wsFilter)
   const home = useUi((u) => u.init?.home)
-  const shellTag = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : 'zsh'))
+  const shellTag = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : (u.env?.shell ?? '/bin/zsh').split('/').pop()))
   const workspaces = useWorkspacesByUse()
   // Subscribing here means the engine is only polled while this menu is open.
   const memory = useSessionMemory()

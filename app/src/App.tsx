@@ -35,7 +35,7 @@ import { StatusBar } from './components/StatusBar/StatusBar'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { Toast } from './components/Toast/Toast'
 import { WorkspaceMenu } from './components/WorkspaceMenu/WorkspaceMenu'
-import { IS_WINDOWS, isBrowserKey } from './lib/platform'
+import { copiesNothing, IS_LINUX, IS_PC, isBrowserKey } from './lib/platform'
 import { GRID_LAYOUTS } from './lib/layouts'
 import { matchShortcut } from './lib/shortcuts'
 import { closeNotesSave, toggleNotesOpen } from './state/commands/notes'
@@ -61,7 +61,8 @@ const anyOverlayOpen = (ui: UiState) =>
 function onKeyDown(e: KeyboardEvent) {
   // WebView2 would reload/print/find on the app page itself. Cancel only the
   // browser action; the key still reaches the terminal (Ctrl+R stays ^R).
-  if (IS_WINDOWS && isBrowserKey(e)) e.preventDefault()
+  if (IS_PC && isBrowserKey(e)) e.preventDefault()
+  if (IS_LINUX && copiesNothing(e)) e.preventDefault()
   const s = getState()
   const sc = matchShortcut(e)
   if (sc) {
@@ -177,12 +178,12 @@ export default function App() {
     const stopReminders = startReminders()
     const stopBundles = startBundleOpens()
     window.addEventListener('keydown', onKeyDown, true)
-    // WebView2's page menu (Back, Refresh, Print…) makes no sense in an app;
+    // The webview's page menu (Back, Refresh, Print…) makes no sense in an app;
     // text fields keep theirs for cut/copy/paste.
     const noPageMenu = (e: MouseEvent) => {
       if (!(e.target instanceof HTMLInputElement)) e.preventDefault()
     }
-    if (IS_WINDOWS) window.addEventListener('contextmenu', noPageMenu)
+    if (IS_PC) window.addEventListener('contextmenu', noPageMenu)
     void bootstrap().catch((e) => {
       console.error(e)
       setBooted()
@@ -210,7 +211,9 @@ export default function App() {
   const showNotes = booted && lockOk && !firstRun && notesOpen
 
   return (
-    <div className="h-full min-w-[1080px] flex flex-col bg-win relative overflow-hidden text-text">
+    // Linux: a tiling window manager decides the width (half a laptop screen
+    // is ~790px), so the layout must fit it rather than be cut off.
+    <div className={`h-full ${IS_LINUX ? '' : 'min-w-[1080px]'} flex flex-col bg-win relative overflow-hidden text-text`}>
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0 min-h-0 flex flex-col p-1 gap-2 bg-win relative">

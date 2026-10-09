@@ -7,7 +7,7 @@ import { discardNotesChanges, openTaskSession, saveNotes, sendTask, sendToPrompt
 import { STATUS_COLOR } from '../../lib/format'
 import { blocksOf, linkedSession, mentionName, ordered, todayLabel } from '../../lib/notes'
 import { basename, shellLabel } from '../../lib/path'
-import { IS_WINDOWS } from '../../lib/platform'
+import { IS_PC, IS_WINDOWS } from '../../lib/platform'
 import { addTask, clearDone, currentNotes, deleteTask, setScratch, toggleTask } from '../../state/commands/notes'
 import { useActiveLayout, useActiveWorkspace, useRuntimes, useSessions, useUi } from '../../state/selectors'
 import { useApp } from '../../state/store'
@@ -18,9 +18,9 @@ import { CheckIcon, CloseIcon, NotesIcon, SendIcon } from '../common/Icon'
 const LH = 22
 const PAD = 14
 
-const SAVE_KEY = IS_WINDOWS ? 'Ctrl+S' : '⌘S'
+const SAVE_KEY = IS_PC ? 'Ctrl+S' : '⌘S'
 const isSaveKey = (e: KeyboardEvent) =>
-  e.key.toLowerCase() === 's' && !e.shiftKey && !e.altKey && (IS_WINDOWS ? e.ctrlKey && !e.metaKey : e.metaKey && !e.ctrlKey)
+  e.key.toLowerCase() === 's' && !e.shiftKey && !e.altKey && (IS_PC ? e.ctrlKey && !e.metaKey : e.metaKey && !e.ctrlKey)
 
 const btn = 'h-7 px-3 flex items-center rounded-rs cursor-pointer text-[12.5px] whitespace-nowrap'
 

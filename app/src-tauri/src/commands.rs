@@ -203,8 +203,23 @@ pub async fn fs_suggest_folders() -> AppResult<Vec<Suggestion>> {
 
 /// What Ctrl+V pastes into a pane: copied files' paths, else the text.
 #[tauri::command]
-pub async fn clipboard_read() -> AppResult<crate::clipboard::Clipboard> {
-    Ok(crate::clipboard::read())
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+pub async fn clipboard_read(app: tauri::AppHandle) -> AppResult<crate::clipboard::Clipboard> {
+    // GTK's clipboard may only be touched on the main thread; wait for it
+    // from the blocking pool.
+    #[cfg(target_os = "linux")]
+    let clip = blocking(move || {
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.run_on_main_thread(move || {
+            let _ = tx.send(crate::clipboard::read());
+        })
+        .map_err(|e| AppError::Unavailable(format!("clipboard: {e}")))?;
+        rx.recv().map_err(|e| AppError::Unavailable(format!("clipboard: {e}")))
+    })
+    .await?;
+    #[cfg(not(target_os = "linux"))]
+    let clip = crate::clipboard::read();
+    Ok(clip)
 }
 
 /// An ISO-ish stamp for the manifest. Seconds since the epoch would do, but
