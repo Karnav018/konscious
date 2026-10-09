@@ -147,6 +147,19 @@ describe('the notch island', () => {
     expect(getState().ui.apps.glasses).toBe(0)
   })
 
+  it('animates a swap in the direction it travelled', () => {
+    pushIsland({ app: 'water', title: 'Drink water' }, Date.now() - 2000)
+    pushIsland({ app: 'stand', title: 'Stand up' }, Date.now() - 1000)
+    const r = render(<Island />)
+    // Newest first, so dot 0 is Stand up and dot 1 is Drink water. Going to
+    // a later dot is forward; coming back is backward.
+    const dots = () => r.container.querySelectorAll('[data-island-dot]')
+    fireEvent.click(dots()[1])
+    expect(r.container.querySelector('.cw-swap-on')).not.toBeNull()
+    fireEvent.click(dots()[0])
+    expect(r.container.querySelector('.cw-swap-back')).not.toBeNull()
+  })
+
   it('shows a dot per activity once there is more than one', () => {
     pushIsland({ app: 'water', title: 'Drink water' }, Date.now() - 2000)
     pushIsland({ app: 'stand', title: 'Stand up' }, Date.now() - 1000)

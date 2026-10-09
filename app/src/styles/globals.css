@@ -231,3 +231,34 @@ input {
     transform: scaleY(0.55);
   }
 }
+
+/* Swapping between activities. The box does not resize between two compact
+   activities, so without this the content simply cut from one to the next and
+   read as a glitch rather than a swap. It slides in from the side it came
+   from, which is short enough not to delay the reading. */
+.cw-swap-on,
+.cw-swap-back {
+  animation: cw-swap-on 190ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.cw-swap-back {
+  animation-name: cw-swap-back;
+}
+@keyframes cw-swap-on {
+  from { opacity: 0; transform: translateX(9px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cw-swap-back {
+  from { opacity: 0; transform: translateX(-9px); }
+  to { opacity: 1; transform: none; }
+}
+/* Movement off, but the change still needs marking, so it crossfades. */
+@media (prefers-reduced-motion: reduce) {
+  .cw-swap-on,
+  .cw-swap-back {
+    animation: cw-swap-fade 150ms ease-out both;
+  }
+  @keyframes cw-swap-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}

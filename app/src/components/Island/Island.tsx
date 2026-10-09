@@ -226,7 +226,12 @@ export function Island() {
   const reduced = useReducedMotion()
 
   const [now, setNow] = useState(() => Date.now())
-  const [i, setI] = useState(0)
+  // Which activity is on show, and which way it arrived — the swap animates
+  // in the direction of travel, so cycling reads as movement rather than as
+  // the content being replaced underneath you.
+  const [nav, setNav] = useState({ i: 0, dir: 1 })
+  const go = (delta: number) => setNav((n) => ({ i: nextIndex(count, n.i, delta), dir: delta < 0 ? -1 : 1 }))
+  const jump = (to: number) => setNav((n) => ({ i: to, dir: to < n.i ? -1 : 1 }))
   const [hover, setHover] = useState(false)
 
   // Centred, the island runs into the title bar's two clusters: the workspace
@@ -309,11 +314,11 @@ export function Island() {
   useEffect(() => {
     if (newest !== seen.current) {
       seen.current = newest
-      if (newest) setI(0)
+      if (newest) setNav({ i: 0, dir: 1 })
     }
   }, [newest])
 
-  const at = count ? i % count : 0
+  const at = count ? nav.i % count : 0
   const cur = count ? acts[at] : null
   const pinned = !!cur && expanded === cur.id
   // An alert is news for six seconds, then it collapses to compact. Hovering
@@ -323,8 +328,10 @@ export function Island() {
   const actions = pinned && !!cur && isReminderId(cur.app)
 
   useEffect(() => {
-    if (count < 2 || hover || expanded) return
-    const t = setInterval(() => setI((x) => nextIndex(count, x, 1)), CYCLE_MS)
+    // Never cycle away from something that is open: it would expand, be read
+    // for four seconds, collapse, and expand again — a wobble, not a rotation.
+    if (count < 2 || hover || expanded || open) return
+    const t = setInterval(() => go(1), CYCLE_MS)
     return () => clearInterval(t)
   }, [count, hover, expanded])
 
@@ -352,7 +359,7 @@ export function Island() {
       onWheel={(e) => {
         if (count < 2) return
         e.preventDefault()
-        setI((x) => nextIndex(count, x, e.deltaY > 0 ? 1 : -1))
+        go(e.deltaY > 0 ? 1 : -1)
       }}
       onClick={() => cur && expandIsland(pinned ? null : cur.id)}
       style={{
@@ -379,6 +386,10 @@ export function Island() {
       {cur && (
         <div className="flex flex-col h-full">
           <div className="flex items-center gap-2 px-2.5 flex-none" style={{ height: COMPACT.h }}>
+            <span
+              key={cur.id}
+              className={`flex items-center gap-2 flex-1 min-w-0 ${nav.dir < 0 ? 'cw-swap-back' : 'cw-swap-on'}`}
+            >
             <span style={{ color: hue, width: 20, height: 20 }} className="grid place-items-center flex-none">
               <Glyph app={cur.app} progress={ringFill} hue={hue} />
             </span>
@@ -405,10 +416,11 @@ export function Island() {
                 </span>
               )}
             </span>
+            </span>
 
             {liveMusic && <Bars playing={!!media.now?.playing} hue={hue} />}
 
-            {count > 1 && <Dots count={count} at={at} onPick={setI} />}
+            {count > 1 && <Dots count={count} at={at} onPick={jump} />}
 
             {open && (
               <span
