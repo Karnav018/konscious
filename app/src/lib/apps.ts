@@ -13,8 +13,8 @@
 //
 // Everything here is pure. The dock reads it; nothing in it touches the DOM.
 
-export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit' | 'music'
-export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Media' | 'Display' | 'System'
+export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit' | 'music' | 'layout'
+export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Media' | 'Workspace' | 'Display' | 'System'
 
 export interface AppDef {
   id: AppId
@@ -179,6 +179,27 @@ export const APPS: readonly AppDef[] = [
       'Ask Spotify and Music what is playing, and tell them to pause or skip',
       'Read the system’s Now Playing session (Windows)',
     ],
+  },
+  {
+    id: 'layout',
+    name: 'Grid layout',
+    short: 'Grid',
+    // The accent, for the same reason Warm colours uses it: this is how
+    // Konscious arranges its own window, not a thing running beside the
+    // sessions. Two apps sharing the accent is the honest answer here — a
+    // hue of its own would imply it stands apart from the app, and it does
+    // not.
+    hue: 'var(--accent)',
+    category: 'Workspace',
+    desc: 'How the panes are arranged, and a quicker way to change it.',
+    long: 'The picture in the dock is your grid as it stands. Click it to pick another arrangement, even out the pane sizes, or take the one Konscious suggests when the mix of panes changes. It was always in the dock; it is listed here so it can be switched off or hidden like anything else.',
+    steps: [
+      'The tile draws your panes as they are now. Click it for the five layouts.',
+      '⌘L cycles them, ⌘⌥1–5 picks one, ⌘⇧= evens out the sizes.',
+      'Drag the dividers between panes to resize, or double-click one to even it out.',
+    ],
+    tags: ['grid', 'layout', 'panes', 'arrange', 'split', 'tile', 'columns', 'rows', 'resize', 'workspace'],
+    can: ['Show a tile in the dock', 'Change how this window arranges its panes'],
   },
   {
     id: 'warm',

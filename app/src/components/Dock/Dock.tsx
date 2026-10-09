@@ -864,9 +864,6 @@ export function Dock() {
         </>
       )}
 
-      {/* How the grid is arranged: part of the workspace, so above the apps. */}
-      {!tucked && <LayoutTile edge={edge} size={TILE} />}
-
       <div
         onClick={(e) => {
           e.stopPropagation()
@@ -881,7 +878,9 @@ export function Dock() {
       {visibleTiles.length > 0 && <Divider vertical={vertical} />}
       {visibleTiles
         .map((a) =>
-          a.id === 'pomo' ? (
+          a.id === 'layout' ? (
+            <LayoutTile key={a.id} edge={edge} size={TILE} />
+          ) : a.id === 'pomo' ? (
             <PomoTile key={a.id} edge={edge} size={TILE} />
           ) : a.id === 'caff' ? (
             <CaffTile key={a.id} edge={edge} size={TILE} now={now} />

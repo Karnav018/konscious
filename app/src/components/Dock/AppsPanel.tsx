@@ -44,6 +44,7 @@ import {
 } from '../../state/commands/apps'
 import { setAppIsland } from '../../state/commands/island'
 import { useUi } from '../../state/selectors'
+import { LayoutGlyph } from '../common/LayoutGlyph'
 import { getState } from '../../state/store'
 import {
   AppsIcon,
@@ -59,7 +60,7 @@ import {
 } from '../common/Icon'
 
 type Filter = 'All' | 'On' | 'Off'
-const CATEGORIES: AppCategory[] = ['Reminders', 'Health', 'Timers', 'Media', 'Display', 'System']
+const CATEGORIES: AppCategory[] = ['Reminders', 'Health', 'Timers', 'Media', 'Workspace', 'Display', 'System']
 
 function Glyph({ id, size = 17 }: { id: AppId; size?: number }) {
   if (id === 'water') return <DropIcon size={size} fill={0.55} />
@@ -67,6 +68,18 @@ function Glyph({ id, size = 17 }: { id: AppId; size?: number }) {
   if (id === 'caff') return <CupIcon size={size} fill={0.55} />
   if (id === 'sit') return <ChairIcon size={size} />
   if (id === 'music') return <NoteIcon size={size} />
+  if (id === 'layout') {
+    return (
+      <LayoutGlyph
+        id="balanced"
+        kinds={['claude', 'claude', 'claude', 'claude']}
+        selected={0}
+        width={size}
+        height={size - 2}
+        border={1.2}
+      />
+    )
+  }
   if (id === 'pomo') return <TomatoIcon size={size} />
   if (id === 'warm') return <FlameIcon size={size} />
   return <AppsOutlineIcon size={size - 1} />

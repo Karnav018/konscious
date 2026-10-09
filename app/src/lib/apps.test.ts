@@ -31,6 +31,7 @@ import {
   TEMP_MAX,
 } from './apps'
 import { canAnnounce, ISLAND_KEYS } from './island'
+import { initialState } from '../state/store'
 
 const now = 1_700_000_000_000
 const min = (n: number) => n * 60_000
@@ -39,11 +40,12 @@ const due = (over: Partial<Parameters<typeof isDue>[0]> = {}) =>
 
 describe('the catalog', () => {
   it('ships every app in a category, in catalog order', () => {
-    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'music', 'warm', 'sys'])
+    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'music', 'layout', 'warm', 'sys'])
     expect(APPS.filter((a) => a.category === 'Reminders').map((a) => a.id)).toEqual(['water', 'stand'])
     expect(APPS.filter((a) => a.category === 'Health').map((a) => a.id)).toEqual(['sit', 'caff'])
     expect(APPS.filter((a) => a.category === 'Timers').map((a) => a.id)).toEqual(['pomo'])
     expect(APPS.filter((a) => a.category === 'Media').map((a) => a.id)).toEqual(['music'])
+    expect(APPS.filter((a) => a.category === 'Workspace').map((a) => a.id)).toEqual(['layout'])
     expect(APPS.filter((a) => a.category === 'Display').map((a) => a.id)).toEqual(['warm'])
     expect(APPS.filter((a) => a.category === 'System').map((a) => a.id)).toEqual(['sys'])
   })
@@ -87,6 +89,16 @@ describe('the catalog', () => {
     // And every app is a key, so a saved preference is never dropped on load.
     for (const app of APPS) expect(ISLAND_KEYS).toContain(app.id)
     expect(ISLAND_KEYS).toHaveLength(APPS.length)
+  })
+
+  it('ships Grid layout on, because it was always in the dock', () => {
+    // Every other app arrives off and is opted into. This one was hardwired
+    // into the dock before it was an app at all, so listing it must not take
+    // it away from anyone who already had it.
+    const fresh = initialState().ui.apps
+    expect(fresh.on.layout).toBe(true)
+    expect(fresh.pinned.layout).toBe(true)
+    for (const app of APPS) if (app.id !== 'layout') expect(fresh.on[app.id]).toBe(false)
   })
 
   it('tells the two sitting apps apart in its own copy', () => {
