@@ -62,6 +62,19 @@ export const PHASE_ALERT_MS = 8000
 /** Clear space to keep either side of the island. */
 export const GUTTER = 12
 
+/**
+ * How much tighter than the threshold the bar must get before a showing
+ * island gives up its place.
+ *
+ * Without this it blinks. The title bar breathes while you work — the
+ * "N waiting" chip is about ninety pixels and comes and goes as sessions
+ * change state, a usage figure gains a digit, a session name changes — and
+ * a measurement taken right at the threshold flips back and forth with it.
+ * The island then appears and disappears several times a minute, which is
+ * the one thing a calm notch must not do.
+ */
+export const HYSTERESIS = 28
+
 
 /** Every app, so a per-app flag is never dropped on load for want of being
  *  listed. Derived rather than written out: the hand-written version silently
@@ -164,6 +177,8 @@ export function showsCentred(
   leftRight: number,
   rightLeft: number,
   w: number,
+  /** Whether it is on screen now. Shown, it is harder to dislodge. */
+  showing = false,
   gutter = GUTTER,
 ): boolean {
   // Nothing measured yet, or an environment with no layout. Showing is the
@@ -172,6 +187,10 @@ export function showsCentred(
   // The clusters have met. There is no middle to be in.
   if (rightLeft <= leftRight) return false
   const mid = barW / 2
-  const half = w / 2
-  return mid - half >= leftRight + gutter && mid + half <= rightLeft - gutter
+  // The tighter of the two sides decides it: the island is centred, so it
+  // can only be as wide as twice its smaller clearance.
+  const room = Math.min(mid - leftRight, rightLeft - mid)
+  const need = w / 2 + gutter
+  // Already there: it keeps its place until the bar is meaningfully tighter.
+  return room >= (showing ? need - HYSTERESIS : need)
 }

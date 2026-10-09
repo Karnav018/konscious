@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ALERT_TTL_MS,
   GUTTER,
+  HYSTERESIS,
   BREAK_WORDS,
   canAnnounce,
   expired,
@@ -211,5 +212,51 @@ describe('where the island goes', () => {
 
   it('shows when nothing has been measured, rather than hiding for good', () => {
     expect(showsCentred(0, 0, 0, W)).toBe(true)
+  })
+
+  it('judges by the tighter side, since it is centred', () => {
+    // Acres of room on the left, none on the right: still no.
+    expect(showsCentred(1280, 100, 700, W)).toBe(false)
+  })
+})
+
+describe('the island does not blink', () => {
+  // The title bar breathes while you work. The "N waiting" chip is about
+  // ninety pixels and comes and goes as sessions change state, so a
+  // measurement right at the threshold flips back and forth with it — and
+  // the pill appeared and disappeared several times a minute.
+  const W = 220
+  const need = W / 2 + GUTTER
+
+  /** A bar 1280 wide whose clusters leave `room` either side of centre. */
+  const bar = (room: number, showing: boolean) =>
+    showsCentred(1280, 640 - room, 640 + room, W, showing)
+
+  it('lets it in only with the full clearance', () => {
+    expect(bar(need, false)).toBe(true)
+    expect(bar(need - 1, false)).toBe(false)
+  })
+
+  it('keeps it once it is there, through a chip appearing', () => {
+    expect(bar(need - 1, true)).toBe(true)
+    expect(bar(need - HYSTERESIS + 1, true)).toBe(true)
+  })
+
+  it('still gives up the place when the bar is genuinely tighter', () => {
+    expect(bar(need - HYSTERESIS - 1, true)).toBe(false)
+  })
+
+  it('does not flip back and forth across one chip’s width', () => {
+    // 45px: half the waiting chip, so either edge of it moves the gap by
+    // about this much. Sitting just inside the threshold, the island must
+    // survive the chip arriving.
+    const jiggle = 45
+    let showing = bar(need + 4, false)
+    expect(showing).toBe(true)
+    for (let i = 0; i < 6; i++) {
+      // the chip appears, then goes, then appears...
+      showing = bar(need + 4 - (i % 2 ? 0 : jiggle / 2), showing)
+      expect(showing, `blinked off on pass ${i}`).toBe(true)
+    }
   })
 })

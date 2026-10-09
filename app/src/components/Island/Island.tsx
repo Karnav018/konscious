@@ -237,7 +237,7 @@ export function Island() {
   // clusters is a real element (the bar's flex-1 spacer), so measuring it
   // gives both edges at once, and a ResizeObserver on it catches a chip
   // appearing as well as the window changing size.
-  const [bar, setBar] = useState({ w: 0, left: 0, right: 0 })
+  const [visible, setVisible] = useState(true)
   useEffect(() => {
     const spacer = document.querySelector('[data-bar-gap]')
     const row = spacer?.parentElement
@@ -245,7 +245,10 @@ export function Island() {
     const measure = () => {
       const b = row.getBoundingClientRect()
       const s = spacer.getBoundingClientRect()
-      setBar({ w: b.width, left: s.left - b.left, right: s.right - b.left })
+      // Decided here rather than at render, because the answer depends on
+      // the previous answer: a showing island is harder to dislodge, which
+      // is what stops it blinking as the bar's chips come and go.
+      setVisible((was) => showsCentred(b.width, s.left - b.left, s.right - b.left, COMPACT.w, was))
     }
     measure()
     if (typeof ResizeObserver === 'undefined') return
@@ -327,7 +330,7 @@ export function Island() {
 
   // Only the compact footprint decides: an alert is wider, but it hangs below
   // the bar where there is nothing to run into.
-  if (!showsCentred(bar.w, bar.left, bar.right, COMPACT.w)) return null
+  if (!visible) return null
 
   const mode = !cur ? 'idle' : open ? 'alert' : 'compact'
   const width = mode === 'idle' ? IDLE.w : mode === 'compact' ? COMPACT.w : ALERT.w
