@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Only the subscription is stood in for: the pure helpers around it stay
 // real, so the test still exercises what the component does with a reading.
-let reading: import('../../lib/media').Snapshot = { now: null, since: null, denied: false }
+let reading: import('../../lib/media').Snapshot = { now: null, since: null, denied: false, failed: false }
 vi.mock('../../lib/media', async (orig) => {
   const actual = await orig<typeof import('../../lib/media')>()
   return { ...actual, useNowPlaying: () => reading }
@@ -46,7 +46,7 @@ describe('the notch island', () => {
 
   beforeEach(() => {
     useApp.setState(initialState(), true)
-    reading = { now: null, since: null, denied: false }
+    reading = { now: null, since: null, denied: false, failed: false }
     vi.clearAllMocks()
   })
   afterEach(() => {
@@ -183,6 +183,7 @@ describe('the notch island', () => {
       },
       since: Date.now() - 30_000,
       denied: false,
+      failed: false,
     }
     const r = render(<Island />)
     expect(r.getByText(/Teardrop/)).toBeTruthy()
@@ -205,6 +206,7 @@ describe('the notch island', () => {
       },
       since: null,
       denied: false,
+      failed: false,
     }
     const r = render(<Island />)
     expect(r.queryByText(/Teardrop/)).toBeNull()
@@ -221,7 +223,7 @@ describe('the notch island', () => {
       durationMs: 330_000,
       artworkUrl: null,
     }
-    reading = { now, since: Date.now() - 30_000, denied: false }
+    reading = { now, since: Date.now() - 30_000, denied: false, failed: false }
     const r = render(<Island />)
     fireEvent.click(r.container.querySelector('[data-island]')!)
     expect(r.getByText('Massive Attack')).toBeTruthy()

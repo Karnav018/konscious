@@ -32,9 +32,12 @@ export interface Snapshot {
   since: number | null
   /** macOS refused Automation. Polling stops; the catalog offers the fix. */
   denied: boolean
+  /** Reading failed in a way that is our bug. Polling stops and the catalog
+   *  says so, rather than showing the same blank as "nothing is playing". */
+  failed: boolean
 }
 
-export const EMPTY: Snapshot = { now: null, since: null, denied: false }
+export const EMPTY: Snapshot = { now: null, since: null, denied: false, failed: false }
 
 /* ── pure ─────────────────────────────────────────────────────────── */
 
@@ -99,17 +102,19 @@ async function poll() {
   try {
     const got: MediaState = await ipc.mediaNow()
     const at = Date.now()
-    snapshot = { now: got.now, since: startedAt(snapshot, got.now, at), denied: got.denied }
+    snapshot = { now: got.now, since: startedAt(snapshot, got.now, at), denied: got.denied, failed: got.failed }
     announce()
   } catch {
     /* keep the last reading rather than blink the island off */
   } finally {
     reading = false
   }
-  // A refusal does not relent on its own: macOS will not ask twice, so asking
-  // again every two seconds would only burn a subprocess each time. The
-  // catalog takes over from here, and switching the app off and on resets it.
-  if (snapshot.denied) return
+  // Neither a refusal nor a broken script relents on its own: macOS will not
+  // ask twice, and a script that does not compile will not start. Either way,
+  // asking again every two seconds would burn a subprocess for an answer that
+  // cannot come. The catalog takes over, and switching the app off and on is
+  // what tries again.
+  if (snapshot.denied || snapshot.failed) return
   if (listeners.size > 0) timer = setTimeout(() => void poll(), pollAfter(snapshot))
 }
 
@@ -117,7 +122,7 @@ function subscribe(listener: () => void) {
   listeners.add(listener)
   if (listeners.size === 1) {
     // A fresh start is also the one chance to try again after a refusal.
-    snapshot = { ...snapshot, denied: false }
+    snapshot = { ...snapshot, denied: false, failed: false }
     void poll()
   }
   return () => {

@@ -346,7 +346,11 @@ function MusicTile({ edge, size }: { edge: Edge; size: number }) {
             <span className="text-[12.5px] font-medium flex-1">Now playing</span>
           </div>
 
-          {media.denied ? (
+          {media.failed ? (
+            <span className="text-[11.5px] text-muted leading-[1.45]">
+              Konscious could not read your players. That is a fault on our side, not a setting of yours.
+            </span>
+          ) : media.denied ? (
             <div className="flex flex-col gap-2">
               <span className="text-[11.5px] text-muted leading-[1.45]">
                 macOS is not letting Konscious ask Spotify or Music what is playing.

@@ -116,6 +116,10 @@ export interface MediaState {
   /** macOS refused the Apple event. Told apart from "nothing is playing",
    *  because the two want completely different things from the user. */
   denied: boolean
+  /** A script would not compile or run — our bug, not the user's. Kept
+   *  separate so it cannot be mistaken for silence, which is how the first
+   *  version of this hid a real failure. */
+  failed: boolean
 }
 
 /** A session as it travels in a bundle. */

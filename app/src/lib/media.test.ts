@@ -51,7 +51,7 @@ describe('when playback started', () => {
   // This is the whole reason the module keeps state: the island ranks a live
   // activity by this moment, and a moment that moved every poll would always
   // be the newest and would starve every alert behind it.
-  const playing = (since: number | null, now: NowPlaying | null = track()): Snapshot => ({ now, since, denied: false })
+  const playing = (since: number | null, now: NowPlaying | null = track()): Snapshot => ({ now, since, denied: false, failed: false })
 
   it('starts the clock when something begins playing', () => {
     expect(startedAt(EMPTY, track(), at)).toBe(at)
@@ -79,8 +79,8 @@ describe('when playback started', () => {
 
 describe('how often to look', () => {
   it('asks often while something plays, and rarely otherwise', () => {
-    expect(pollAfter({ now: track(), since: at, denied: false })).toBe(PLAYING_MS)
-    expect(pollAfter({ now: track({ playing: false }), since: null, denied: false })).toBe(IDLE_MS)
+    expect(pollAfter({ now: track(), since: at, denied: false, failed: false })).toBe(PLAYING_MS)
+    expect(pollAfter({ now: track({ playing: false }), since: null, denied: false, failed: false })).toBe(IDLE_MS)
     expect(pollAfter(EMPTY)).toBe(IDLE_MS)
     expect(PLAYING_MS).toBeLessThan(IDLE_MS)
   })

@@ -18,6 +18,21 @@
 //! right pane of System Settings, rather than asking again every two seconds
 //! and getting nothing.
 //!
+//! The sharp edge, learned the hard way: AppleScript resolves an application's
+//! dictionary when the script COMPILES, not when it runs. A script that merely
+//! mentions `artwork url` fails to compile at all on a Mac without Spotify —
+//! and `if application "Spotify" is running` cannot save it, because that
+//! guard only does anything at run time. The first version of this file put
+//! both players in one script, so on a Spotify-less Mac the read failed
+//! outright and Apple Music never showed either.
+//!
+//! So: one script per player, and a player's vocabulary only ever appears in
+//! its own script, which is run only once that player is known to be running
+//! (a running app is an installed app, so it compiles). The probe that decides
+//! this has to be term-free. `application "Spotify" is running`, by name, is —
+//! it returns false when Spotify is absent. `application id "com.spotify.client"`
+//! is not: it raises -1728 whether or not you wrap it in a try.
+//!
 //! On Windows the system itself keeps a Now Playing session, which every app
 //! including browsers reports into, so there is nothing to ask permission for.
 
@@ -56,6 +71,12 @@ pub struct MediaState {
     /// macOS refused the Apple event. Stop asking — it will not relent until
     /// the user changes it in System Settings.
     pub denied: bool,
+    /// A script would not compile or run, for a reason that is our bug rather
+    /// than the user's. Kept separate because the first version of this
+    /// module failed exactly this way and it looked identical to silence:
+    /// one script mentioned Spotify's vocabulary, so on a Mac without Spotify
+    /// it did not compile, and Apple Music never appeared either.
+    pub failed: bool,
 }
 
 /// What the island's buttons do.
@@ -152,16 +173,32 @@ pub fn pick(out: &str) -> MediaState {
         .find(|t| t.playing)
         .or_else(|| tracks.first())
         .cloned();
-    MediaState { now, denied }
+    MediaState { now, denied, failed: false }
 }
 
-/// Runs a script, giving up rather than waiting on a wedged player.
-///
-/// The script carries its own `with timeout` so a hung Apple event comes back
-/// as an error, and this is the outer guard for everything that is not an
-/// Apple event. Either way the command thread is never held for long.
+/// What one run of osascript came back with.
 #[cfg(target_os = "macos")]
-fn osascript(source: &str, limit: Duration) -> String {
+#[derive(Debug, Default)]
+struct Run {
+    out: String,
+    denied: bool,
+    failed: bool,
+}
+
+/// How long a read may take before we abandon it. The script carries its own
+/// two-second Apple event timeout; this is the outer guard for everything
+/// that is not an Apple event.
+#[cfg(target_os = "macos")]
+const READ_LIMIT: Duration = Duration::from_secs(3);
+
+/// Logged at most once: a syntax error is the same every poll, and two of
+/// them a second would be the loudest thing in the log.
+#[cfg(target_os = "macos")]
+static SAID_BROKEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Runs a script, giving up rather than waiting on a wedged player.
+#[cfg(target_os = "macos")]
+fn osascript(source: &str, limit: Duration) -> Run {
     let Ok(mut child) = Command::new("/usr/bin/osascript")
         .arg("-e")
         .arg(source)
@@ -170,7 +207,7 @@ fn osascript(source: &str, limit: Duration) -> String {
         .stdin(Stdio::null())
         .spawn()
     else {
-        return String::new();
+        return Run::default();
     };
     let began = Instant::now();
     loop {
@@ -181,7 +218,7 @@ fn osascript(source: &str, limit: Duration) -> String {
             _ => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return String::new();
+                return Run::default();
             }
         }
     }
@@ -189,59 +226,119 @@ fn osascript(source: &str, limit: Duration) -> String {
     if let Some(mut pipe) = child.stdout.take() {
         let _ = pipe.read_to_string(&mut out);
     }
-    // A refusal arrives on stderr rather than as a line we asked for, when it
-    // happens outside the script's own error handler.
+    let mut err = String::new();
     if let Some(mut pipe) = child.stderr.take() {
-        let mut err = String::new();
         let _ = pipe.read_to_string(&mut err);
-        if err.contains(NOT_PERMITTED) {
-            out.push_str(&format!("\nerror{SEP}{NOT_PERMITTED}"));
-        }
     }
-    out
+    // A syntax error means our script is wrong, not that the user said no or
+    // that nothing is playing. It has to be told apart from both.
+    let failed = err.contains("-2740") || err.contains("-2741");
+    if failed && !SAID_BROKEN.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        eprintln!("[media] a script did not compile: {}", err.trim());
+    }
+    Run {
+        out,
+        denied: err.contains(NOT_PERMITTED),
+        failed,
+    }
 }
 
-/// How long a read may take before we abandon it.
-#[cfg(target_os = "macos")]
-const READ_LIMIT: Duration = Duration::from_secs(3);
-
-/// Asks both players at once, so a poll is one process rather than two.
+/// The script that always runs, so it must always compile.
 ///
-/// Every access is guarded by `is running`, and nothing is addressed with
-/// `tell` before that check passes — `tell` launches an app that is not
-/// running, and a music player that opens itself because a dock tile was
-/// switched on would be unforgivable.
+/// It reads Music, whose vocabulary ships with every macOS, and probes for
+/// Spotify by name, which needs none of Spotify's own terms. Nothing is
+/// addressed with `tell` before its `is running` guard passes: `tell`
+/// launches an app that is not running, and a music player that opened itself
+/// because a dock tile was switched on would be unforgivable.
 #[cfg(target_os = "macos")]
 const READ_SCRIPT: &str = r#"
 set sep to (ASCII character 31)
 set out to {}
-with timeout of 2 seconds
-  if application "Spotify" is running then
-    try
-      tell application "Spotify" to set end of out to "Spotify" & sep & (player state as text) & sep & (name of current track) & sep & (artist of current track) & sep & ((duration of current track) as text) & sep & ((player position) as text) & sep & (artwork url of current track)
-    on error errMsg number errNum
-      set end of out to "error" & sep & (errNum as text)
-    end try
-  end if
-  if application "Music" is running then
-    try
+if application "Spotify" is running then set end of out to "probe" & sep & "spotify"
+if application "Music" is running then
+  try
+    with timeout of 2 seconds
       tell application "Music" to set end of out to "Music" & sep & (player state as text) & sep & (name of current track) & sep & (artist of current track) & sep & ((duration of current track) as text) & sep & ((player position) as text) & sep & ""
-    on error errMsg number errNum
-      set end of out to "error" & sep & (errNum as text)
-    end try
-  end if
-end timeout
+    end timeout
+  on error errMsg number errNum
+    set end of out to "error" & sep & (errNum as text)
+  end try
+end if
 set AppleScript's text item delimiters to linefeed
 return out as text
 "#;
 
+/// Spotify's own script, and the only place its vocabulary appears. Run only
+/// once the probe above says Spotify is running — a running app is installed,
+/// so this compiles by the time it is ever used.
 #[cfg(target_os = "macos")]
-pub fn now() -> MediaState {
-    pick(&osascript(READ_SCRIPT, READ_LIMIT))
+const SPOTIFY_READ: &str = r#"
+set sep to (ASCII character 31)
+set out to ""
+try
+  with timeout of 2 seconds
+    tell application "Spotify" to set out to "Spotify" & sep & (player state as text) & sep & (name of current track) & sep & (artist of current track) & sep & ((duration of current track) as text) & sep & ((player position) as text) & sep & (artwork url of current track)
+  end timeout
+on error errMsg number errNum
+  set out to "error" & sep & (errNum as text)
+end try
+return out
+"#;
+
+/// Whether the probe saw Spotify running.
+#[cfg(target_os = "macos")]
+fn saw_spotify(out: &str) -> bool {
+    out.lines().any(|l| {
+        let mut f = l.split(SEP);
+        f.next() == Some("probe") && f.next().is_some_and(|v| v.trim() == "spotify")
+    })
 }
 
-/// Tells whichever player is playing, falling back to whichever is open.
-/// Again: `is running` first, always.
+#[cfg(target_os = "macos")]
+pub fn now() -> MediaState {
+    let first = osascript(READ_SCRIPT, READ_LIMIT);
+    let mut lines = first.out.clone();
+    let mut denied = first.denied;
+    let mut failed = first.failed;
+    // Only now, and only if it is actually running, is Spotify asked — which
+    // is also the only moment its script is guaranteed to compile.
+    if saw_spotify(&first.out) {
+        let second = osascript(SPOTIFY_READ, READ_LIMIT);
+        lines.push('\n');
+        lines.push_str(&second.out);
+        denied |= second.denied;
+        failed |= second.failed;
+    }
+    let mut state = pick(&lines);
+    state.denied |= denied;
+    state.failed |= failed;
+    state
+}
+
+/// One player's control script. Each player's verbs live only in its own.
+#[cfg(target_os = "macos")]
+fn control_script(player: &str, verb: &str) -> String {
+    format!(
+        r#"
+set done to false
+try
+  with timeout of 2 seconds
+    if application "{player}" is running then
+      tell application "{player}" to {verb}
+      set done to true
+    end if
+  end timeout
+end try
+return done as text
+"#
+    )
+}
+
+/// Acts on whichever player the island is showing, rather than guessing.
+///
+/// That costs a read before the button does anything, which on a click is
+/// nothing — and it means the buttons always act on the track you can see,
+/// which the first version of this did not actually guarantee.
 #[cfg(target_os = "macos")]
 pub fn control(action: Action) -> bool {
     let verb = match action {
@@ -249,47 +346,15 @@ pub fn control(action: Action) -> bool {
         Action::Next => "next track",
         Action::Prev => "previous track",
     };
-    let source = format!(
-        r#"
-set done to false
-with timeout of 2 seconds
-  if application "Spotify" is running then
-    try
-      tell application "Spotify"
-        if player state is playing then
-          {verb}
-          set done to true
-        end if
-      end tell
-    end try
-  end if
-  if not done and application "Music" is running then
-    try
-      tell application "Music"
-        if player state is playing then
-          {verb}
-          set done to true
-        end if
-      end tell
-    end try
-  end if
-  if not done and application "Spotify" is running then
-    try
-      tell application "Spotify" to {verb}
-      set done to true
-    end try
-  end if
-  if not done and application "Music" is running then
-    try
-      tell application "Music" to {verb}
-      set done to true
-    end try
-  end if
-end timeout
-return done as text
-"#
-    );
-    osascript(&source, READ_LIMIT).trim() == "true"
+    let Some(track) = now().now else { return false };
+    // Only the two players we know how to speak to, matched against exactly
+    // the names the read scripts report, so nothing else reaches a script.
+    let player = match track.app.as_str() {
+        "Spotify" => "Spotify",
+        "Music" => "Music",
+        _ => return false,
+    };
+    osascript(&control_script(player, verb), READ_LIMIT).out.trim() == "true"
 }
 
 #[cfg(windows)]
@@ -361,7 +426,10 @@ mod win {
                 // the glyph instead.
                 artwork_url: None,
             }),
+            // Neither applies here: Windows hands this over without asking,
+            // and there is no script to fail to compile.
             denied: false,
+            failed: false,
         }
     }
 
@@ -487,7 +555,7 @@ mod tests {
 
     #[test]
     fn says_nothing_plays_when_no_player_is_open() {
-        assert_eq!(pick(""), MediaState { now: None, denied: false });
+        assert_eq!(pick(""), MediaState { now: None, denied: false, failed: false });
     }
 
     #[test]
@@ -511,11 +579,20 @@ mod tests {
     }
 
     #[test]
+    fn tells_a_refusal_from_a_broken_script_from_silence() {
+        // Three different states that all used to look the same.
+        let quiet = pick("");
+        assert!(!quiet.denied && !quiet.failed && quiet.now.is_none());
+        let refused = pick(&line(&["error", "-1743"]));
+        assert!(refused.denied && !refused.failed);
+    }
+
+    #[test]
     #[cfg(target_os = "macos")]
     fn never_addresses_a_player_before_checking_it_is_running() {
         // `tell` launches an app that is not running. Every tell in the read
         // script must sit inside an `is running` guard, or switching the app
-        // on would open iTunes.
+        // on would open Music.
         for (at, _) in READ_SCRIPT.match_indices("tell application") {
             let before = &READ_SCRIPT[..at];
             assert!(
@@ -523,5 +600,107 @@ mod tests {
                 "a tell at byte {at} is not inside an `is running` guard"
             );
         }
+        for player in ["Spotify", "Music"] {
+            let src = control_script(player, "playpause");
+            for (at, _) in src.match_indices("tell application") {
+                assert!(
+                    src[..at].contains("is running then"),
+                    "the {player} control script tells it before checking it is running"
+                );
+            }
+        }
+    }
+
+    /// Whether AppleScript will compile this at all. The dictionary of every
+    /// application a script names is resolved here, which is the whole point.
+    #[cfg(target_os = "macos")]
+    fn compiles(source: &str) -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let out = dir.path().join("probe.scpt");
+        let got = Command::new("/usr/bin/osacompile")
+            .arg("-o")
+            .arg(&out)
+            .arg("-e")
+            .arg(source)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if got.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&got.stderr).trim().to_string())
+        }
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn the_scripts_that_always_run_always_compile() {
+        // The bug this test exists for: AppleScript resolves an application's
+        // dictionary when a script COMPILES. One script naming both players
+        // therefore failed outright on a Mac without Spotify — not just for
+        // Spotify, for Apple Music too — and the `is running` guard could not
+        // help, because that only does anything at run time. Music ships with
+        // every macOS since 10.15, so everything here must compile anywhere.
+        //
+        // Note what this does NOT compile: anything naming Spotify. Those
+        // scripts cannot compile without Spotify installed, which is exactly
+        // why they are scripts of their own, reached only once the probe has
+        // seen Spotify running — a running app being an installed one. This
+        // test found that the Spotify control script had the same problem as
+        // the read ("next track" is dictionary vocabulary too), so the
+        // boundary is drawn around both.
+        if let Err(why) = compiles(READ_SCRIPT) {
+            panic!("READ_SCRIPT does not compile on a stock Mac: {why}");
+        }
+        for verb in ["playpause", "next track", "previous track"] {
+            if let Err(why) = compiles(&control_script("Music", verb)) {
+                panic!("the Music control script ({verb}) does not compile: {why}");
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn reaches_a_spotify_script_only_through_the_probe() {
+        // The structural claim behind the test above. Every script naming
+        // Spotify is unreachable until the probe has reported it running:
+        // SPOTIFY_READ is guarded by saw_spotify, and the Spotify control
+        // script is guarded by the player name, which can only ever come back
+        // from SPOTIFY_READ.
+        assert!(!saw_spotify(""), "no probe output must never reach Spotify");
+        let music_only = line(&["Music", "playing", "x", "y", "1", "0", ""]);
+        assert!(!saw_spotify(&music_only));
+        assert_eq!(pick(&music_only).now.expect("a track").app, "Music");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn only_spotify_s_own_script_speaks_spotify() {
+        // Its vocabulary is what will not compile elsewhere. `tell` is listed
+        // too: a tell resolves a dictionary even when it never runs.
+        let spotify_only = ["artwork url", "spotify url", "tell application \"Spotify\""];
+        for term in spotify_only {
+            assert!(
+                !READ_SCRIPT.contains(term),
+                "READ_SCRIPT contains {term:?}, which will not compile without Spotify installed"
+            );
+            assert!(
+                !control_script("Music", "playpause").contains(term),
+                "the Music control script contains {term:?}"
+            );
+        }
+        // And the probe that decides whether to run it needs none of them.
+        assert!(READ_SCRIPT.contains("application \"Spotify\" is running"));
+        assert!(
+            !READ_SCRIPT.contains("application id"),
+            "`application id` raises -1728 for an app that is not installed, even inside a try"
+        );
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn asks_spotify_only_once_the_probe_has_seen_it() {
+        assert!(saw_spotify(&line(&["probe", "spotify"])));
+        assert!(!saw_spotify(""));
+        assert!(!saw_spotify(&line(&["Music", "playing", "x", "y", "1", "0", ""])));
     }
 }

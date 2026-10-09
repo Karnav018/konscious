@@ -112,7 +112,15 @@ function MusicSettings() {
   const media = useNowPlaying(on)
   return (
     <div className="flex flex-col gap-3">
-      {media.denied ? (
+      {media.failed ? (
+        <div className="p-2.5 rounded-rs border border-line2 bg-pane flex flex-col gap-1">
+          <span className="text-[12px] font-medium">Could not read your players</span>
+          <span className="text-[11.5px] text-muted leading-[1.45]">
+            Something went wrong on our side rather than yours — nothing here needs changing. Switch the app off
+            and on to try again.
+          </span>
+        </div>
+      ) : media.denied ? (
         <div className="p-2.5 rounded-rs border bg-pane flex flex-col gap-2" style={{ borderColor: 'var(--warn)' }}>
           <span className="text-[12px] font-medium">Not allowed to ask the players</span>
           <span className="text-[11.5px] text-muted leading-[1.45]">
