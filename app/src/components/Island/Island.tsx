@@ -22,9 +22,9 @@ import {
   BREAK_WORDS,
   COLLAPSE_MS,
   CYCLE_MS,
+  fitsCentred,
   type IslandApp,
   type IslandEvent,
-  MIN_WIDTH,
   nextIndex,
   rankActivities,
 } from '../../lib/island'
@@ -163,14 +163,31 @@ export function Island() {
   const [now, setNow] = useState(() => Date.now())
   const [i, setI] = useState(0)
   const [hover, setHover] = useState(false)
-  // Centred, the island would reach the workspace switch on one side and the
-  // buttons on the other once the window is narrow. Then it does not show.
-  const [room, setRoom] = useState(() => window.innerWidth >= MIN_WIDTH)
 
+  // Centred, the island runs into the title bar's two clusters: the workspace
+  // switch and the chips on the left, the buttons on the right. Whether there
+  // is room is measured rather than guessed from the window width — the left
+  // cluster alone can pass the centre of a wide window once it carries two
+  // workspace names, a waiting chip and an update chip. The slack between the
+  // clusters is a real element (the bar's flex-1 spacer), so measuring it
+  // gives both edges at once, and a ResizeObserver on it catches a chip
+  // appearing as well as the window changing size.
+  const [bar, setBar] = useState({ w: 0, left: 0, right: 0 })
   useEffect(() => {
-    const onResize = () => setRoom(window.innerWidth >= MIN_WIDTH)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    const spacer = document.querySelector('[data-bar-gap]')
+    const row = spacer?.parentElement
+    if (!spacer || !row) return
+    const measure = () => {
+      const b = row.getBoundingClientRect()
+      const s = spacer.getBoundingClientRect()
+      setBar({ w: b.width, left: s.left - b.left, right: s.right - b.left })
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(row)
+    ro.observe(spacer)
+    return () => ro.disconnect()
   }, [])
 
   // A running pomodoro is a live activity: derived, not pushed, so it ends by
@@ -226,7 +243,9 @@ export function Island() {
     return () => clearInterval(t)
   }, [count, hover, expanded])
 
-  if (!room) return null
+  // Only the compact footprint has to fit: an alert is the same shape with
+  // more of it below the bar, and it is gone in seconds.
+  if (!fitsCentred(bar.w, bar.left, bar.right, COMPACT.w)) return null
 
   const mode = !cur ? 'idle' : open ? 'alert' : 'compact'
   const width = mode === 'idle' ? IDLE.w : mode === 'compact' ? COMPACT.w : ALERT.w

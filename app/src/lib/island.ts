@@ -59,9 +59,33 @@ export const CYCLE_MS = 4000
  *  alert is deliberately short-lived: once it goes, the ring comes back. */
 export const PHASE_ALERT_MS = 8000
 
-/** Under this window width the island would reach the workspace switch on one
- *  side or the buttons on the other, so it does not show at all. */
-export const MIN_WIDTH = 1100
+/** Clear space to keep either side of the island. */
+export const GUTTER = 12
+
+/**
+ * Whether a box of width `w`, centred in a bar `barW` wide, clears the
+ * clusters on either side of it.
+ *
+ * `leftRight` is the right edge of everything on the left — the wordmark, the
+ * workspace switch, the mode control, the new-terminal button, the waiting
+ * chip and the update chip — and `rightLeft` is the left edge of everything
+ * on the right. Both are measured from the bar's own left edge.
+ *
+ * A window width will not do here. The root is 1080px at its narrowest, so a
+ * width test protects a twenty-pixel band and nothing else, while the left
+ * cluster alone can pass the centre of a wide window once it carries two
+ * workspace names and both chips.
+ */
+export function fitsCentred(barW: number, leftRight: number, rightLeft: number, w: number, gutter = GUTTER): boolean {
+  // Nothing measured yet, or an environment with no layout. Showing is the
+  // safer default: hiding on a failed measurement hides it for good.
+  if (barW <= 0) return true
+  // The clusters have met. There is no gap to be in the middle of.
+  if (rightLeft <= leftRight) return false
+  const mid = barW / 2
+  const half = w / 2
+  return mid - half >= leftRight + gutter && mid + half <= rightLeft - gutter
+}
 
 /** Every source that can have a "Show in notch" switch. */
 export const ISLAND_KEYS: readonly IslandApp[] = ['water', 'stand', 'pomo', 'warm', 'sys', 'music']

@@ -174,7 +174,9 @@ export function TitleBar() {
 
       <UpdateChip />
 
-      <div data-tauri-drag-region className="flex-1 self-stretch" />
+      {/* The slack between the two clusters. The island measures this to
+          decide whether it has room, so it carries a hook for it. */}
+      <div data-bar-gap data-tauri-drag-region className="flex-1 self-stretch" />
 
       {!firstRun && <UsageBar limits={limits} observedAt={limitsAt} live={limitsLive} />}
 

@@ -35,13 +35,6 @@ export const dismissIsland = (id: string) =>
     if (d.ui.island.expanded === id) d.ui.island.expanded = null
   })
 
-/** Dealt with, from wherever. The dock popover and the island share the
- *  acknowledge / snooze / skip commands, and those end here. */
-export const clearIsland = (app: IslandApp) =>
-  act('island/clear', (d) => {
-    d.ui.island.events = withoutApp(d.ui.island.events, app)
-  })
-
 /** Clicked: holds the activity open and shows its actions. */
 export const expandIsland = (id: string | null) =>
   act('island/expand', (d) => void (d.ui.island.expanded = id))

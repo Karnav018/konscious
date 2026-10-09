@@ -3,23 +3,41 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Island } from './Island'
-import { COLLAPSE_MS, MIN_WIDTH } from '../../lib/island'
+import { COLLAPSE_MS } from '../../lib/island'
 import { setAppOn } from '../../state/commands/apps'
 import { pushIsland, setAppIsland } from '../../state/commands/island'
 import { getState, initialState, useApp } from '../../state/store'
 
-/** happy-dom's window is narrower than the island needs, so every test that
- *  expects to see it has to say the window is wide enough. */
-const widen = (px = MIN_WIDTH + 200) => Object.defineProperty(window, 'innerWidth', { value: px, writable: true })
+const rect = (left: number, right: number): DOMRect =>
+  ({ left, right, width: right - left, top: 0, bottom: 46, height: 46, x: left, y: 0, toJSON: () => ({}) }) as DOMRect
+
+/** happy-dom does not lay anything out, so the island measures zeros and
+ *  shows — which is what we want for every test but the two about room. This
+ *  gives the bar and its spacer real edges instead. */
+function layout(barW: number, gapLeft: number, gapRight: number) {
+  Element.prototype.getBoundingClientRect = function (this: Element) {
+    return this.hasAttribute?.('data-bar-gap') ? rect(gapLeft, gapRight) : rect(0, barW)
+  } as Element['getBoundingClientRect']
+}
+
+/** A title bar around the island, as TitleBar renders it. */
+const inBar = () => (
+  <div>
+    <div data-bar-gap />
+    <Island />
+  </div>
+)
 
 describe('the notch island', () => {
+  const realRect = Element.prototype.getBoundingClientRect
+
   beforeEach(() => {
     useApp.setState(initialState(), true)
-    widen()
   })
   afterEach(() => {
     cleanup()
     vi.useRealTimers()
+    Element.prototype.getBoundingClientRect = realRect
   })
 
   it('is a sliver with nothing to say', () => {
@@ -45,11 +63,22 @@ describe('the notch island', () => {
     expect(r.getByText('A glass now and then.')).toBeTruthy()
   })
 
-  it('stays out of a window too narrow for it', () => {
-    widen(MIN_WIDTH - 1)
+  it('stays out of a bar whose clusters leave no room in the middle', () => {
+    // 1280 wide with the waiting and update chips showing: the left cluster
+    // reaches 930 and the right starts at 1000, so a 220px island centred at
+    // 640 would run through the left one.
+    layout(1280, 930, 1000)
     pushIsland({ app: 'water', title: 'Drink water' })
-    const r = render(<Island />)
+    const r = render(inBar())
     expect(r.container.querySelector('[data-island]')).toBeNull()
+  })
+
+  it('shows once the bar is wide enough for it', () => {
+    layout(1920, 700, 1200)
+    pushIsland({ app: 'water', title: 'Drink water' })
+    const r = render(inBar())
+    expect(r.container.querySelector('[data-island]')).not.toBeNull()
+    expect(r.getByText('Drink water')).toBeTruthy()
   })
 
   it('collapses a fresh alert once it has stopped being news', () => {

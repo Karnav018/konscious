@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ALERT_TTL_MS,
+  fitsCentred,
+  GUTTER,
   BREAK_WORDS,
   canAnnounce,
   expired,
@@ -171,5 +173,48 @@ describe('which apps can speak', () => {
 
   it('has something to say on a break without a marquee', () => {
     expect(BREAK_WORDS.length).toBeGreaterThan(1)
+  })
+})
+
+describe('whether the bar has room in the middle', () => {
+  // The island is 220 wide compact. A window width cannot answer this: the
+  // app root is 1080px at its narrowest, so a width test would only ever
+  // cover the band between 1080 and 1100.
+  const W = 220
+
+  it('shows when the gap is wide enough around the centre', () => {
+    // A 1920 bar whose clusters end at 700 and start at 1200: the island
+    // spans 850–1070, well inside.
+    expect(fitsCentred(1920, 700, 1200, W)).toBe(true)
+  })
+
+  it('hides at 1280 with both chips showing', () => {
+    // 84px of traffic-light inset, the wordmark, two workspace segments, the
+    // mode control, the new-terminal button, a waiting chip and an update
+    // chip put the left cluster's edge around 930, and the right cluster
+    // starts around 1000. The centre is 640, so the island would want
+    // 530–750 and run straight through the left cluster.
+    expect(fitsCentred(1280, 930, 1000, W)).toBe(false)
+  })
+
+  it('hides when a cluster reaches past the centre, however wide the window', () => {
+    expect(fitsCentred(1920, 1000, 1800, W)).toBe(false)
+  })
+
+  it('hides once the clusters have met, leaving no gap at all', () => {
+    expect(fitsCentred(1280, 800, 800, W)).toBe(false)
+    expect(fitsCentred(1280, 820, 800, W)).toBe(false)
+  })
+
+  it('keeps a gutter on each side rather than touching', () => {
+    // Exactly the island's width between the clusters is not enough.
+    const mid = 640
+    expect(fitsCentred(1280, mid - W / 2, mid + W / 2, W)).toBe(false)
+    // The island plus a gutter either side is.
+    expect(fitsCentred(1280, mid - W / 2 - GUTTER, mid + W / 2 + GUTTER, W)).toBe(true)
+  })
+
+  it('shows when nothing has been measured, rather than hiding for good', () => {
+    expect(fitsCentred(0, 0, 0, W)).toBe(true)
   })
 })
