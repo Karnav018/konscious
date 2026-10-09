@@ -1,14 +1,14 @@
 import { useState } from 'react'
 
-import { site, visitorOs } from '../site'
+import { osOrder, site } from '../site'
 import { useDownloads, type DownloadOption } from '../useDownloads'
 import { DownloadLink } from './DownloadLink'
 import { Window } from './Shot'
 
 export function Hero() {
   const downloads = useDownloads()
-  const [primary, other] =
-    visitorOs === 'windows' ? [downloads.windows, downloads.mac] : [downloads.mac, downloads.windows]
+  // The visitor's platform leads; the next one is a quiet link (the rest are below).
+  const [primary, other] = [downloads[osOrder[0]], downloads[osOrder[1]]]
   const [started, setStarted] = useState<DownloadOption | null>(null)
   return (
     <section>

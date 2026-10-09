@@ -9,6 +9,14 @@ export const IS_LINUX = typeof navigator !== 'undefined' && /Linux/i.test(naviga
 /** Windows or Linux: Ctrl-based shortcuts, no app menu, no traffic lights. */
 export const IS_PC = IS_WINDOWS || IS_LINUX
 
+/** "macOS" / "Windows" / "Linux". */
+export const OS_NAME = IS_WINDOWS ? 'Windows' : IS_LINUX ? 'Linux' : 'macOS'
+/** Reveal a file in the file manager. Linux says "folder": Files, Dolphin
+ *  and Thunar are all in use. */
+export const SHOW_IN_FILES = IS_WINDOWS ? 'Show in Explorer' : IS_LINUX ? 'Show in folder' : 'Show in Finder'
+/** The machine the app runs on, as a heading. */
+export const THIS_MACHINE = IS_WINDOWS ? 'This PC' : IS_LINUX ? 'This computer' : 'This Mac'
+
 /**
  * Shortcut hint for tooltips and menus. On a PC, Ctrl+letter belongs to the
  * terminal (Ctrl+O, Ctrl+J, Ctrl+I = Tab…), so app shortcuts use Ctrl+Shift

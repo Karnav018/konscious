@@ -11,6 +11,7 @@ import { gaugeFill, type MetricKey, METRICS, metricTone } from '../../lib/apps'
 import { availableMetrics, shownMetric, statDetail, statValue, useStats } from '../../lib/stats'
 import { pinStat, setAppPanel } from '../../state/commands/apps'
 import { useUi } from '../../state/selectors'
+import { THIS_MACHINE } from '../../lib/platform'
 
 const CYCLE_MS = 5000
 
@@ -177,7 +178,7 @@ export function Gauge({ width, height, waiting }: { width: number; height: numbe
           className="p-2.5 bg-raised border border-line2 rounded-r z-[40] flex flex-col gap-2"
         >
           <div className="flex items-baseline justify-between">
-            <span className="text-[12.5px] font-medium">This Mac</span>
+            <span className="text-[12.5px] font-medium">{THIS_MACHINE}</span>
             <span className="font-mono text-[10px] text-faint">updates every 4 s</span>
           </div>
           {METRICS.map((m) => {

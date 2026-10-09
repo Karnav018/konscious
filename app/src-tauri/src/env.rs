@@ -136,10 +136,20 @@ impl EnvHandle {
 
 #[cfg(unix)]
 fn user_shell() -> String {
-    std::env::var("SHELL")
-        .ok()
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "/bin/zsh".into())
+    std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(default_shell)
+}
+
+/// Without $SHELL: macOS's default, zsh; on Linux, bash where it exists
+/// (zsh often doesn't), else plain sh.
+#[cfg(unix)]
+fn default_shell() -> String {
+    if cfg!(target_os = "macos") {
+        "/bin/zsh".into()
+    } else if std::path::Path::new("/bin/bash").exists() {
+        "/bin/bash".into()
+    } else {
+        "/bin/sh".into()
+    }
 }
 
 /// Terminal panes on Windows: PowerShell 7 if installed, else Windows PowerShell.

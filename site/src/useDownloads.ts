@@ -77,7 +77,7 @@ export interface DownloadOption {
   size?: string
 }
 
-/** Download buttons for both platforms, pointing at the newest release. */
+/** Download buttons for every platform, pointing at the newest release. */
 export function useDownloads() {
   const release = useRelease()
   const option = (os: Os): DownloadOption => {
@@ -91,5 +91,11 @@ export function useDownloads() {
       size: file ? formatSize(file.bytes) : undefined,
     }
   }
-  return { version: release?.version, page: release?.page ?? latestPage, mac: option('mac'), windows: option('windows') }
+  return {
+    version: release?.version,
+    page: release?.page ?? latestPage,
+    mac: option('mac'),
+    windows: option('windows'),
+    linux: option('linux'),
+  }
 }

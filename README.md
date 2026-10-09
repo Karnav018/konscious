@@ -60,12 +60,12 @@ Konscious runs your own Claude Code, so install it and sign in first.
 | | macOS | Windows | Linux |
 |---|---|---|---|
 | **Download** | [Konscious-0.3.2-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious-0.3.2-universal.dmg) | [Konscious_0.3.2_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_x64-setup.exe) | [Konscious_0.3.2_amd64.AppImage](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_amd64.AppImage) or [.deb](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_amd64.deb) |
-| **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit | x64 with glibc 2.39 or later: Ubuntu 24.04, Debian 13, Fedora 40, Arch and newer |
+| **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit | x64 with glibc 2.35 or later: Ubuntu 22.04, Debian 12, Fedora 36, Arch and newer |
 | **Install** | Open the DMG and drag Konscious to Applications | Run the installer. It installs for your account, no admin needed | Make the AppImage executable (`chmod +x`) and run it, or `sudo apt install ./Konscious_0.3.2_amd64.deb` |
-| **First launch** | The app isn't notarized yet, so macOS stops it once: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** | Nothing to click through |
+| **First launch** | The app isn't notarized yet, so macOS stops it once: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** | Nothing to click through. If the AppImage won't start, install FUSE 2 (`sudo apt install libfuse2`, or `libfuse2t64` on Ubuntu 24.04) |
 | **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | `irm https://claude.ai/install.ps1 \| iex` | `curl -fsSL https://claude.ai/install.sh \| bash` |
 
-**Updates install themselves, when you say so.** Konscious checks for a new version shortly after launch and every hour, and downloads it in the background. It never restarts behind your back, because a restart stops every live session: the title bar shows **Restart to update** and waits. When it comes back, every session that was running resumes. Updates are checked against a signing key built into the app, so only releases from this repo can install themselves.
+**Updates install themselves, when you say so.** Konscious checks for a new version shortly after launch and every hour, and downloads it in the background. It never restarts behind your back, because a restart stops every live session: the title bar shows **Restart to update** and waits. When it comes back, every session that was running resumes. Updates are checked against a signing key built into the app, so only releases from this repo can install themselves. On Linux, the AppImage replaces itself and the .deb reinstalls through your package manager, which asks for your password.
 
 <details>
 <summary><b>Keyboard shortcuts</b></summary>
@@ -119,6 +119,7 @@ Windows.
 
 - **`scripts/build-mac.sh`** — runs the Mac checks (tests, typecheck, clippy), then builds `release/mac/Konscious-<version>-universal.dmg`. Never touches the installed app.
 - **`scripts/build-windows.sh`** — cross-compiles on a Mac into `release/win/Konscious_<version>_x64-setup.exe`. One-time setup: `brew install llvm nsis` and `cargo install --locked cargo-xwin`.
+- **`scripts/build-linux.sh`** — builds the AppImage and .deb into `release/linux/` on a Mac, inside a Linux container (Docker Desktop must be running). `--native` builds for this Mac's processor instead of x86_64, much faster; `--check` runs only the Linux checks.
 - **On Linux** — `cd app && pnpm install && pnpm tauri build --bundles appimage,deb`, after installing the [WebKitGTK prerequisites](https://v2.tauri.app/start/prerequisites/#linux). `app/scripts/check-linux.sh` runs the same checks as the Mac and Windows gates.
 - **`scripts/install-mac.sh`** — installs the newest DMG on this Mac, quitting and reopening the running app. `--dry-run` shows what it would do.
 - **`scripts/build-site.sh`** — builds the website into `site/dist/`.
@@ -130,9 +131,13 @@ Windows.
 <details>
 <summary><b>Releasing</b></summary>
 
-A release is a tag. `scripts/release.sh 0.3.2` writes the version into both apps, the website and this README, then pushes `v0.3.2`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS, the installer on Windows and the AppImage and .deb on Linux, runs each platform's checks, signs them all for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour. Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
+A release is a tag. `scripts/release.sh 0.3.2` writes the version into the app, the website and this README, then pushes `v0.3.2`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS, the installer on Windows and the AppImage and .deb on Linux, runs each platform's checks, signs them all for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour.
 
-The updater only installs what the matching private key signed. That keypair is not in the repo: the public half is in both `tauri.conf.json` files, and the workflow reads the private half from the repository secret `TAURI_SIGNING_PRIVATE_KEY` (plus `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, only if the key has a password). Keep the private key safe — losing it means no installed copy can accept an update, and the only way out is asking people to install by hand again.
+To add a platform to a release that is already out without rebuilding the others — the way Linux was first released — run the workflow by hand with `tag` set to that release, `ref` to the branch to build (`main`), and `mac_from_run` / `windows_from_run` to the release's own run, whose builds it reuses: `gh workflow run release.yml --ref main -f tag=v<version> -f ref=main -f mac_from_run=<run> -f windows_from_run=<run>`.
+
+Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
+
+The updater only installs what the matching private key signed. That keypair is not in the repo: the public half is in `app/src-tauri/tauri.conf.json`, and the workflow reads the private half from the repository secret `TAURI_SIGNING_PRIVATE_KEY` (plus `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, only if the key has a password). Keep the private key safe — losing it means no installed copy can accept an update, and the only way out is asking people to install by hand again.
 
 To work on the Mac app with hot reload, point it at a scratch data folder so it never touches your real sessions:
 

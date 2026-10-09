@@ -1,4 +1,4 @@
-import { site, visitorOs } from '../site'
+import { osOrder, site } from '../site'
 import { useDownloads, type DownloadOption } from '../useDownloads'
 import { DownloadLink } from './DownloadLink'
 
@@ -13,11 +13,15 @@ const steps = {
     'If Windows says it protected your PC, click More info, then Run anyway.',
     'Open Konscious from the Start menu.',
   ],
+  linux: [
+    'Make the AppImage runnable: chmod +x Konscious_*.AppImage, then open it. Nothing to approve.',
+    'If it won’t start, install FUSE 2: sudo apt install libfuse2 (libfuse2t64 on Ubuntu 24.04).',
+    'On Ubuntu or Debian you can take the .deb from the release page instead: sudo apt install ./Konscious_*_amd64.deb',
+  ],
 }
 
 export function Download() {
   const downloads = useDownloads()
-  const order = visitorOs === 'windows' ? (['windows', 'mac'] as const) : (['mac', 'windows'] as const)
   return (
     <section id="download" className="mx-auto max-w-6xl scroll-mt-16 px-4 pt-20 pb-28 sm:px-6">
       <h2 className="font-head text-[clamp(2rem,4vw,2.75rem)] leading-tight font-semibold tracking-[-0.03em]">
@@ -34,8 +38,8 @@ export function Download() {
         )}
         Konscious runs the Claude Code you have installed, so install it and sign in first.
       </p>
-      <div className="mt-12 grid gap-14 md:grid-cols-2 md:gap-16">
-        {order.map((os) => (
+      <div className="mt-12 grid gap-14 md:grid-cols-2 md:gap-16 lg:grid-cols-3 lg:gap-12">
+        {osOrder.map((os) => (
           <Platform key={os} file={downloads[os]} steps={steps[os]} claude={site.claudeInstall[os]} />
         ))}
       </div>

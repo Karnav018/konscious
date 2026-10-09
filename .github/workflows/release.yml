@@ -22,6 +22,13 @@ on:
       tag:
         description: Existing tag to build and publish (e.g. v0.2.0)
         required: true
+      ref:
+        description: >-
+          Optional. What to build, if not the tag itself (e.g. main) — for
+          adding a platform to a published release without moving its tag.
+          The app's version there must still be the tag's.
+        required: false
+        default: ''
       mac_from_run:
         description: >-
           Optional. Run ID of an earlier run of this workflow, for the same
@@ -29,10 +36,15 @@ on:
           for when only the Windows or Linux build needs redoing.
         required: false
         default: ''
+      windows_from_run:
+        description: >-
+          Optional. The same for the Windows build.
+        required: false
+        default: ''
 
 permissions:
   contents: write
-  actions: read # fetch the macOS build from an earlier run (mac_from_run)
+  actions: read # fetch builds from an earlier run (mac_from_run, windows_from_run)
 
 env:
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -50,7 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.ref || inputs.tag || github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -105,6 +117,8 @@ jobs:
 
   windows:
     name: Windows (x64)
+    # Skipped when a previous run's Windows build is reused (windows_from_run).
+    if: ${{ !inputs.windows_from_run }}
     runs-on: windows-latest
     defaults:
       run:
@@ -113,7 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.ref || inputs.tag || github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -163,16 +177,17 @@ jobs:
 
   linux:
     name: Linux (x64)
-    # The AppImage runs on distros with this glibc or newer (Ubuntu 24.04,
-    # Debian 13, Fedora 40, Arch); 22.04 runners are being retired.
-    runs-on: ubuntu-24.04
+    # The AppImage runs on distros with this glibc or newer (Ubuntu 22.04,
+    # Debian 12, Fedora 36, Arch). GitHub retires 22.04 runners in April 2027:
+    # move to ubuntu-24.04 then (glibc 2.39: Ubuntu 24.04, Debian 13, Fedora 40).
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.ref || inputs.tag || github.ref }}
 
       # What Tauri builds against on Linux (WebKitGTK, GTK); the .deb lists
       # these as its dependencies, the AppImage carries them.
@@ -209,7 +224,11 @@ jobs:
       - name: Checks (tests, types, engine, clippy)
         run: scripts/check-linux.sh
 
+      # linuxdeploy (run by the AppImage bundler) is an AppImage itself:
+      # unpack it rather than rely on FUSE being there.
       - name: Build AppImage + .deb
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: pnpm -s tauri build --bundles appimage,deb
 
       - name: Collect
@@ -234,16 +253,17 @@ jobs:
   publish:
     name: Publish release
     needs: [macos, windows, linux]
-    # Every build from this run, or this run's Windows and Linux builds plus
-    # the macOS build of an earlier run (mac_from_run).
+    # Every platform built by this run, or reused from an earlier run of the
+    # same version (mac_from_run, windows_from_run).
     if: >-
-      ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' &&
-      (needs.macos.result == 'success' || (needs.macos.result == 'skipped' && inputs.mac_from_run != '')) }}
+      ${{ !cancelled() && needs.linux.result == 'success' &&
+      (needs.macos.result == 'success' || (needs.macos.result == 'skipped' && inputs.mac_from_run != '')) &&
+      (needs.windows.result == 'success' || (needs.windows.result == 'skipped' && inputs.windows_from_run != '')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.ref || inputs.tag || github.ref }}
       - uses: actions/download-artifact@v4
         with:
           path: assets
@@ -255,6 +275,14 @@ jobs:
           name: macos
           path: assets
           run-id: ${{ inputs.mac_from_run }}
+          github-token: ${{ github.token }}
+      - name: Fetch the Windows build from run ${{ inputs.windows_from_run }}
+        if: ${{ inputs.windows_from_run != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: assets
+          run-id: ${{ inputs.windows_from_run }}
           github-token: ${{ github.token }}
 
       # Every file must be this version, so a reused build from another

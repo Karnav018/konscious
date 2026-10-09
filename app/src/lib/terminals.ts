@@ -91,7 +91,10 @@ interface Entry {
 let gpuBroken = false
 
 function enableGpu(e: Entry) {
-  if (e.webgl || gpuBroken) return
+  // Linux: WebKitGTK can create the WebGL context, draw into it and still
+  // never show it (no GPU, VMs, some drivers) — a blank pane over a full
+  // buffer. Its DOM renderer always shows.
+  if (e.webgl || gpuBroken || IS_LINUX) return
   try {
     const gl = new WebglAddon()
     gl.onContextLoss(() => {
