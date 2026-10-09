@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { osOrder, site } from '../site'
 import { useDownloads, type DownloadOption } from '../useDownloads'
 import { DownloadLink } from './DownloadLink'
+import { LinuxFormatPicker } from './LinuxFormatPicker'
 import { Window } from './Shot'
 
 export function Hero() {
@@ -18,13 +19,17 @@ export function Hero() {
         </h1>
         <p className="mt-7 max-w-[36rem] text-lg leading-relaxed text-muted sm:text-xl">{site.summary}</p>
         <div className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-4">
-          <DownloadLink
-            file={primary}
-            onStart={() => setStarted(primary)}
-            className="rounded-pill bg-accent px-6 py-3 text-[17px] font-medium text-accent-ink hover:opacity-90"
-          >
-            {primary.label}
-          </DownloadLink>
+          <div className="flex flex-wrap items-center gap-3">
+            <DownloadLink
+              file={primary}
+              onStart={() => setStarted(primary)}
+              className="rounded-pill bg-accent px-6 py-3 text-[17px] font-medium text-accent-ink hover:opacity-90"
+            >
+              {primary.label}
+            </DownloadLink>
+            {/* A Linux visitor picks the package right here (AppImage or .deb). */}
+            {primary.os === 'linux' && <LinuxFormatPicker />}
+          </div>
           <DownloadLink
             file={other}
             onStart={() => setStarted(other)}

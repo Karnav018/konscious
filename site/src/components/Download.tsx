@@ -1,6 +1,11 @@
+import type { ReactNode } from 'react'
+
+import { useLinuxFormat } from '../linuxFormat'
+import type { LinuxFormat } from '../release'
 import { osOrder, site } from '../site'
 import { useDownloads, type DownloadOption } from '../useDownloads'
 import { DownloadLink } from './DownloadLink'
+import { LinuxFormatPicker } from './LinuxFormatPicker'
 
 const steps = {
   mac: [
@@ -13,15 +18,25 @@ const steps = {
     'If Windows says it protected your PC, click More info, then Run anyway.',
     'Open Konscious from the Start menu.',
   ],
-  linux: [
+}
+
+// Linux steps depend on the package picked.
+const linuxSteps: Record<LinuxFormat, string[]> = {
+  appimage: [
     'Make the AppImage runnable: chmod +x Konscious_*.AppImage, then open it. Nothing to approve.',
     'If it won’t start, install FUSE 2: sudo apt install libfuse2 (libfuse2t64 on Ubuntu 24.04).',
-    'On Ubuntu or Debian you can take the .deb from the release page instead: sudo apt install ./Konscious_*_amd64.deb',
+    'Updates install themselves: the AppImage replaces itself.',
+  ],
+  deb: [
+    'Install it: sudo apt install ./Konscious_*_amd64.deb',
+    'Open Konscious from your apps.',
+    'Updates install themselves through your package manager, which asks for your password.',
   ],
 }
 
 export function Download() {
   const downloads = useDownloads()
+  const format = useLinuxFormat()
   return (
     <section id="download" className="mx-auto max-w-6xl scroll-mt-16 px-4 pt-20 pb-28 sm:px-6">
       <h2 className="font-head text-[clamp(2rem,4vw,2.75rem)] leading-tight font-semibold tracking-[-0.03em]">
@@ -39,9 +54,28 @@ export function Download() {
         Konscious runs the Claude Code you have installed, so install it and sign in first.
       </p>
       <div className="mt-12 grid gap-14 md:grid-cols-2 md:gap-16 lg:grid-cols-3 lg:gap-12">
-        {osOrder.map((os) => (
-          <Platform key={os} file={downloads[os]} steps={steps[os]} claude={site.claudeInstall[os]} />
-        ))}
+        {osOrder.map((os) =>
+          os === 'linux' ? (
+            <Platform
+              key={os}
+              file={downloads.linux}
+              steps={linuxSteps[format]}
+              claude={site.claudeInstall.linux}
+              picker={<LinuxFormatPicker />}
+              more={
+                <>
+                  Another format?{' '}
+                  <a href={downloads.page} className="text-muted underline underline-offset-4 hover:text-text">
+                    Every file is on GitHub
+                  </a>
+                  .
+                </>
+              }
+            />
+          ) : (
+            <Platform key={os} file={downloads[os]} steps={steps[os]} claude={site.claudeInstall[os]} />
+          ),
+        )}
       </div>
       <p className="mt-16 text-muted">
         The source is on{' '}
@@ -54,17 +88,35 @@ export function Download() {
   )
 }
 
-function Platform({ file, steps, claude }: { file: DownloadOption; steps: readonly string[]; claude: string }) {
+function Platform({
+  file,
+  steps,
+  claude,
+  picker,
+  more,
+}: {
+  file: DownloadOption
+  steps: readonly string[]
+  claude: string
+  /** Beside the button: a choice of package (Linux). */
+  picker?: ReactNode
+  /** Under the details: where else to look. */
+  more?: ReactNode
+}) {
   return (
     <div className="min-w-0">
-      <DownloadLink
-        file={file}
-        className="inline-flex items-baseline gap-3 rounded-pill bg-accent px-6 py-3 text-[17px] font-medium text-accent-ink hover:opacity-90"
-      >
-        {file.label}
-        {file.size && <span className="text-sm font-normal opacity-75">{file.size}</span>}
-      </DownloadLink>
+      <div className="flex flex-wrap items-center gap-3">
+        <DownloadLink
+          file={file}
+          className="inline-flex items-baseline gap-3 rounded-pill bg-accent px-6 py-3 text-[17px] font-medium text-accent-ink hover:opacity-90"
+        >
+          {file.label}
+          {file.size && <span className="text-sm font-normal opacity-75">{file.size}</span>}
+        </DownloadLink>
+        {picker}
+      </div>
       <p className="mt-3 text-sm text-faint">{file.detail}</p>
+      {more && <p className="mt-1 text-sm text-faint">{more}</p>}
       <h3 className="mt-9 font-semibold">First launch</h3>
       <ol className="mt-3 list-decimal space-y-2 pl-5 leading-relaxed text-muted marker:text-faint">
         {steps.map((s) => (
