@@ -39,6 +39,8 @@ export const setDockPlace = (edge: Edge, along: number) =>
     d.ui.apps.along = along
   })
 
+export const setSound = (on: boolean) => act('apps/sound', (d) => void (d.ui.apps.sound = on))
+
 export const setAutoMinimise = (on: boolean) => act('apps/autoMinimise', (d) => void (d.ui.apps.autoMinimise = on))
 
 /** Switching an app on starts its interval from now, so the first nudge is a

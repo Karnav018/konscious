@@ -25,7 +25,7 @@ import {
   type IslandApp,
   type IslandEvent,
   nextIndex,
-  placeIsland,
+  showsCentred,
   rankActivities,
 } from '../../lib/island'
 import { BARS, barTiming, needsMarquee, progress, trackLabel, useNowPlaying } from '../../lib/media'
@@ -327,11 +327,7 @@ export function Island() {
 
   // Only the compact footprint decides: an alert is wider, but it hangs below
   // the bar where there is nothing to run into.
-  const place = placeIsland(bar.w, bar.left, bar.right, COMPACT.w)
-  if (!place) return null
-  // Positioned by the compact box's centre, so an alert grows evenly either
-  // side of where the compact one sat rather than only to the right.
-  const centre = place.centred ? '50%' : `${place.left + COMPACT.w / 2}px`
+  if (!showsCentred(bar.w, bar.left, bar.right, COMPACT.w)) return null
 
   const mode = !cur ? 'idle' : open ? 'alert' : 'compact'
   const width = mode === 'idle' ? IDLE.w : mode === 'compact' ? COMPACT.w : ALERT.w
@@ -358,7 +354,7 @@ export function Island() {
       onClick={() => cur && expandIsland(pinned ? null : cur.id)}
       style={{
         position: 'absolute',
-        left: centre,
+        left: '50%',
         top: 0,
         transform: 'translateX(-50%)',
         width,

@@ -34,6 +34,7 @@ import {
   setAppPanel,
   setAppPinned,
   setAutoMinimise,
+  setSound,
   setCaffCutoff,
   setCaffLimit,
   setEvery,
@@ -620,6 +621,16 @@ export function AppsPanel() {
               )}
 
               <div className="h-px bg-line" />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex flex-col">
+                  <span className="text-[12px]">Play a sound</span>
+                  <span className="text-[11px] text-muted leading-[1.4]">
+                    A short chime when a nudge arrives — the one part of it that reaches you while you’re looking
+                    somewhere else.
+                  </span>
+                </div>
+                <Switch on={apps.sound} hue="var(--accent)" onClick={() => setSound(!apps.sound)} />
+              </div>
               <div className="flex items-center gap-2 pb-1">
                 <div className="flex-1 flex flex-col">
                   <span className="text-[12px]">Tuck the dock away</span>

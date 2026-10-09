@@ -62,30 +62,6 @@ export const PHASE_ALERT_MS = 8000
 /** Clear space to keep either side of the island. */
 export const GUTTER = 12
 
-/**
- * Whether a box of width `w`, centred in a bar `barW` wide, clears the
- * clusters on either side of it.
- *
- * `leftRight` is the right edge of everything on the left — the wordmark, the
- * workspace switch, the mode control, the new-terminal button, the waiting
- * chip and the update chip — and `rightLeft` is the left edge of everything
- * on the right. Both are measured from the bar's own left edge.
- *
- * A window width will not do here. The root is 1080px at its narrowest, so a
- * width test protects a twenty-pixel band and nothing else, while the left
- * cluster alone can pass the centre of a wide window once it carries two
- * workspace names and both chips.
- */
-function fitsCentred(barW: number, leftRight: number, rightLeft: number, w: number, gutter = GUTTER): boolean {
-  // Nothing measured yet, or an environment with no layout. Showing is the
-  // safer default: hiding on a failed measurement hides it for good.
-  if (barW <= 0) return true
-  // The clusters have met. There is no gap to be in the middle of.
-  if (rightLeft <= leftRight) return false
-  const mid = barW / 2
-  const half = w / 2
-  return mid - half >= leftRight + gutter && mid + half <= rightLeft - gutter
-}
 
 /** Every app, so a per-app flag is never dropped on load for want of being
  *  listed. Derived rather than written out: the hand-written version silently
@@ -166,35 +142,36 @@ export function nextIndex(count: number, i: number, delta: number): number {
   return (((i + delta) % count) + count) % count
 }
 
-/** Where the island sits: dead centre, or nudged to the middle of the gap. */
-export type Place = { centred: true } | { centred: false; left: number }
-
 /**
- * Where to put a box `w` wide, or null to leave it out altogether.
+ * Whether the island shows, which is only ever at the true centre.
  *
- * Centred is the shape we want, but the bar's clusters are not symmetrical —
- * a long workspace name and a waiting chip push the left one well past the
- * middle — and hiding then would take the notch away exactly when a nudge
- * matters. So the fallback is to centre it in the gap instead. Off-centre and
- * visible beats centred and gone.
+ * It is a notch, and a notch is centred — off to one side it stops reading as
+ * one. So when the title bar's clusters crowd the middle it does not shuffle
+ * sideways to stay visible; it goes, and the dock and the system notification
+ * carry the nudge instead.
  *
- * `left` is the compact box's left edge, measured from the bar's left edge.
- * The caller positions by the centre of that box so an alert, which is wider,
- * grows evenly either side of where the compact one sat. An alert may overhang
- * the clusters: it hangs below the bar, where there is nothing to hit.
+ * `leftRight` is the right edge of everything on the left — the wordmark, the
+ * workspace switch, the mode control, the new-terminal button, the waiting
+ * chip and the update chip — and `rightLeft` is the left edge of everything
+ * on the right. Both are measured from the bar's own left edge.
+ *
+ * A window width will not do here. The root is 1080px at its narrowest, so a
+ * width test protects a twenty-pixel band and nothing else, while the left
+ * cluster alone can pass the centre of a window far wider than that.
  */
-export function placeIsland(
+export function showsCentred(
   barW: number,
   leftRight: number,
   rightLeft: number,
   w: number,
   gutter = GUTTER,
-): Place | null {
+): boolean {
   // Nothing measured yet, or an environment with no layout. Showing is the
   // safer default: hiding on a failed measurement hides it for good.
-  if (barW <= 0) return { centred: true }
-  if (fitsCentred(barW, leftRight, rightLeft, w, gutter)) return { centred: true }
-  const gap = rightLeft - leftRight
-  if (gap >= w + 2 * gutter) return { centred: false, left: leftRight + (gap - w) / 2 }
-  return null
+  if (barW <= 0) return true
+  // The clusters have met. There is no middle to be in.
+  if (rightLeft <= leftRight) return false
+  const mid = barW / 2
+  const half = w / 2
+  return mid - half >= leftRight + gutter && mid + half <= rightLeft - gutter
 }

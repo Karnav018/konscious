@@ -13,6 +13,7 @@
 // island is inside our own window, so it cannot be turned off. Its one honest
 // limit is that it is invisible while the window is.
 import { appById, isDue, pomoNotice, pomoOver } from '../lib/apps'
+import { play } from '../lib/chime'
 import { type IslandApp, PHASE_ALERT_MS } from '../lib/island'
 import { ipc } from '../lib/ipc'
 import { repaintIfDue } from './actions'
@@ -44,6 +45,9 @@ export function announce(app: IslandApp, title: string, body: string, ttlMs?: nu
   const s = getState()
   if (s.ui.apps.island[app]) pushIsland({ app, title, body, ...(ttlMs === undefined ? {} : { ttlMs }) })
   if (s.ui.notifyAllowed) ipc.notify(title, body)
+  // Once per nudge, whichever of the above happened. A nudge that showed in
+  // three places and chimed three times would be the thing you switch off.
+  if (s.ui.apps.sound) play()
 }
 
 function tick(now = Date.now()) {

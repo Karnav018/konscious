@@ -97,15 +97,13 @@ describe('the notch island', () => {
     expect(r.getByText('Drink water')).toBeTruthy()
   })
 
-  it('moves off centre rather than vanish when the clusters crowd the middle', () => {
-    // A long workspace name and a waiting session must not cost you the
-    // notch; it sits in the gap instead.
+  it('goes rather than sit off centre when the clusters crowd the middle', () => {
+    // A 570px gap would hold the pill, but not around the centre — and a
+    // notch that is not centred does not read as one.
     layout(1280, 700, 1270)
     pushIsland({ app: 'water', title: 'Drink water' })
     const r = render(inBar())
-    const el = r.container.querySelector('[data-island]') as HTMLElement
-    expect(el.style.left).toBe(`${700 + (570 - 220) / 2 + 110}px`)
-    expect(r.getByText('Drink water')).toBeTruthy()
+    expect(r.container.querySelector('[data-island]')).toBeNull()
   })
 
   it('collapses a fresh alert once it has stopped being news', () => {

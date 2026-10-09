@@ -103,6 +103,9 @@ export interface AppsState {
   /** Per app: whether its nudges also show in the notch island. On by
    *  default — the island is the one place a reminder always reaches. */
   island: Record<IslandApp, boolean>
+  /** A short chime when a nudge arrives, for when you are not looking at
+   *  the window. One sound per nudge, like the notification. */
+  sound: boolean
 }
 
 export interface UiState {
@@ -255,6 +258,7 @@ export const initialState = (): AppState => ({
       pomoSet: { focusMin: 25, breakMin: 5 },
       statPinned: null,
       island: { water: true, stand: true, sit: true, caff: true, pomo: true, music: true, sys: true, warm: true },
+      sound: true,
     },
     transfer: null,
     appPopover: null,

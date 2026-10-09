@@ -139,6 +139,8 @@ const ConfigFileV1 = z.object({
       statPinned: z.enum(['cpu', 'ram', 'ssd', 'tmp']).nullable().catch(null).optional(),
       /** Per app: whether its nudges also show in the notch island. */
       island: z.record(z.string(), z.boolean()).catch({}).optional(),
+      /** A short chime when a nudge arrives. */
+      sound: z.boolean().catch(true).optional(),
       /** Caffeine. The log is a rolling day, trimmed on load as well as on
        *  use, so a config left for a week does not come back full. */
       caff: z
