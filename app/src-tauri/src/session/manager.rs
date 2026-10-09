@@ -85,7 +85,10 @@ impl Session {
             (t.status, t.hooks_active)
         };
         let exit = self.exit.locked().clone();
-        let running = proc.as_ref().is_some_and(|p| p.is_alive());
+        // Still running until the exit is recorded: the process is reaped a
+        // moment (≤ EOF_DRAIN) before its final status is set, and in between
+        // "not running, still Starting" would be a contradiction.
+        let running = proc.as_ref().is_some_and(|p| p.is_alive() || exit.is_none());
         let (cols, rows) = *self.pty_size.locked();
         SessionInfo {
             id: spec.id,

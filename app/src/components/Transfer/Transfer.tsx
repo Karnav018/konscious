@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { ipc } from '../../lib/ipc'
-import { IS_LINUX, IS_WINDOWS } from '../../lib/platform'
+import { IS_WINDOWS, OS_NAME, SHOW_IN_FILES } from '../../lib/platform'
 import { bundleName, placements, size } from '../../lib/transfer'
 import { layoutOf } from '../../state/commands/layout'
 import { closeTransfer, flash } from '../../state/commands/ui'
@@ -157,7 +157,7 @@ function ExportSheet({ workspaceId }: { workspaceId: string }) {
           </div>
           <div className={foot}>
             <div className={ghost} onClick={() => void ipc.revealInFinder(done.path).catch(() => {})}>
-              {IS_LINUX ? 'Show in folder' : 'Show in Finder'}
+              {SHOW_IN_FILES}
             </div>
             <div className={solid} onClick={closeTransfer}>
               Done
@@ -186,7 +186,7 @@ function ExportSheet({ workspaceId }: { workspaceId: string }) {
             <div className="flex justify-between gap-3 px-3 py-2.5 border-b border-line">
               <span className="text-[12.5px] text-muted flex-none">Manifest</span>
               <span className={`${mono} truncate`}>
-                Konscious {getState().ui.init?.version} · {IS_WINDOWS ? 'Windows' : IS_LINUX ? 'Linux' : 'macOS'}
+                Konscious {getState().ui.init?.version} · {OS_NAME}
               </span>
             </div>
             <div className="flex justify-between gap-3 px-3 py-2.5 border-b border-line">

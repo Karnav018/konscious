@@ -214,7 +214,10 @@ pub async fn clipboard_read(app: tauri::AppHandle) -> AppResult<crate::clipboard
             let _ = tx.send(crate::clipboard::read());
         })
         .map_err(|e| AppError::Unavailable(format!("clipboard: {e}")))?;
-        rx.recv().map_err(|e| AppError::Unavailable(format!("clipboard: {e}")))
+        // Bounded: if the main thread is busy, give up rather than hold a
+        // blocking-pool thread (and the paste) for good.
+        rx.recv_timeout(std::time::Duration::from_secs(2))
+            .map_err(|e| AppError::Unavailable(format!("clipboard: {e}")))
     })
     .await?;
     #[cfg(not(target_os = "linux"))]

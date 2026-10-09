@@ -15,8 +15,7 @@ import {
 import { ago, relTo, STATUS_COLOR, STATUS_LABEL, tildify } from '../../lib/format'
 import { pickAndImport } from '../../app/transfer'
 import { CAP } from '../../lib/grid'
-import { shellLabel } from '../../lib/path'
-import { IS_WINDOWS } from '../../lib/platform'
+import { shellName } from '../../lib/path'
 import { layoutOf } from '../../state/commands/layout'
 import { runtimeOf } from '../../state/commands/runtime'
 import { closeWorkspaceMenu, hoverWorkspace, openExport, setWsFilter } from '../../state/commands/ui'
@@ -90,7 +89,7 @@ export function WorkspaceMenu() {
   const wsHover = useUi((u) => u.wsHover)
   const wsFilter = useUi((u) => u.wsFilter)
   const home = useUi((u) => u.init?.home)
-  const shellTag = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : (u.env?.shell ?? '/bin/zsh').split('/').pop()))
+  const shellTag = useUi((u) => shellName(u.env?.shell))
   const workspaces = useWorkspacesByUse()
   // Subscribing here means the engine is only polled while this menu is open.
   const memory = useSessionMemory()

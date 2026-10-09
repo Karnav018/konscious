@@ -2,7 +2,7 @@
 // there — and each helper's Mac branch is the exact expression the app has
 // always used. Windows paths ("C:\Users\k\app") accept both separators and
 // keep drive roots intact ("C:" alone would mean the drive's current folder).
-import { IS_WINDOWS } from './platform'
+import { IS_LINUX, IS_WINDOWS } from './platform'
 
 const DRIVE = /^[A-Za-z]:$/
 const DRIVE_ROOT = /^[A-Za-z]:[\\/]$/
@@ -40,3 +40,8 @@ export function join(base: string, name: string, win = IS_WINDOWS): string {
 
 /** Windows shell for labels: "C:\…\pwsh.exe" → "pwsh". */
 export const shellLabel = (shell: string | undefined) => basename(shell || 'powershell', true).replace(/\.exe$/i, '')
+
+/** A terminal pane's shell, for labels: "zsh", "bash", "pwsh"… Without one
+ *  known, the platform's default (bash on Linux, where zsh often isn't). */
+export const shellName = (shell: string | undefined, win = IS_WINDOWS, linux = IS_LINUX) =>
+  win ? shellLabel(shell) : basename(shell || (linux ? '/bin/bash' : '/bin/zsh'), false)

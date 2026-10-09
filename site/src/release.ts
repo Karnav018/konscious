@@ -7,7 +7,7 @@ export const latestApi = 'https://api.github.com/repos/Karnav018/konscious/relea
 /** Always works: GitHub's page for the newest published release. */
 export const latestPage = `${repo}/releases/latest`
 
-export type Os = 'mac' | 'windows'
+export type Os = 'mac' | 'windows' | 'linux'
 
 export interface Installer {
   name: string
@@ -27,6 +27,8 @@ export interface Release {
 const installerName: Record<Os, RegExp> = {
   mac: /-universal\.dmg$/,
   windows: /_x64-setup\.exe$/,
+  // The AppImage runs on any distro; the .deb is on the release page.
+  linux: /_amd64\.AppImage$/,
 }
 
 /**
@@ -48,7 +50,7 @@ export function parseRelease(json: unknown): Release | null {
       if (installerName[os].test(name)) installers[os] = { name, url, bytes: size }
     }
   }
-  if (!installers.mac && !installers.windows) return null
+  if (!installers.mac && !installers.windows && !installers.linux) return null
 
   return {
     version: r.tag_name.replace(/^v/, ''),

@@ -31,6 +31,8 @@ const artifacts = {
   // itself, a .deb goes through dpkg (the updater asks for the password).
   'linux-x86_64-appimage': `Konscious_${version}_amd64.AppImage`,
   'linux-x86_64-deb': `Konscious_${version}_amd64.deb`,
+  // Any other Linux install (no package type known) takes the AppImage.
+  'linux-x86_64': `Konscious_${version}_amd64.AppImage`,
 }
 
 const platforms = {}
