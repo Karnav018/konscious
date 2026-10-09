@@ -16,7 +16,9 @@ import {
   startFocus,
   stopPomo,
 } from '../../lib/apps'
+import { freshCaff, MAX_MG, withDose } from '../../lib/caffeine'
 import { type IslandApp, withoutApp } from '../../lib/island'
+import { type SitState, withoutStreak } from '../../lib/sitting'
 import { act } from '../act'
 import { type AppState, getState } from '../store'
 
@@ -155,3 +157,55 @@ export const resetPomoRounds = () => act('apps/pomoReset', (d) => void (d.ui.app
 
 /** Picking a stat stops the gauge cycling; picking it again resumes. */
 export const pinStat = (key: MetricKey | null) => act('apps/pinStat', (d) => void (d.ui.apps.statPinned = key))
+
+/* ── caffeine ─────────────────────────────────────────────────────── */
+
+/** A drink, logged now. The log is trimmed to a rolling day as it goes in. */
+export const addDose = (mg: number, now = Date.now()) =>
+  act('apps/caffDose', (d) => {
+    const amount = Math.min(MAX_MG, Math.max(1, Math.round(mg)))
+    d.ui.apps.caff.log = withDose(d.ui.apps.caff.log, amount, now)
+  })
+
+export const setCaffLimit = (mg: number) =>
+  act('apps/caffLimit', (d) => void (d.ui.apps.caff.limitMg = Math.min(2000, Math.max(50, Math.round(mg)))))
+
+export const setCaffCutoff = (minutes: number) =>
+  act('apps/caffCutoff', (d) => void (d.ui.apps.caff.cutoffMin = Math.min(1439, Math.max(0, Math.round(minutes)))))
+
+/** "I logged that by mistake": the last drink goes. */
+export const undoDose = () =>
+  act('apps/caffUndo', (d) => {
+    d.ui.apps.caff.log = d.ui.apps.caff.log.slice(0, -1)
+    dealtWith(d, 'caff')
+  })
+
+/** Clears the log, keeping the limit and the cutoff. */
+export const resetCaff = () =>
+  act('apps/caffReset', (d) => {
+    d.ui.apps.caff = { ...freshCaff(), limitMg: d.ui.apps.caff.limitMg, cutoffMin: d.ui.apps.caff.cutoffMin }
+    dealtWith(d, 'caff')
+  })
+
+/* ── sitting ──────────────────────────────────────────────────────── */
+
+/** The result of one poll, from lib/sitting's pure advance(). */
+export const applySit = (next: SitState) => act('apps/sit', (d) => void (d.ui.apps.sit = next))
+
+export const setSitAlertMin = (minutes: number) =>
+  act('apps/sitAlert', (d) => void (d.ui.apps.sit.alertMin = Math.min(600, Math.max(5, Math.round(minutes)))))
+
+/** "Up now": ends the streak by hand, so the next nudge is a full threshold
+ *  away rather than arriving again in a minute. */
+export const standNow = () =>
+  act('apps/sitUp', (d) => {
+    d.ui.apps.sit = withoutStreak(d.ui.apps.sit)
+    dealtWith(d, 'sit')
+  })
+
+/** Today's tally and the longest stretch, cleared from the app's settings. */
+export const resetSit = () =>
+  act('apps/sitReset', (d) => {
+    d.ui.apps.sit = { ...withoutStreak(d.ui.apps.sit), todayMs: 0, longestMs: 0 }
+    dealtWith(d, 'sit')
+  })

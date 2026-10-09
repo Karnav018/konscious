@@ -38,8 +38,9 @@ const due = (over: Partial<Parameters<typeof isDue>[0]> = {}) =>
 
 describe('the catalog', () => {
   it('ships every app in a category, in catalog order', () => {
-    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'pomo', 'warm', 'sys'])
+    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'warm', 'sys'])
     expect(APPS.filter((a) => a.category === 'Reminders').map((a) => a.id)).toEqual(['water', 'stand'])
+    expect(APPS.filter((a) => a.category === 'Health').map((a) => a.id)).toEqual(['sit', 'caff'])
     expect(APPS.filter((a) => a.category === 'Timers').map((a) => a.id)).toEqual(['pomo'])
     expect(APPS.filter((a) => a.category === 'Display').map((a) => a.id)).toEqual(['warm'])
     expect(APPS.filter((a) => a.category === 'System').map((a) => a.id)).toEqual(['sys'])
@@ -62,6 +63,19 @@ describe('the catalog', () => {
 
   it('says what every app can do, for the catalog and later the permissions', () => {
     for (const app of APPS) expect(app.can.length).toBeGreaterThan(0)
+  })
+
+  it('gives every app a hue of its own', () => {
+    const hues = APPS.map((a) => a.hue)
+    expect(new Set(hues).size).toBe(hues.length)
+  })
+
+  it('tells the two sitting apps apart in its own copy', () => {
+    // They are easy to confuse, so the catalog has to say which is which.
+    expect(appById('stand').everyMin).toBe(50)
+    expect(appById('sit').everyMin).toBeUndefined()
+    expect(appById('sit').long).toMatch(/measures/i)
+    expect(appById('sit').can.join(' ')).toMatch(/key or click/i)
   })
 })
 

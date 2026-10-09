@@ -77,6 +77,9 @@ export const ipc = {
   sessionList: () => invoke<SessionInfo[]>('session_list'),
   sessionMemory: () => invoke<SessionMemory[]>('session_memory'),
   systemStats: () => invoke<Stats>('system_stats'),
+  /** Seconds since the user last touched the machine; null where the
+   *  platform cannot say. The sitting tracker measures from this. */
+  systemIdleSecs: () => invoke<number | null>('system_idle_secs'),
 
   /* ── moving a workspace between machines ───────────────────────── */
 

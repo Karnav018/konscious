@@ -63,21 +63,33 @@ describe('the notch island', () => {
     expect(r.getByText('A glass now and then.')).toBeTruthy()
   })
 
-  it('stays out of a bar whose clusters leave no room in the middle', () => {
+  it('stays out of a bar whose gap cannot hold it at all', () => {
     // 1280 wide with the waiting and update chips showing: the left cluster
-    // reaches 930 and the right starts at 1000, so a 220px island centred at
-    // 640 would run through the left one.
+    // reaches 930 and the right starts at 1000 — a 70px gap for a 220px box.
     layout(1280, 930, 1000)
     pushIsland({ app: 'water', title: 'Drink water' })
     const r = render(inBar())
     expect(r.container.querySelector('[data-island]')).toBeNull()
   })
 
-  it('shows once the bar is wide enough for it', () => {
+  it('shows centred once the bar is wide enough for it', () => {
     layout(1920, 700, 1200)
     pushIsland({ app: 'water', title: 'Drink water' })
     const r = render(inBar())
-    expect(r.container.querySelector('[data-island]')).not.toBeNull()
+    const el = r.container.querySelector('[data-island]') as HTMLElement
+    expect(el).not.toBeNull()
+    expect(el.style.left).toBe('50%')
+    expect(r.getByText('Drink water')).toBeTruthy()
+  })
+
+  it('moves off centre rather than vanish when the clusters crowd the middle', () => {
+    // A long workspace name and a waiting session must not cost you the
+    // notch; it sits in the gap instead.
+    layout(1280, 700, 1270)
+    pushIsland({ app: 'water', title: 'Drink water' })
+    const r = render(inBar())
+    const el = r.container.querySelector('[data-island]') as HTMLElement
+    expect(el.style.left).toBe(`${700 + (570 - 220) / 2 + 110}px`)
     expect(r.getByText('Drink water')).toBeTruthy()
   })
 

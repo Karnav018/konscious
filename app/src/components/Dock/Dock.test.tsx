@@ -66,4 +66,25 @@ describe('the dock does not swallow its own clicks', () => {
     const r = render(<Dock />)
     expect(r.getByTitle(/Drink water/)).toBeTruthy()
   })
+
+  it('shows the caffeine cup by what is still in you, not the day’s total', () => {
+    setAppOn('caff', true)
+    const r = render(<Dock />)
+    expect(r.getByTitle(/still in you/)).toBeTruthy()
+  })
+
+  it('shows the sitting tile as away until a streak has begun', () => {
+    setAppOn('sit', true)
+    const r = render(<Dock />)
+    expect(r.getByTitle(/away from the desk/i)).toBeTruthy()
+  })
+
+  it('logs a drink from the caffeine tile’s popover', () => {
+    setAppOn('caff', true)
+    const r = render(<Dock />)
+    fireEvent.click(r.getByTitle(/still in you/))
+    fireEvent.click(r.getByTitle(/^Coffee/))
+    expect(getState().ui.apps.caff.log).toHaveLength(1)
+    expect(getState().ui.apps.caff.log[0].mg).toBe(95)
+  })
 })

@@ -30,6 +30,14 @@ export function clock(ms: number | null | undefined): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/** The local calendar day, as a key. Local rather than UTC: a day is a thing
+ *  that rolls over while you are asleep, wherever you are. */
+export function dayKey(ms: number): string {
+  const d = new Date(ms)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 /** "now", "6m", "13:08", "yesterday" — the design's compact activity times. */
 export function ago(ms: number | null | undefined, now = Date.now()): string {
   if (!ms) return '—'

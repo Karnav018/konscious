@@ -13,8 +13,8 @@
 //
 // Everything here is pure. The dock reads it; nothing in it touches the DOM.
 
-export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm'
-export type AppCategory = 'Reminders' | 'Timers' | 'Display' | 'System'
+export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit'
+export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Display' | 'System'
 
 export interface AppDef {
   id: AppId
@@ -81,6 +81,51 @@ export const APPS: readonly AppDef[] = [
     can: ['Show a tile in the dock', 'Show a nudge in the notch at the top of the window', 'Raise a system notification'],
     everyMin: 50,
     ack: 'Done',
+  },
+  {
+    id: 'sit',
+    name: 'Sitting',
+    short: 'Sit',
+    hue: 'var(--sit)',
+    category: 'Health',
+    desc: 'How long you have actually been at the desk, measured.',
+    long: 'Stand up runs a timer and nudges you at the interval whether you have been sitting or out at lunch. This measures instead: the system knows how long since your last key or click, and three minutes of that means you got up, so the streak ends and starts again when you come back. What it reports is time you were really there.',
+    steps: [
+      'It reads how long since your last key or click, every 15 seconds.',
+      'Three minutes without one means you left, so the streak ends.',
+      'Cross your threshold in one sitting and you get one nudge.',
+    ],
+    tags: ['sitting', 'posture', 'desk', 'idle', 'health', 'sedentary', 'chair', 'break'],
+    can: [
+      'Show a tile in the dock',
+      'Show a nudge in the notch at the top of the window',
+      'Raise a system notification',
+      'Read how long since this machine last had a key or click',
+      'Keep today’s total and your longest stretch',
+    ],
+    ack: 'Up now',
+  },
+  {
+    id: 'caff',
+    name: 'Caffeine',
+    short: 'Caff',
+    hue: 'var(--caff)',
+    category: 'Health',
+    desc: 'What you have had today, and how much is still in you.',
+    long: 'Tap what you drank and it keeps a running figure for how much caffeine is still circulating, not just the day’s total. Caffeine leaves on a half-life of about five hours, so a coffee at 16:00 is still worth about half of it at 21:00 — which is usually the answer to why you are awake. The day’s total is measured against a limit; what is in you is measured against the clock.',
+    steps: [
+      'Tap Espresso, Coffee, Tea or Energy — or type a figure.',
+      'The cup in the dock fills with what is still in you, not what you drank.',
+      'You get one nudge if the day goes over your limit, and one for a cup after your cutoff.',
+    ],
+    tags: ['caffeine', 'coffee', 'espresso', 'tea', 'energy', 'sleep', 'health', 'mg', 'cutoff'],
+    can: [
+      'Show a tile in the dock',
+      'Show a nudge in the notch at the top of the window',
+      'Raise a system notification',
+      'Keep what you logged for the last day',
+    ],
+    ack: 'Logged',
   },
   {
     id: 'pomo',

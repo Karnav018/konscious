@@ -76,7 +76,7 @@ export const GUTTER = 12
  * cluster alone can pass the centre of a wide window once it carries two
  * workspace names and both chips.
  */
-export function fitsCentred(barW: number, leftRight: number, rightLeft: number, w: number, gutter = GUTTER): boolean {
+function fitsCentred(barW: number, leftRight: number, rightLeft: number, w: number, gutter = GUTTER): boolean {
   // Nothing measured yet, or an environment with no layout. Showing is the
   // safer default: hiding on a failed measurement hides it for good.
   if (barW <= 0) return true
@@ -161,4 +161,37 @@ export const withoutId = (events: readonly IslandEvent[], id: string): IslandEve
 export function nextIndex(count: number, i: number, delta: number): number {
   if (count <= 0) return 0
   return (((i + delta) % count) + count) % count
+}
+
+/** Where the island sits: dead centre, or nudged to the middle of the gap. */
+export type Place = { centred: true } | { centred: false; left: number }
+
+/**
+ * Where to put a box `w` wide, or null to leave it out altogether.
+ *
+ * Centred is the shape we want, but the bar's clusters are not symmetrical —
+ * a long workspace name and a waiting chip push the left one well past the
+ * middle — and hiding then would take the notch away exactly when a nudge
+ * matters. So the fallback is to centre it in the gap instead. Off-centre and
+ * visible beats centred and gone.
+ *
+ * `left` is the compact box's left edge, measured from the bar's left edge.
+ * The caller positions by the centre of that box so an alert, which is wider,
+ * grows evenly either side of where the compact one sat. An alert may overhang
+ * the clusters: it hangs below the bar, where there is nothing to hit.
+ */
+export function placeIsland(
+  barW: number,
+  leftRight: number,
+  rightLeft: number,
+  w: number,
+  gutter = GUTTER,
+): Place | null {
+  // Nothing measured yet, or an environment with no layout. Showing is the
+  // safer default: hiding on a failed measurement hides it for good.
+  if (barW <= 0) return { centred: true }
+  if (fitsCentred(barW, leftRight, rightLeft, w, gutter)) return { centred: true }
+  const gap = rightLeft - leftRight
+  if (gap >= w + 2 * gutter) return { centred: false, left: leftRight + (gap - w) / 2 }
+  return null
 }

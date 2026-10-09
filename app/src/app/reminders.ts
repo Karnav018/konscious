@@ -16,6 +16,7 @@ import { appById, isDue, pomoNotice, pomoOver } from '../lib/apps'
 import { type IslandApp, PHASE_ALERT_MS } from '../lib/island'
 import { ipc } from '../lib/ipc'
 import { repaintIfDue } from './actions'
+import { pollSitting } from './sitting'
 import { advancePomo, markDue, setNotifyAllowed } from '../state/commands/apps'
 import { pushIsland } from '../state/commands/island'
 import { getState } from '../state/store'
@@ -39,7 +40,7 @@ function sessionWaiting(): boolean {
  * notification needs one and may not have it. Either can be missing; the two
  * together are why a reminder is never silently lost.
  */
-function announce(app: IslandApp, title: string, body: string, ttlMs?: number) {
+export function announce(app: IslandApp, title: string, body: string, ttlMs?: number) {
   const s = getState()
   if (s.ui.apps.island[app]) pushIsland({ app, title, body, ...(ttlMs === undefined ? {} : { ttlMs }) })
   if (s.ui.notifyAllowed) ipc.notify(title, body)
@@ -50,6 +51,11 @@ function tick(now = Date.now()) {
   repaintIfDue()
   const s = getState()
   const waiting = sessionWaiting()
+
+  // Sitting measures rather than counts down, so it asks the system how long
+  // since your last key or click. It paces itself; this only offers it the
+  // tick, so there is still one timer in the app.
+  pollSitting(now)
 
   // A pomodoro phase that has run out hands over to the next one, and says so
   // once. A break follows focus; focus follows a break. The alert is brief

@@ -6,8 +6,12 @@ import { subscribeWithSelector } from 'zustand/middleware'
 
 import type { AppId, Edge, MetricKey, PomoState, ReminderState } from '../lib/apps'
 import { freshPomo, freshReminder } from '../lib/apps'
+import type { CaffState } from '../lib/caffeine'
+import { freshCaff } from '../lib/caffeine'
 import type { IslandApp, IslandState } from '../lib/island'
 import { freshIsland } from '../lib/island'
+import type { SitState } from '../lib/sitting'
+import { freshSit } from '../lib/sitting'
 import type { Place } from '../lib/sun'
 import type { WarmWhen } from '../lib/warmth'
 import { DEFAULT_K } from '../lib/warmth'
@@ -87,6 +91,10 @@ export interface AppsState {
   /** Permission is asked once, the first time an app is switched on. */
   asked: boolean
   reminders: Record<'water' | 'stand', ReminderState>
+  /** Caffeine: the last day's drinks, the daily limit and the cutoff. */
+  caff: CaffState
+  /** Sitting: the streak in progress and the day's tally. */
+  sit: SitState
   /** Pomodoro: how long each phase runs, and where it is now. */
   pomo: PomoState
   pomoSet: { focusMin: number; breakMin: number }
@@ -233,18 +241,20 @@ export const initialState = (): AppState => ({
       autoMinimise: false,
       // 'warm' is absent on purpose: its switch is ui.warm, so there is one
       // source of truth for whether the window is warm.
-      on: { water: false, stand: false, pomo: false, sys: false, warm: false },
-      pinned: { water: true, stand: true, pomo: true, sys: true, warm: true },
+      on: { water: false, stand: false, sit: false, caff: false, pomo: false, sys: false, warm: false },
+      pinned: { water: true, stand: true, sit: true, caff: true, pomo: true, sys: true, warm: true },
       every: { water: 40, stand: 50 },
       snoozeMin: 10,
       glasses: 0,
       glassesOn: '',
       asked: false,
       reminders: { water: freshReminder(0), stand: freshReminder(0) },
+      caff: freshCaff(),
+      sit: freshSit(),
       pomo: freshPomo(),
       pomoSet: { focusMin: 25, breakMin: 5 },
       statPinned: null,
-      island: { water: true, stand: true, pomo: true, sys: true, warm: true, music: true },
+      island: { water: true, stand: true, sit: true, caff: true, pomo: true, sys: true, warm: true, music: true },
     },
     transfer: null,
     appPopover: null,

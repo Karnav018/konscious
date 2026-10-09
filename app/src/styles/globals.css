@@ -22,6 +22,8 @@
   --color-info: var(--info);
   --color-water: var(--water);
   --color-stand: var(--stand);
+  --color-sit: var(--sit);
+  --color-caff: var(--caff);
   --color-sys: var(--sys);
   --color-cpu: var(--cpu);
   --color-ram: var(--ram);

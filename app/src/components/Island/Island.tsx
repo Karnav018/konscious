@@ -22,10 +22,10 @@ import {
   BREAK_WORDS,
   COLLAPSE_MS,
   CYCLE_MS,
-  fitsCentred,
   type IslandApp,
   type IslandEvent,
   nextIndex,
+  placeIsland,
   rankActivities,
 } from '../../lib/island'
 import { acknowledge, skip, snooze } from '../../state/commands/apps'
@@ -243,9 +243,13 @@ export function Island() {
     return () => clearInterval(t)
   }, [count, hover, expanded])
 
-  // Only the compact footprint has to fit: an alert is the same shape with
-  // more of it below the bar, and it is gone in seconds.
-  if (!fitsCentred(bar.w, bar.left, bar.right, COMPACT.w)) return null
+  // Only the compact footprint decides: an alert is wider, but it hangs below
+  // the bar where there is nothing to run into.
+  const place = placeIsland(bar.w, bar.left, bar.right, COMPACT.w)
+  if (!place) return null
+  // Positioned by the compact box's centre, so an alert grows evenly either
+  // side of where the compact one sat rather than only to the right.
+  const centre = place.centred ? '50%' : `${place.left + COMPACT.w / 2}px`
 
   const mode = !cur ? 'idle' : open ? 'alert' : 'compact'
   const width = mode === 'idle' ? IDLE.w : mode === 'compact' ? COMPACT.w : ALERT.w
@@ -271,7 +275,7 @@ export function Island() {
       onClick={() => cur && expandIsland(pinned ? null : cur.id)}
       style={{
         position: 'absolute',
-        left: '50%',
+        left: centre,
         top: 0,
         transform: 'translateX(-50%)',
         width,

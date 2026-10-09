@@ -63,6 +63,9 @@ windows-sys = { version = "0.59", features = [
     "Win32_System_DataExchange",
     "Win32_System_Memory",
     "Win32_System_Ole",
+    # idle.rs: GetTickCount + GetLastInputInfo for the sitting tracker
+    "Win32_System_SystemInformation",
+    "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Shell",
 ] }
 

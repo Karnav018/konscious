@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ALERT_TTL_MS,
-  fitsCentred,
   GUTTER,
   BREAK_WORDS,
   canAnnounce,
@@ -14,6 +13,7 @@ import {
   ISLAND_KEYS,
   MAX,
   nextIndex,
+  placeIsland,
   rankActivities,
   withoutApp,
   withoutId,
@@ -176,45 +176,52 @@ describe('which apps can speak', () => {
   })
 })
 
-describe('whether the bar has room in the middle', () => {
+describe('where the island goes', () => {
   // The island is 220 wide compact. A window width cannot answer this: the
   // app root is 1080px at its narrowest, so a width test would only ever
   // cover the band between 1080 and 1100.
   const W = 220
 
-  it('shows when the gap is wide enough around the centre', () => {
+  it('centres it when the gap straddles the middle with room to spare', () => {
     // A 1920 bar whose clusters end at 700 and start at 1200: the island
     // spans 850–1070, well inside.
-    expect(fitsCentred(1920, 700, 1200, W)).toBe(true)
+    expect(placeIsland(1920, 700, 1200, W)).toEqual({ centred: true })
   })
 
-  it('hides at 1280 with both chips showing', () => {
+  it('nudges it into the gap at 1280 with both chips showing', () => {
     // 84px of traffic-light inset, the wordmark, two workspace segments, the
     // mode control, the new-terminal button, a waiting chip and an update
-    // chip put the left cluster's edge around 930, and the right cluster
-    // starts around 1000. The centre is 640, so the island would want
-    // 530–750 and run straight through the left cluster.
-    expect(fitsCentred(1280, 930, 1000, W)).toBe(false)
+    // chip put the left cluster's edge around 700, and the right cluster
+    // starts around 1270. The centre is 640, so centred it would want
+    // 530–750 and run through the left cluster — but the gap is 570 wide and
+    // holds it easily, off to the right.
+    expect(placeIsland(1280, 700, 1270, W)).toEqual({ centred: false, left: 700 + (570 - W) / 2 })
   })
 
-  it('hides when a cluster reaches past the centre, however wide the window', () => {
-    expect(fitsCentred(1920, 1000, 1800, W)).toBe(false)
+  it('still nudges when a cluster reaches past the centre entirely', () => {
+    const got = placeIsland(1920, 1000, 1800, W)
+    expect(got).toEqual({ centred: false, left: 1000 + (800 - W) / 2 })
   })
 
-  it('hides once the clusters have met, leaving no gap at all', () => {
-    expect(fitsCentred(1280, 800, 800, W)).toBe(false)
-    expect(fitsCentred(1280, 820, 800, W)).toBe(false)
+  it('leaves it out when the gap cannot hold it at all', () => {
+    // 1280 wide, clusters at 930 and 1000: a 70px gap for a 220px box.
+    expect(placeIsland(1280, 930, 1000, W)).toBeNull()
+  })
+
+  it('leaves it out once the clusters have met', () => {
+    expect(placeIsland(1280, 800, 800, W)).toBeNull()
+    expect(placeIsland(1280, 820, 800, W)).toBeNull()
   })
 
   it('keeps a gutter on each side rather than touching', () => {
     // Exactly the island's width between the clusters is not enough.
     const mid = 640
-    expect(fitsCentred(1280, mid - W / 2, mid + W / 2, W)).toBe(false)
-    // The island plus a gutter either side is.
-    expect(fitsCentred(1280, mid - W / 2 - GUTTER, mid + W / 2 + GUTTER, W)).toBe(true)
+    expect(placeIsland(1280, mid - W / 2, mid + W / 2, W)).toBeNull()
+    // The island plus a gutter either side is, and centred at that.
+    expect(placeIsland(1280, mid - W / 2 - GUTTER, mid + W / 2 + GUTTER, W)).toEqual({ centred: true })
   })
 
-  it('shows when nothing has been measured, rather than hiding for good', () => {
-    expect(fitsCentred(0, 0, 0, W)).toBe(true)
+  it('centres it when nothing has been measured, rather than hiding for good', () => {
+    expect(placeIsland(0, 0, 0, W)).toEqual({ centred: true })
   })
 })

@@ -356,6 +356,13 @@ pub async fn system_stats() -> AppResult<crate::stats::Stats> {
     Ok(tauri::async_runtime::spawn_blocking(crate::stats::snapshot).await.unwrap_or_default())
 }
 
+/// Seconds since the user last touched the machine, for the sitting tracker.
+/// Null where the platform has no way to answer.
+#[tauri::command]
+pub async fn system_idle_secs() -> AppResult<Option<f64>> {
+    Ok(crate::idle::idle_secs())
+}
+
 #[tauri::command]
 pub async fn file_thumbnail(path: String) -> AppResult<Option<String>> {
     Ok(crate::preview::thumbnail(&path))

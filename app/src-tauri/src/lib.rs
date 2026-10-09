@@ -5,6 +5,7 @@ mod commands;
 mod env;
 mod error;
 mod git;
+mod idle;
 mod memory;
 mod persistence;
 mod preview;
@@ -231,6 +232,7 @@ pub fn run() {
             commands::session_memory,
             commands::file_thumbnail,
             commands::system_stats,
+            commands::system_idle_secs,
             commands::bundle_pending,
             commands::bundle_preview,
             commands::bundle_export,
