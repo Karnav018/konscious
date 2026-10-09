@@ -65,11 +65,6 @@ describe('the catalog', () => {
     for (const app of APPS) expect(app.can.length).toBeGreaterThan(0)
   })
 
-  it('gives every app a hue of its own', () => {
-    const hues = APPS.map((a) => a.hue)
-    expect(new Set(hues).size).toBe(hues.length)
-  })
-
   it('tells the two sitting apps apart in its own copy', () => {
     // They are easy to confuse, so the catalog has to say which is which.
     expect(appById('stand').everyMin).toBe(50)

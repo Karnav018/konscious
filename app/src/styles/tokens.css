@@ -44,12 +44,16 @@
      icons, too: sessions are round. */
   --water: #74a9f0;
   --stand: #5ccbd6;
-  /* Sitting is a near sibling of Stand up and reads as one: the same family,
-     a step greener, so the pair looks related without being confusable. */
-  --sit: #7fd6a8;
-  /* Caffeine: a coffee brown light enough to read on a dark pane, and far
-     from --warn's amber. */
-  --caff: #cf9f6e;
+  /* Sitting. A deep lime, at a hue angle (120°) nothing else here uses. The
+     obvious choice was a green sibling of Stand up, and it was wrong: green
+     is where --ok lives, and the first version of this token was ΔEok 0.024
+     from it — the same colour, to look at. lib/palette.test.ts measures that
+     now, because a unique hex is not a distinguishable colour. */
+  --sit: #96ad35;
+  /* Caffeine. A low-chroma mocha: it separates from --warn's amber by how
+     colourful it is rather than by hue, since the hues really are neighbours,
+     and the cup glyph carries the rest of the identity. */
+  --caff: #ab8a72;
   --sys: #e8dccb;
   --cpu: #8fa2ff;
   --ram: #f29cc4;
@@ -90,8 +94,8 @@
   --segShadow: 0 1px 2px rgba(33, 33, 33, 0.12);
   --water: #2b6cc4;
   --stand: #1d8794;
-  --sit: #1f8558;
-  --caff: #8a5a2b;
+  --sit: #4a6307;
+  --caff: #6b5040;
   --sys: #4a4240;
   --cpu: #4a5fd6;
   --ram: #c2457f;
