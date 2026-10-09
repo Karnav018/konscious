@@ -10,11 +10,12 @@
 <p align="center">
   <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious-0.3.2-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
   <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_amd64.AppImage"><img src="https://img.shields.io/badge/Download_for_Linux-AppImage-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Linux"></a>
   <a href="https://konscious.hawkapp.in"><img src="https://img.shields.io/badge/Website-konscious.hawkapp.in-FBF5E5?style=for-the-badge&labelColor=212121" alt="Website"></a>
 </p>
 
 <p align="center">
-  Free for macOS and Windows. Runs the Claude Code you already have.<br>
+  Free for macOS, Windows and Linux. Runs the Claude Code you already have.<br>
   <a href="https://konscious.hawkapp.in">konscious.hawkapp.in</a>
 </p>
 
@@ -56,20 +57,20 @@ Quit whenever you like. Next time, every session that was running resumes its co
 
 Konscious runs your own Claude Code, so install it and sign in first.
 
-| | macOS | Windows |
-|---|---|---|
-| **Download** | [Konscious-0.3.2-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious-0.3.2-universal.dmg) | [Konscious_0.3.2_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_x64-setup.exe) |
-| **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit |
-| **Install** | Open the DMG and drag Konscious to Applications | Run the installer. It installs for your account, no admin needed |
-| **First launch** | The app isn't notarized yet, so macOS stops it once: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** |
-| **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | `irm https://claude.ai/install.ps1 \| iex` |
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| **Download** | [Konscious-0.3.2-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious-0.3.2-universal.dmg) | [Konscious_0.3.2_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_x64-setup.exe) | [Konscious_0.3.2_amd64.AppImage](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_amd64.AppImage) or [.deb](https://github.com/Karnav018/konscious/releases/download/v0.3.2/Konscious_0.3.2_amd64.deb) |
+| **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit | x64 with glibc 2.39 or later: Ubuntu 24.04, Debian 13, Fedora 40, Arch and newer |
+| **Install** | Open the DMG and drag Konscious to Applications | Run the installer. It installs for your account, no admin needed | Make the AppImage executable (`chmod +x`) and run it, or `sudo apt install ./Konscious_0.3.2_amd64.deb` |
+| **First launch** | The app isn't notarized yet, so macOS stops it once: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** | Nothing to click through |
+| **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | `irm https://claude.ai/install.ps1 \| iex` | `curl -fsSL https://claude.ai/install.sh \| bash` |
 
 **Updates install themselves, when you say so.** Konscious checks for a new version shortly after launch and every hour, and downloads it in the background. It never restarts behind your back, because a restart stops every live session: the title bar shows **Restart to update** and waits. When it comes back, every session that was running resumes. Updates are checked against a signing key built into the app, so only releases from this repo can install themselves.
 
 <details>
 <summary><b>Keyboard shortcuts</b></summary>
 
-| | macOS | Windows |
+| | macOS | Windows and Linux |
 |---|---|---|
 | New session | <kbd>⌘</kbd> <kbd>N</kbd> | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>N</kbd> |
 | New terminal in this folder | <kbd>⌘</kbd> <kbd>T</kbd> | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>T</kbd> |
@@ -81,7 +82,7 @@ Konscious runs your own Claude Code, so install it and sign in first.
 | Session details | <kbd>⌘</kbd> <kbd>I</kbd> | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>I</kbd> |
 | Text size bigger / smaller / default | <kbd>⌘</kbd> <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd> | <kbd>Ctrl</kbd> <kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> |
 
-On Windows, plain <kbd>Ctrl</kbd> + letter stays with the terminal (<kbd>Ctrl</kbd> <kbd>C</kbd> still interrupts), which is why app shortcuts add <kbd>Shift</kbd>.
+On Windows and Linux, plain <kbd>Ctrl</kbd> + letter stays with the terminal (<kbd>Ctrl</kbd> <kbd>C</kbd> still interrupts), which is why app shortcuts add <kbd>Shift</kbd>. Copy and paste are <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>C</kbd> / <kbd>V</kbd>; on Linux plain <kbd>Ctrl</kbd> <kbd>V</kbd> goes to Claude Code, which is how it pastes an image there.
 
 </details>
 
@@ -105,18 +106,20 @@ Requires Node 22+, pnpm and Rust (stable).
 
 | Folder | What |
 |---|---|
-| [`app/`](app) | The app, both platforms — interface in `app/src`, Rust engine in `app/src-tauri` |
+| [`app/`](app) | The app, every platform — interface in `app/src`, Rust engine in `app/src-tauri` |
 | [`site/`](site) | The website, [konscious.hawkapp.in](https://konscious.hawkapp.in) ([notes](site/README.md)) |
 | [`scripts/`](scripts) | One command per build, install and deploy |
 | `release/` | Where a local build drops its installer (not in the repo) |
 | [`claude_workspace_desktop_prd.md`](claude_workspace_desktop_prd.md) | Product requirements |
 
-One codebase builds both apps. What differs between them lives behind `lib/platform.ts` and `lib/path.ts` in the
-interface, and `#[cfg(unix)]` / `#[cfg(windows)]` in the engine — so a change meant for both platforms is made once,
-and the compiler checks the half you are not looking at.
+One codebase builds all three apps. What differs between them lives behind `lib/platform.ts` and `lib/path.ts` in the
+interface, and `#[cfg(unix)]` / `#[cfg(windows)]` in the engine — so a change meant for every platform is made once,
+and the compiler checks the half you are not looking at. Linux shares the Unix engine with macOS and the keyboard with
+Windows.
 
 - **`scripts/build-mac.sh`** — runs the Mac checks (tests, typecheck, clippy), then builds `release/mac/Konscious-<version>-universal.dmg`. Never touches the installed app.
 - **`scripts/build-windows.sh`** — cross-compiles on a Mac into `release/win/Konscious_<version>_x64-setup.exe`. One-time setup: `brew install llvm nsis` and `cargo install --locked cargo-xwin`.
+- **On Linux** — `cd app && pnpm install && pnpm tauri build --bundles appimage,deb`, after installing the [WebKitGTK prerequisites](https://v2.tauri.app/start/prerequisites/#linux). `app/scripts/check-linux.sh` runs the same checks as the Mac and Windows gates.
 - **`scripts/install-mac.sh`** — installs the newest DMG on this Mac, quitting and reopening the running app. `--dry-run` shows what it would do.
 - **`scripts/build-site.sh`** — builds the website into `site/dist/`.
 - **`scripts/deploy-site.sh`** — builds the website and deploys it to Vercel.
@@ -127,7 +130,7 @@ and the compiler checks the half you are not looking at.
 <details>
 <summary><b>Releasing</b></summary>
 
-A release is a tag. `scripts/release.sh 0.3.2` writes the version into both apps, the website and this README, then pushes `v0.3.2`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS and the installer on Windows, runs each platform's checks, signs both for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour. Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
+A release is a tag. `scripts/release.sh 0.3.2` writes the version into both apps, the website and this README, then pushes `v0.3.2`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS, the installer on Windows and the AppImage and .deb on Linux, runs each platform's checks, signs them all for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour. Deploy the website after that (`scripts/deploy-site.sh`) — its download buttons link to that release.
 
 The updater only installs what the matching private key signed. That keypair is not in the repo: the public half is in both `tauri.conf.json` files, and the workflow reads the private half from the repository secret `TAURI_SIGNING_PRIVATE_KEY` (plus `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, only if the key has a password). Keep the private key safe — losing it means no installed copy can accept an update, and the only way out is asking people to install by hand again.
 

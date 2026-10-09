@@ -1,7 +1,7 @@
 name: Release
 
-# A tag is the whole release. Pushing v0.2.0 builds both apps, signs them for
-# the updater and publishes one GitHub release — which is where every installed
+# A tag is the whole release. Pushing v0.2.0 builds every app (macOS, Windows,
+# Linux), signs them for the updater and publishes one GitHub release — which is where every installed
 # copy of Konscious looks for its next version (app/src/lib/update.ts).
 #
 #   scripts/release.sh 0.2.0     bumps every version, commits, tags, pushes
@@ -26,7 +26,7 @@ on:
         description: >-
           Optional. Run ID of an earlier run of this workflow, for the same
           version, whose macOS build to reuse instead of building it again —
-          for when only the Windows build needs redoing.
+          for when only the Windows or Linux build needs redoing.
         required: false
         default: ''
 
@@ -161,13 +161,83 @@ jobs:
           path: assets/
           if-no-files-found: error
 
+  linux:
+    name: Linux (x64)
+    # The AppImage runs on distros with this glibc or newer (Ubuntu 24.04,
+    # Debian 13, Fedora 40, Arch); 22.04 runners are being retired.
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      # What Tauri builds against on Linux (WebKitGTK, GTK); the .deb lists
+      # these as its dependencies, the AppImage carries them.
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the tag matches the app version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          tag=${{ inputs.tag || github.ref_name }}
+          [ "v$version" = "$tag" ] || { echo "✗ tag $tag but version $version — run scripts/release.sh"; exit 1; }
+          echo "version=$version" >> "$GITHUB_ENV"
+
+      - name: Checks (tests, types, engine, clippy)
+        run: scripts/check-linux.sh
+
+      - name: Build AppImage + .deb
+        run: pnpm -s tauri build --bundles appimage,deb
+
+      - name: Collect
+        run: |
+          out="$GITHUB_WORKSPACE/assets"
+          mkdir -p "$out"
+          b=src-tauri/target/release/bundle
+          appimage=$(ls -t "$b"/appimage/*.AppImage | head -1)
+          deb=$(ls -t "$b"/deb/*.deb | head -1)
+          cp "$appimage" "$out/Konscious_${version}_amd64.AppImage"
+          cp "$appimage.sig" "$out/Konscious_${version}_amd64.AppImage.sig"
+          cp "$deb" "$out/Konscious_${version}_amd64.deb"
+          cp "$deb.sig" "$out/Konscious_${version}_amd64.deb.sig"
+          ls -lh "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: assets/
+          if-no-files-found: error
+
   publish:
     name: Publish release
-    needs: [macos, windows]
-    # Both builds from this run, or this run's Windows build plus the macOS
-    # build of an earlier run (mac_from_run).
+    needs: [macos, windows, linux]
+    # Every build from this run, or this run's Windows and Linux builds plus
+    # the macOS build of an earlier run (mac_from_run).
     if: >-
-      ${{ !cancelled() && needs.windows.result == 'success' &&
+      ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success' &&
       (needs.macos.result == 'success' || (needs.macos.result == 'skipped' && inputs.mac_from_run != '')) }}
     runs-on: ubuntu-latest
     steps:
@@ -195,11 +265,13 @@ jobs:
           ls -lh assets
           for f in "Konscious-${version}-universal.dmg" \
                    "Konscious_${version}_universal.app.tar.gz" "Konscious_${version}_universal.app.tar.gz.sig" \
-                   "Konscious_${version}_x64-setup.exe" "Konscious_${version}_x64-setup.exe.sig"; do
+                   "Konscious_${version}_x64-setup.exe" "Konscious_${version}_x64-setup.exe.sig" \
+                   "Konscious_${version}_amd64.AppImage" "Konscious_${version}_amd64.AppImage.sig" \
+                   "Konscious_${version}_amd64.deb" "Konscious_${version}_amd64.deb.sig"; do
             [ -f "assets/$f" ] || { echo "✗ missing assets/$f"; exit 1; }
           done
 
-      # One manifest for both platforms, written only once both builds are in:
+      # One manifest for every platform, written only once every build is in:
       # a release with a half-filled latest.json would silently stop updates
       # for the missing platform.
       - name: Write latest.json

@@ -51,7 +51,9 @@
     "targets": [
       "app",
       "dmg",
-      "nsis"
+      "nsis",
+      "deb",
+      "appimage"
     ],
     "category": "DeveloperTool",
     "shortDescription": "Every Claude session, one calm place.",
