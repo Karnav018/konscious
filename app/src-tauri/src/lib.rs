@@ -319,6 +319,12 @@ mod tests {
         assert_eq!(data_dir_in(home.path()), old, "not moved from under a running app");
         assert!(old.join("workspaces.json").is_file());
         drop(lock);
+        // A child that a test running alongside forks at this moment holds a
+        // copy of the lock's fd until its exec closes it; let that pass.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while locked(&old) && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         assert_eq!(data_dir_in(home.path()), home.path().join(".konscious"), "moved once it quits");
     }
 

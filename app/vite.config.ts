@@ -23,5 +23,15 @@ export default defineConfig(() => ({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // happy-dom names the host OS in its user agent ("X11; Linux x64"), which
+    // would turn the tests into the Linux build when run on Linux. Pin them to
+    // the macOS reference, as on every other machine.
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          navigator: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)' },
+        },
+      },
+    },
   },
 }))
