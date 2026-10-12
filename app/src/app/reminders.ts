@@ -12,13 +12,13 @@
 // only place a reminder lands, which is not somewhere you are looking. The
 // island is inside our own window, so it cannot be turned off. Its one honest
 // limit is that it is invisible while the window is.
-import { appById, isDue, pomoNotice, pomoOver } from '../lib/apps'
+import { afterWake, appById, isDue, pomoNotice, pomoOver, WAKE_GAP_MS } from '../lib/apps'
 import { play } from '../lib/chime'
 import { type IslandApp, PHASE_ALERT_MS } from '../lib/island'
 import { ipc } from '../lib/ipc'
 import { repaintIfDue } from './actions'
 import { pollSitting } from './sitting'
-import { advancePomo, markDue, setNotifyAllowed } from '../state/commands/apps'
+import { advancePomo, applyWake, markDue, setNotifyAllowed } from '../state/commands/apps'
 import { pushIsland } from '../state/commands/island'
 import { getState } from '../state/store'
 
@@ -50,7 +50,40 @@ export function announce(app: IslandApp, title: string, body: string, ttlMs?: nu
   if (s.ui.apps.sound) play()
 }
 
+/** When the last tick ran, so a gap in them can be noticed. */
+let lastTick: number | null = null
+/** True while the idle reading that confirms a gap is still in flight. The
+ *  checks below are held off until it lands, so the wake adjustment settles
+ *  before anything has a chance to fire once on its own. */
+let settling = false
+
+/**
+ * A gap in the ticks is a candidate for the machine having slept — but only
+ * a candidate, because a hidden window has its timers throttled and looks
+ * identical. The system's idle time is what tells them apart, and reading it
+ * costs a round trip, so the tick that notices the gap does nothing else.
+ */
+async function settleWake(gapMs: number, now: number) {
+  const idleSec = await ipc.systemIdleSecs().catch(() => null)
+  const apps = getState().ui.apps
+  applyWake(afterWake({ pomo: apps.pomo, stand: apps.reminders.stand, gapMs, idleSec, now }))
+}
+
 function tick(now = Date.now()) {
+  const gap = lastTick === null ? 0 : Math.max(0, now - lastTick)
+  lastTick = now
+  if (settling) return
+  if (gap >= WAKE_GAP_MS) {
+    settling = true
+    void settleWake(gap, now).finally(() => {
+      settling = false
+    })
+    // This tick belongs to the wake decision. Letting the checks below run
+    // first is what used to announce a break for a stretch that ended while
+    // the lid was shut.
+    return
+  }
+
   // The warm schedule crosses its boundaries unattended; this follows them.
   repaintIfDue()
   const s = getState()
@@ -85,6 +118,9 @@ function tick(now = Date.now()) {
 }
 
 export function startReminders() {
+  // A fresh start is not a wake: there is no gap to measure yet, and
+  // appsFrom has already refused to resume a phase across the restart.
+  lastTick = null
   void ipc.notifyAllowed().then(setNotifyAllowed)
   tick()
   const timer = setInterval(() => tick(), TICK_MS)

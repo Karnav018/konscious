@@ -15,6 +15,7 @@ import {
   snoozed,
   startFocus,
   stopPomo,
+  type WakeResult,
 } from '../../lib/apps'
 import { freshCaff, MAX_MG, withDose } from '../../lib/caffeine'
 import { dayKey } from '../../lib/format'
@@ -214,4 +215,19 @@ export const resetSit = () =>
   act('apps/sitReset', (d) => {
     d.ui.apps.sit = { ...withoutStreak(d.ui.apps.sit), todayMs: 0, longestMs: 0 }
     dealtWith(d, 'sit')
+  })
+
+/** What the machine waking up means for the two timers that slept. One
+ *  action, because it is one event — and because two would show in the log
+ *  as two things happening rather than one thing being noticed. */
+export const applyWake = (next: WakeResult) =>
+  act('apps/wake', (d) => {
+    if (next.stopped) {
+      d.ui.apps.pomo = next.pomo
+      dealtWith(d, 'pomo')
+    }
+    if (next.stood) {
+      d.ui.apps.reminders.stand = next.stand
+      dealtWith(d, 'stand')
+    }
   })

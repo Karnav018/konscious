@@ -13,6 +13,7 @@
 //
 // Everything here is pure. The dock reads it; nothing in it touches the DOM.
 import { dayKey } from './format'
+import { AWAY_SEC } from './sitting'
 
 export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit' | 'music' | 'layout'
 export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Media' | 'Workspace' | 'Display' | 'System'
@@ -449,4 +450,89 @@ export function pomoClock(ms: number): string {
   const total = Math.ceil(Math.max(0, ms) / 1000)
   const m = Math.floor(total / 60)
   return `${m}:${String(total % 60).padStart(2, '0')}`
+}
+
+
+/* ── coming back from sleep ───────────────────────────────────────── */
+
+// A laptop that sleeps mid-pomodoro used to wake up and announce "time for
+// a break" for a stretch that ended three hours ago, then start a break
+// nobody asked for. Stand up fired the moment the lid opened, for sitting
+// you did not do. Neither is a timer being wrong — it is a timer being
+// right about a span of wall clock that was not real.
+
+/** A tick gap longer than this might be sleep. Might: a webview throttles
+ *  its timers when the window is hidden or occluded, and from in here that
+ *  looks exactly the same. */
+export const WAKE_GAP_MS = 60_000
+
+/** Without an idle reading there is no way to tell those two apart, so the
+ *  gap alone has to be long enough that throttling is not a plausible
+ *  explanation for it. */
+export const BLIND_GAP_MS = 5 * 60_000
+
+/** How far a phase may overrun and still count as having just ended. Shut
+ *  the lid for a minute right on the boundary and the break still starts. */
+export const PHASE_GRACE_MS = 2 * 60_000
+
+/**
+ * Whether the machine was really away, rather than the window being throttled.
+ *
+ * The gap on its own is not evidence. The confirmation is the system's idle
+ * time, which after a real sleep covers the whole gap, and which for a
+ * throttled window in active use is a few seconds.
+ */
+export function sleptThrough(gapMs: number, idleSec: number | null): boolean {
+  if (gapMs < WAKE_GAP_MS) return false
+  if (idleSec === null) return gapMs >= BLIND_GAP_MS
+  return idleSec * 1000 >= Math.min(gapMs, AWAY_SEC * 1000)
+}
+
+export interface WakeInput {
+  pomo: PomoState
+  stand: ReminderState
+  /** Wall clock between the last tick and this one. */
+  gapMs: number
+  /** Seconds since the last key or click, or null where we cannot ask. */
+  idleSec: number | null
+  now: number
+}
+
+export interface WakeResult {
+  pomo: PomoState
+  stand: ReminderState
+  /** The pomodoro was abandoned rather than advanced. */
+  stopped: boolean
+  /** The stand-up nudge was treated as answered. */
+  stood: boolean
+}
+
+/**
+ * What to do with the two timers that slept.
+ *
+ * The pomodoro stops rather than hands over: a stretch that ran out hours
+ * ago is not one you can be given the other half of, which is the same rule
+ * appsFrom already applies across a restart. Rounds are kept, because those
+ * stretches were real.
+ *
+ * Stand up counts the sleep as having stood, if it was at least as long as
+ * the three minutes Sitting treats as leaving the desk. Nothing is tallied
+ * — you were away, which is all the nudge was asking for.
+ *
+ * Water is deliberately untouched. Its nudge is "you have not had a drink
+ * in a while", and that is as true after a nap as before one.
+ */
+export function afterWake({ pomo, stand, gapMs, idleSec, now }: WakeInput): WakeResult {
+  if (!sleptThrough(gapMs, idleSec)) return { pomo, stand, stopped: false, stood: false }
+
+  const overrun = pomo.endsAt === null ? 0 : now - pomo.endsAt
+  const stopped = pomo.phase !== 'idle' && pomo.endsAt !== null && overrun > PHASE_GRACE_MS
+  const stood = gapMs >= AWAY_SEC * 1000
+
+  return {
+    pomo: stopped ? stopPomo(pomo) : pomo,
+    stand: stood ? acknowledged(now) : stand,
+    stopped,
+    stood,
+  }
 }
