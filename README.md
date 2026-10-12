@@ -101,7 +101,7 @@ User data lives in `~/.konscious` (config, workspaces, layouts). Data from the p
 <details>
 <summary><b>Build from source</b></summary>
 
-Requires Node 22+, pnpm and Rust (stable).
+Requires an LTS Node — 22 or 24 — plus pnpm and Rust (stable). Not Node 23: its combination with vitest and happy-dom hangs the test suite on module load, before a single test runs, and the workers spin forever rather than failing. `.nvmrc` pins 22, which is what CI runs.
 
 | Folder | What |
 |---|---|
