@@ -20,7 +20,6 @@ import {
 } from '../../lib/apps'
 import { askNotifyOnce } from '../../app/reminders'
 import { atClock, CUTOFF_CHOICES, DRINKS, LIMIT_CHOICES, mg as mgText, todayTotal } from '../../lib/caffeine'
-import { anyOn, canAdd, CONNECTORS, validName, validUrl } from '../../lib/connectors'
 import { AUTOMATION_SETTINGS, useNowPlaying } from '../../lib/media'
 import { ipc } from '../../lib/ipc'
 import { ALERT_CHOICES, span } from '../../lib/sitting'
@@ -34,10 +33,7 @@ import {
   setAppOn,
   setAppPanel,
   setAppPinned,
-  addConnector,
-  removeConnector,
   setAutoMinimise,
-  setConnector,
   setSound,
   setCaffCutoff,
   setCaffLimit,
@@ -162,117 +158,6 @@ function MusicSettings() {
       <span className="text-[11px] text-faint leading-[1.45]">
         Because this build is signed ad hoc, macOS treats every update as a new app and will ask for permission
         again after one.
-      </span>
-    </div>
-  )
-}
-
-/**
- * Connectors: MCP servers the sessions Konscious launches are told about.
- *
- * Worth being plain in the UI about what this does and does not do, because
- * "connect your Zomato account" sounds like it should involve us and it does
- * not: Konscious writes a config file, the session is the client, and the
- * sign-in and the tokens live inside Claude.
- */
-function Connectors() {
-  const conn = useUi((u) => u.apps.connectors)
-  const [name, setName] = useState('')
-  const [url, setUrl] = useState('')
-  const entry = { name: name.trim(), url: url.trim() }
-  const ready = canAdd(conn, entry)
-  const started = !!entry.name || !!entry.url
-  const why = !started
-    ? ''
-    : !validName(entry.name)
-      ? 'A name is lowercase letters, digits, - or _, up to 32.'
-      : !validUrl(entry.url)
-        ? 'The address has to start with https://'
-        : !ready
-          ? 'That name is already taken.'
-          : ''
-  return (
-    <div className="flex flex-col gap-3">
-      <span className="text-[11.5px] text-muted leading-[1.45]">
-        Servers your Claude sessions are told about. Konscious writes a config file for each new session and
-        nothing else — your own Claude settings are untouched, and signing in happens inside Claude, so no
-        account or token ever reaches Konscious.
-      </span>
-
-      {CONNECTORS.map((c) => (
-        <div key={c.id} className="flex items-start gap-2">
-          <div className="flex-1 flex flex-col gap-0.5">
-            <span className="text-[12px] font-medium">{c.name}</span>
-            <span className="text-[11px] text-muted leading-[1.4]">{c.desc}</span>
-            <span className="font-mono text-[10px] text-faint break-all">{c.url}</span>
-            {c.caveat && <span className="text-[10.5px] leading-[1.4] text-warn">{c.caveat}</span>}
-          </div>
-          <Switch on={!!conn.builtin[c.id]} hue="var(--accent)" onClick={() => setConnector(c.id, !conn.builtin[c.id])} />
-        </div>
-      ))}
-
-      {conn.custom.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] text-faint">Yours</span>
-          {conn.custom.map((c) => (
-            <div key={c.name} className="flex items-center gap-2">
-              <div className="flex-1 min-w-0 flex flex-col">
-                <span className="text-[12px] font-mono">{c.name}</span>
-                <span className="font-mono text-[10px] text-faint overflow-hidden text-ellipsis whitespace-nowrap">
-                  {c.url}
-                </span>
-              </div>
-              <div
-                onClick={() => removeConnector(c.name)}
-                title="Remove"
-                className="w-6 h-6 grid place-items-center rounded-rs text-faint cursor-pointer hover:bg-hover hover:text-text"
-              >
-                <CloseIcon size={11} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[11px] text-faint">Add a server</span>
-        <div className="flex gap-1">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="name"
-            className="h-7 w-[96px] px-2 rounded-rs bg-pane border border-line text-[11.5px] font-mono outline-none focus:border-accent"
-          />
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://…"
-            className="h-7 flex-1 min-w-0 px-2 rounded-rs bg-pane border border-line text-[11.5px] font-mono outline-none focus:border-accent"
-          />
-          <div
-            onClick={() => {
-              if (addConnector(entry)) {
-                setName('')
-                setUrl('')
-              }
-            }}
-            style={{ opacity: ready ? 1 : 0.4 }}
-            className="h-7 px-2.5 grid place-items-center rounded-rs bg-accent text-accent-ink cursor-pointer text-[11.5px] font-medium"
-          >
-            Add
-          </div>
-        </div>
-        {why && <span className="text-[10.5px] text-warn leading-[1.4]">{why}</span>}
-        <span className="text-[10.5px] text-faint leading-[1.45]">
-          Konscious doesn’t vouch for a server you add. It will be offered to every new session, and whatever
-          tools it exposes become things Claude can run.
-        </span>
-      </div>
-
-      <div className="h-px bg-line" />
-      <span className="text-[11px] text-muted leading-[1.45]">
-        {anyOn(conn) ? 'On. ' : ''}Run <span className="font-mono text-[10.5px]">/mcp</span> in a session to sign
-        in. Changes apply to new sessions — one already running keeps what it started with.
       </span>
     </div>
   )
@@ -747,18 +632,6 @@ export function AppsPanel() {
                   </span>
                 </div>
               )}
-
-              {/* Not a category of apps: a connector has no tile and no
-                  switch in the dock. It belongs here because this is where
-                  you decide what Konscious adds to a session. */}
-              <div className="h-px bg-line" />
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[11px] text-faint">Connectors</span>
-                  <span className="font-mono text-[10px] text-faint">{CONNECTORS.length + apps.connectors.custom.length}</span>
-                </div>
-                <Connectors />
-              </div>
 
               <div className="h-px bg-line" />
               <div className="flex items-center gap-2">

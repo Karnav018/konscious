@@ -22,11 +22,6 @@ pub struct SessionSpec {
     /// at the same conversation, so they never write one history together.
     #[serde(default)]
     pub fork: bool,
-    /// Connectors to offer this session, already filtered to the ones that
-    /// are switched on. Empty for a shell, and empty whenever the user has
-    /// turned none on — which is when no --mcp-config is passed at all.
-    #[serde(default)]
-    pub connectors: Vec<crate::mcp::Server>,
 }
 
 /// `session_attach` result.

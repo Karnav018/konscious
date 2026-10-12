@@ -29,30 +29,12 @@ pub fn sanitize_name(name: &str) -> String {
 /// `--name=<name>` (single token) so a name starting with `-` is never parsed
 /// as a flag. `--resume` when Claude already has a transcript for this id,
 /// otherwise `--session-id` pins the id we chose. `fork` resumes into a copy.
-pub fn claude_args(
-    name: &str,
-    settings: &Path,
-    session: &Uuid,
-    resume: bool,
-    fork: bool,
-    // `mcp`: the connectors file, when any connector is on. Absent is the
-    // common case, and then the flag must not appear at all — --mcp-config
-    // pointing at an empty file would still be a claim about the user's
-    // servers.
-    mcp: Option<&Path>,
-) -> Vec<String> {
+pub fn claude_args(name: &str, settings: &Path, session: &Uuid, resume: bool, fork: bool) -> Vec<String> {
     let mut args = vec![
         format!("--name={}", sanitize_name(name)),
         "--settings".into(),
         settings.to_string_lossy().into_owned(),
     ];
-    if let Some(path) = mcp {
-        // Merges with the user's own servers rather than replacing them;
-        // --strict-mcp-config would be the replacing version, and is not
-        // ours to impose.
-        args.push("--mcp-config".into());
-        args.push(path.to_string_lossy().into_owned());
-    }
     args.push(if resume { "--resume" } else { "--session-id" }.into());
     args.push(session.to_string());
     if resume && fork {
@@ -125,7 +107,7 @@ mod tests {
     #[test]
     fn new_session_pins_id_and_name_is_one_token() {
         let id = Uuid::parse_str("a3f9c2e1-47bd-4e0a-9d2b-000000000001").unwrap();
-        let args = claude_args("--dangerously-skip-permissions", Path::new("/r/s.json"), &id, false, true, None);
+        let args = claude_args("--dangerously-skip-permissions", Path::new("/r/s.json"), &id, false, true);
         assert_eq!(
             args,
             [
@@ -141,32 +123,12 @@ mod tests {
     #[test]
     fn existing_transcript_resumes() {
         let id = Uuid::new_v4();
-        let args = claude_args("Backend", Path::new("/s.json"), &id, true, false, None);
+        let args = claude_args("Backend", Path::new("/s.json"), &id, true, false);
         assert_eq!(args[3], "--resume");
         assert_eq!(args[4], id.to_string());
         assert_eq!(args.len(), 5);
-        let forked = claude_args("Backend", Path::new("/s.json"), &id, true, true, None);
+        let forked = claude_args("Backend", Path::new("/s.json"), &id, true, true);
         assert_eq!(forked.last().unwrap(), "--fork-session");
-    }
-
-    #[test]
-    fn passes_no_mcp_config_when_no_connector_is_on() {
-        // The common case. An --mcp-config pointing at an empty file would
-        // still be a claim about the user's servers, so the flag must be
-        // absent entirely rather than present and empty.
-        let id = Uuid::new_v4();
-        let args = claude_args("Backend", Path::new("/s.json"), &id, false, false, None);
-        assert!(!args.iter().any(|a| a == "--mcp-config"));
-    }
-
-    #[test]
-    fn passes_the_connectors_file_when_there_is_one() {
-        let id = Uuid::new_v4();
-        let args = claude_args("Backend", Path::new("/s.json"), &id, false, false, Some(Path::new("/r/a.mcp.json")));
-        let at = args.iter().position(|a| a == "--mcp-config").expect("the flag");
-        assert_eq!(args[at + 1], "/r/a.mcp.json");
-        // Merging, not replacing: the user's own servers stay.
-        assert!(!args.iter().any(|a| a == "--strict-mcp-config"));
     }
 
     #[test]

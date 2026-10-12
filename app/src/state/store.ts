@@ -8,8 +8,6 @@ import type { AppId, Edge, MetricKey, PomoState, ReminderState } from '../lib/ap
 import { freshPomo, freshReminder } from '../lib/apps'
 import type { CaffState } from '../lib/caffeine'
 import { freshCaff } from '../lib/caffeine'
-import type { ConnectorState } from '../lib/connectors'
-import { freshConnectors } from '../lib/connectors'
 import type { IslandApp, IslandState } from '../lib/island'
 import { freshIsland } from '../lib/island'
 import type { SitState } from '../lib/sitting'
@@ -108,10 +106,6 @@ export interface AppsState {
   /** A short chime when a nudge arrives, for when you are not looking at
    *  the window. One sound per nudge, like the notification. */
   sound: boolean
-  /** MCP servers offered to the sessions Konscious launches. Konscious is
-   *  not the client — each session is — so this only decides what goes in
-   *  the per-session config file. */
-  connectors: ConnectorState
 }
 
 export interface UiState {
@@ -265,7 +259,6 @@ export const initialState = (): AppState => ({
       statPinned: null,
       island: { water: true, stand: true, sit: true, caff: true, pomo: true, music: true, layout: true, sys: true, warm: true },
       sound: true,
-      connectors: freshConnectors(),
     },
     transfer: null,
     appPopover: null,

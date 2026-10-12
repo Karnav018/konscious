@@ -6,7 +6,6 @@ mod env;
 mod error;
 mod git;
 mod idle;
-mod mcp;
 mod media;
 mod memory;
 mod persistence;

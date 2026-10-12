@@ -17,7 +17,6 @@ import {
   stopPomo,
 } from '../../lib/apps'
 import { freshCaff, MAX_MG, withDose } from '../../lib/caffeine'
-import { canAdd, type Custom } from '../../lib/connectors'
 import { type IslandApp, withoutApp } from '../../lib/island'
 import { type SitState, withoutStreak } from '../../lib/sitting'
 import { act } from '../act'
@@ -211,24 +210,4 @@ export const resetSit = () =>
   act('apps/sitReset', (d) => {
     d.ui.apps.sit = { ...withoutStreak(d.ui.apps.sit), todayMs: 0, longestMs: 0 }
     dealtWith(d, 'sit')
-  })
-
-/* ── connectors ───────────────────────────────────────────────────── */
-
-/** Switching one on or off reaches the NEXT session: a running Claude was
- *  launched with the config it had, and reaching into it is not ours to do. */
-export const setConnector = (id: string, on: boolean) =>
-  act('apps/connector', (d) => void (d.ui.apps.connectors.builtin[id] = on))
-
-/** A server the user added. Refused rather than coerced if it does not pass:
- *  a silently corrected URL is worse than a rejected one. */
-export function addConnector(entry: Custom): boolean {
-  if (!canAdd(getState().ui.apps.connectors, entry)) return false
-  act('apps/connectorAdd', (d) => void d.ui.apps.connectors.custom.push(entry))
-  return true
-}
-
-export const removeConnector = (name: string) =>
-  act('apps/connectorRemove', (d) => {
-    d.ui.apps.connectors.custom = d.ui.apps.connectors.custom.filter((c) => c.name !== name)
   })

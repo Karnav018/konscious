@@ -215,9 +215,7 @@ impl SessionManager {
                 let resume = launcher::transcript_exists(&env.claude_config_dir(), &uuid);
                 let chain = hooks::user_status_line(&cwd, &env.claude_config_dir());
                 let files = hooks::prepare(&self.run_dir, &spec.id, chain.as_deref())?;
-                let mcp = crate::mcp::prepare(&self.run_dir, &spec.id, &spec.connectors).unwrap_or(None);
-                let args =
-                    launcher::claude_args(&spec.name, &files.settings, &uuid, resume, spec.fork, mcp.as_deref());
+                let args = launcher::claude_args(&spec.name, &files.settings, &uuid, resume, spec.fork);
                 let (program, args) = launcher::runnable(PathBuf::from(claude), args);
                 (program, args, resume, Some(files.events), Some(files.status))
             }
@@ -508,7 +506,7 @@ mod tests {
     }
 
     fn spec(id: &str, kind: Kind, cwd: &str) -> SessionSpec {
-        SessionSpec { id: id.into(), kind, name: "T".into(), cwd: cwd.into(), claude_session_id: None, fork: false, connectors: vec![] }
+        SessionSpec { id: id.into(), kind, name: "T".into(), cwd: cwd.into(), claude_session_id: None, fork: false }
     }
 
     #[test]
