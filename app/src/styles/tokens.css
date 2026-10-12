@@ -44,8 +44,21 @@
      icons, too: sessions are round. */
   --water: #74a9f0;
   --stand: #5ccbd6;
+  /* Sitting. A deep lime, at a hue angle (120°) nothing else here uses. The
+     obvious choice was a green sibling of Stand up, and it was wrong: green
+     is where --ok lives, and the first version of this token was ΔEok 0.024
+     from it — the same colour, to look at. lib/palette.test.ts measures that
+     now, because a unique hex is not a distinguishable colour. */
+  --sit: #96ad35;
+  /* Caffeine. A low-chroma mocha: it separates from --warn's amber by how
+     colourful it is rather than by hue, since the hues really are neighbours,
+     and the cup glyph carries the rest of the identity. */
+  --caff: #ab8a72;
   --sys: #e8dccb;
   --cpu: #8fa2ff;
+  /* Graphics. Cyan is the one band the palette had left — green is --ok,
+     amber is --warn, violet is --info and --pomo. */
+  --gpu: #0aa8c0;
   --ram: #f29cc4;
   --ssd: #d9c7a7;
   --tmp: #7fc8f0;
@@ -53,6 +66,10 @@
      never looks like a session waiting or failed. */
   --hot: #ff7ae0;
   --pomo: #9b7ef0;
+  /* Now playing. A pale lilac: the violet band is crowded (--info, --pomo,
+     --cpu), so this sits above all of them in lightness rather than beside
+     them in hue. */
+  --music: #dcc9ff;
   color-scheme: dark;
 }
 
@@ -84,12 +101,16 @@
   --segShadow: 0 1px 2px rgba(33, 33, 33, 0.12);
   --water: #2b6cc4;
   --stand: #1d8794;
+  --sit: #4a6307;
+  --caff: #6b5040;
   --sys: #4a4240;
   --cpu: #4a5fd6;
+  --gpu: #0a5f78;
   --ram: #c2457f;
   --ssd: #7a6a4c;
   --tmp: #2a86b8;
   --hot: #c026a8;
   --pomo: #6b4fd0;
+  --music: #5d2a8f;
   color-scheme: light;
 }

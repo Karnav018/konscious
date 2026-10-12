@@ -74,10 +74,19 @@ function MetricRing({ metric, value, size }: { metric: MetricKey | null; value: 
   )
 }
 
-/** A chip, memory sticks, a drive and a thermometer — one per stat, so the
- *  gauge says what it is measuring without a word. */
+/** A chip, a card, memory sticks, a drive and a thermometer — one per stat,
+ *  so the gauge says what it is measuring without a word. */
 function MetricIcon({ metric }: { metric: MetricKey }) {
   const paths: Record<MetricKey, React.ReactNode> = {
+    // A board with a fan on it: a graphics card, told apart from the
+    // processor's bare die by having something bolted to it.
+    gpu: (
+      <>
+        <rect x="3" y="6" width="18" height="12" rx="1.6" />
+        <circle cx="9" cy="12" r="2.6" />
+        <path d="M14.5 9.5h3.5M14.5 12h3.5M14.5 14.5h3.5" />
+      </>
+    ),
     cpu: (
       <>
         <rect x="7" y="7" width="10" height="10" rx="1.5" />

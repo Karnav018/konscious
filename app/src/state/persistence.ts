@@ -10,6 +10,9 @@ import { produce } from 'immer'
 import { z } from 'zod'
 
 import { APPS, type AppId } from '../lib/apps'
+import { DEFAULT_CUTOFF_MIN, DEFAULT_LIMIT_MG, DEFAULT_SIZE, MAX_MG, trim } from '../lib/caffeine'
+import { DEFAULT_ALERT_MIN } from '../lib/sitting'
+import { type IslandApp, ISLAND_KEYS } from '../lib/island'
 import { CAP, emptyLayout } from '../lib/grid'
 import { DEFAULT_GRID } from '../lib/layouts'
 import { ipc } from '../lib/ipc'
@@ -134,6 +137,43 @@ const ConfigFileV1 = z.object({
         .catch({ focusMin: 25, breakMin: 5 })
         .optional(),
       statPinned: z.enum(['cpu', 'ram', 'ssd', 'tmp']).nullable().catch(null).optional(),
+      /** Per app: whether its nudges also show in the notch island. */
+      island: z.record(z.string(), z.boolean()).catch({}).optional(),
+      /** A short chime when a nudge arrives. */
+      sound: z.boolean().catch(true).optional(),
+      /** Caffeine. The log is a rolling day, trimmed on load as well as on
+       *  use, so a config left for a week does not come back full. */
+      caff: z
+        .object({
+          log: z
+            .array(z.object({ at: Ms, mg: z.number().min(0).max(MAX_MG) }))
+            .max(200)
+            .catch([]),
+          limitMg: z.number().min(50).max(2000).catch(DEFAULT_LIMIT_MG),
+          cutoffMin: z.number().min(0).max(1439).catch(DEFAULT_CUTOFF_MIN),
+          size: z.enum(['s', 'm', 'l']).catch(DEFAULT_SIZE).optional(),
+        })
+        .catch({ log: [], limitMg: DEFAULT_LIMIT_MG, cutoffMin: DEFAULT_CUTOFF_MIN, size: DEFAULT_SIZE })
+        .optional(),
+      /** Sitting. The streak itself is not restored — see appsFrom. */
+      sit: z
+        .object({
+          streakSince: z.number().nullable().catch(null),
+          todayMs: z.number().min(0).catch(0),
+          todayOn: z.string().catch(''),
+          longestMs: z.number().min(0).catch(0),
+          alertMin: z.number().min(5).max(600).catch(DEFAULT_ALERT_MIN),
+          alerted: z.boolean().catch(false),
+        })
+        .catch({
+          streakSince: null,
+          todayMs: 0,
+          todayOn: '',
+          longestMs: 0,
+          alertMin: DEFAULT_ALERT_MIN,
+          alerted: false,
+        })
+        .optional(),
       reminders: z
         .record(
           z.string(),
@@ -307,14 +347,17 @@ export function decode(snap: Snapshot): Decoded {
 function appsFrom(saved: unknown): AppsState {
   const base = initialState().ui.apps
   const got = (saved ?? {}) as Partial<AppsState>
-  const flags = (from: unknown, fallback: Record<string, boolean>) => {
-    const m = { ...fallback } as Record<AppId, boolean>
-    for (const app of APPS) {
-      const v = (from as Record<string, unknown> | null | undefined)?.[app.id]
-      if (typeof v === 'boolean') m[app.id] = v
+  // Only keys we know are taken from the file, so a flag for an app that no
+  // longer exists cannot linger in state.
+  const flags = <K extends string>(from: unknown, fallback: Record<K, boolean>, keys: readonly K[]) => {
+    const m = { ...fallback }
+    for (const k of keys) {
+      const v = (from as Record<string, unknown> | null | undefined)?.[k]
+      if (typeof v === 'boolean') m[k] = v
     }
     return m
   }
+  const appIds = APPS.map((a) => a.id)
   // A pomodoro that was running when the app quit is not resumed: a phase
   // that ended hours ago is not a phase.
   const pomo = got.pomo && got.pomo.phase !== 'idle' ? { ...got.pomo, phase: 'idle' as const, endsAt: null } : base.pomo
@@ -323,11 +366,24 @@ function appsFrom(saved: unknown): AppsState {
     const r = got.reminders?.[id]
     if (r && Number.isFinite(r.since)) reminders[id] = r
   }
+  // A coffee from last week is not in you. The log is a rolling day wherever
+  // it is read, so it is trimmed on the way in too.
+  const caff = got.caff
+    ? { ...base.caff, ...got.caff, log: trim(got.caff.log ?? [], Date.now()), size: got.caff.size ?? base.caff.size }
+    : base.caff
+  // A sitting streak is not resumed. The app was shut, so we have no idea
+  // whether you stayed in the chair, and claiming the streak held would be
+  // the one thing this app must not do. Today's tally and the longest
+  // stretch are facts, and they are kept.
+  const sit = got.sit ? { ...base.sit, ...got.sit, streakSince: null, alerted: false } : base.sit
   return {
     ...base,
     ...got,
-    on: flags(got.on, base.on),
-    pinned: flags(got.pinned, base.pinned),
+    caff,
+    sit,
+    on: flags<AppId>(got.on, base.on, appIds),
+    pinned: flags<AppId>(got.pinned, base.pinned, appIds),
+    island: flags<IslandApp>(got.island, base.island, ISLAND_KEYS),
     every: { ...base.every, ...got.every },
     pomo,
     pomoSet: { ...base.pomoSet, ...got.pomoSet },

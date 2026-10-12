@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Konscious asks Spotify and Music what is playing, so it can show it in the notch and let you skip a track without leaving your sessions.</string>
   <key>NSDesktopFolderUsageDescription</key>
   <string>Konscious runs Claude and your shell in project folders you choose on your Desktop.</string>
   <key>NSDocumentsFolderUsageDescription</key>

@@ -54,6 +54,27 @@ describe('Notes — Today', () => {
     expect(screen.getByText('0 of 1 done')).toBeTruthy()
   })
 
+  it('lets a long task wrap in the box but keeps it one line of data', () => {
+    const ws = hawk()
+    render(<NotesView />)
+    const input = screen.getByLabelText('Add a task')
+    // A textarea, so the browser wraps it; an input would scroll sideways.
+    expect(input.tagName).toBe('TEXTAREA')
+    fireEvent.change(input, { target: { value: 'Check the login flow\nthen the signup one' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(currentNotes(getState().notes.byWorkspace[ws.id]).tasks.map((t) => t.text)).toEqual([
+      'Check the login flow then the signup one',
+    ])
+  })
+
+  it('wraps the scratch pad rather than scrolling it sideways', () => {
+    hawk()
+    render(<NotesView />)
+    const pad = screen.getByLabelText('Scratch')
+    expect(pad.getAttribute('wrap')).toBeNull()
+    expect(pad.className).toContain('whitespace-pre-wrap')
+  })
+
   it('shows unsaved changes with Discard and Save, and ⌘S saves', () => {
     const ws = hawk()
     addTask(ws.id, 'x')

@@ -22,13 +22,17 @@
   --color-info: var(--info);
   --color-water: var(--water);
   --color-stand: var(--stand);
+  --color-sit: var(--sit);
+  --color-caff: var(--caff);
   --color-sys: var(--sys);
   --color-cpu: var(--cpu);
+  --color-gpu: var(--gpu);
   --color-ram: var(--ram);
   --color-ssd: var(--ssd);
   --color-tmp: var(--tmp);
   --color-hot: var(--hot);
   --color-pomo: var(--pomo);
+  --color-music: var(--music);
   --color-hover: var(--hover);
   --color-sel: var(--sel);
   --color-overlay: var(--overlay);
@@ -138,4 +142,124 @@ input {
 }
 @media (prefers-reduced-motion: reduce) {
   .cw-spinner-strip { animation: none; }
+}
+
+/* Notch island (components/Island). Black in both themes, like the hardware
+   it borrows its shape from, so every colour inside it is a literal rather
+   than a token: a token flips with the theme and would vanish. */
+
+/* Drink water: a full drop revealed from the bottom over the outline, so the
+   level animates without animating SVG geometry. */
+.cw-drop-fill {
+  animation: cw-drop 2600ms ease-in-out infinite;
+}
+@keyframes cw-drop {
+  0% { clip-path: inset(100% 0 0 0); }
+  55%, 80% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(100% 0 0 0); }
+}
+
+/* Stand up: the figure hops, twice, then waits. */
+.cw-hop {
+  animation: cw-hop 1900ms ease-in-out infinite;
+}
+@keyframes cw-hop {
+  0%, 22%, 62%, 100% { transform: translateY(0); }
+  32% { transform: translateY(-3px); }
+  42% { transform: translateY(0); }
+  52% { transform: translateY(-1.5px); }
+}
+
+/* A break: the line twice over, slid by half its width, so it never shows a
+   gap as it wraps. */
+.cw-marquee {
+  display: flex;
+  width: max-content;
+  animation: cw-marquee 12s linear infinite;
+  will-change: transform;
+}
+@keyframes cw-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* One word at a time instead, crossfading, for anyone who asked for less
+   motion: a marquee is exactly the movement that setting is about. */
+.cw-word {
+  animation: cw-word 3s ease-in-out infinite;
+}
+@keyframes cw-word {
+  0%, 100% { opacity: 0.3; }
+  25%, 75% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cw-drop-fill,
+  .cw-hop,
+  .cw-marquee {
+    animation: none;
+  }
+  /* Still a drop with water in it, just not a moving one. */
+  .cw-drop-fill { clip-path: inset(45% 0 0 0); }
+}
+
+/* Now playing: five bars that look like a spectrum without being one.
+   A real one would mean capturing system audio — Core Audio process taps, or
+   ScreenCaptureKit and the Screen Recording permission — which is a lot of
+   consent to ask for a decoration. Each bar's duration and delay come from
+   lib/media.ts so they never move as a block. */
+.cw-bar {
+  transform-origin: bottom;
+  animation-name: cw-bar;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: transform;
+}
+@keyframes cw-bar {
+  from { transform: scaleY(0.25); }
+  to { transform: scaleY(1); }
+}
+/* Paused rather than removed, so the row keeps its height and the bars stay
+   where they stopped instead of snapping flat. */
+.cw-bar-still {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cw-bar {
+    animation: none;
+    transform: scaleY(0.55);
+  }
+}
+
+/* Swapping between activities. The box does not resize between two compact
+   activities, so without this the content simply cut from one to the next and
+   read as a glitch rather than a swap. It slides in from the side it came
+   from, which is short enough not to delay the reading. */
+.cw-swap-on,
+.cw-swap-back {
+  animation: cw-swap-on 190ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.cw-swap-back {
+  animation-name: cw-swap-back;
+}
+@keyframes cw-swap-on {
+  from { opacity: 0; transform: translateX(9px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cw-swap-back {
+  from { opacity: 0; transform: translateX(-9px); }
+  to { opacity: 1; transform: none; }
+}
+/* Movement off, but the change still needs marking, so it crossfades. */
+@media (prefers-reduced-motion: reduce) {
+  .cw-swap-on,
+  .cw-swap-back {
+    animation: cw-swap-fade 150ms ease-out both;
+  }
+  @keyframes cw-swap-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }

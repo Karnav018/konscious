@@ -66,4 +66,41 @@ describe('the dock does not swallow its own clicks', () => {
     const r = render(<Dock />)
     expect(r.getByTitle(/Drink water/)).toBeTruthy()
   })
+
+  it('shows the caffeine cup by what is still in you, not the day’s total', () => {
+    setAppOn('caff', true)
+    const r = render(<Dock />)
+    expect(r.getByTitle(/still in you/)).toBeTruthy()
+  })
+
+  it('shows the sitting tile as away until a streak has begun', () => {
+    setAppOn('sit', true)
+    const r = render(<Dock />)
+    expect(r.getByTitle(/away from the desk/i)).toBeTruthy()
+  })
+
+  it('fills the field from a drink but logs only on Add', () => {
+    setAppOn('caff', true)
+    const r = render(<Dock />)
+    fireEvent.click(r.getByTitle(/still in you/))
+    // Tapping Coffee at the default Medium puts 95 in the field, logs nothing.
+    fireEvent.click(r.getByTitle(/^Coffee/))
+    expect(getState().ui.apps.caff.log).toHaveLength(0)
+    expect((r.container.querySelector('input') as HTMLInputElement).value).toBe('95')
+    // Add commits it.
+    fireEvent.click(r.getByTitle('Log this amount'))
+    expect(getState().ui.apps.caff.log).toHaveLength(1)
+    expect(getState().ui.apps.caff.log[0].mg).toBe(95)
+  })
+
+  it('fills a larger figure when the size is Large', () => {
+    setAppOn('caff', true)
+    const r = render(<Dock />)
+    fireEvent.click(r.getByTitle(/still in you/))
+    fireEvent.click(r.getByTitle(/Large servings/))
+    fireEvent.click(r.getByTitle(/^Coffee/))
+    // Coffee large is 145, and the choice is remembered.
+    expect((r.container.querySelector('input') as HTMLInputElement).value).toBe('145')
+    expect(getState().ui.apps.caff.size).toBe('l')
+  })
 })

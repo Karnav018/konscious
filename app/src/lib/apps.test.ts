@@ -10,6 +10,7 @@ import {
   freshPomo,
   freshReminder,
   gaugeFill,
+  glassesToday,
   HOLD_MS,
   HOT_PCT,
   isDue,
@@ -30,6 +31,9 @@ import {
   snoozed,
   TEMP_MAX,
 } from './apps'
+import { dayKey } from './format'
+import { canAnnounce, ISLAND_KEYS } from './island'
+import { initialState } from '../state/store'
 
 const now = 1_700_000_000_000
 const min = (n: number) => n * 60_000
@@ -38,9 +42,12 @@ const due = (over: Partial<Parameters<typeof isDue>[0]> = {}) =>
 
 describe('the catalog', () => {
   it('ships every app in a category, in catalog order', () => {
-    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'pomo', 'warm', 'sys'])
+    expect(APPS.map((a) => a.id)).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'music', 'layout', 'warm', 'sys'])
     expect(APPS.filter((a) => a.category === 'Reminders').map((a) => a.id)).toEqual(['water', 'stand'])
+    expect(APPS.filter((a) => a.category === 'Health').map((a) => a.id)).toEqual(['sit', 'caff'])
     expect(APPS.filter((a) => a.category === 'Timers').map((a) => a.id)).toEqual(['pomo'])
+    expect(APPS.filter((a) => a.category === 'Media').map((a) => a.id)).toEqual(['music'])
+    expect(APPS.filter((a) => a.category === 'Workspace').map((a) => a.id)).toEqual(['layout'])
     expect(APPS.filter((a) => a.category === 'Display').map((a) => a.id)).toEqual(['warm'])
     expect(APPS.filter((a) => a.category === 'System').map((a) => a.id)).toEqual(['sys'])
   })
@@ -62,6 +69,46 @@ describe('the catalog', () => {
 
   it('says what every app can do, for the catalog and later the permissions', () => {
     for (const app of APPS) expect(app.can.length).toBeGreaterThan(0)
+  })
+
+  it('declares `announces` for exactly the apps whose copy promises the notch', () => {
+    // These drifted apart once: Caffeine and Sitting announced through the
+    // island while a hand-written list left them out, so their "Show in
+    // notch" switch never appeared and the setting could not be saved. The
+    // catalog's own words are the check.
+    for (const app of APPS) {
+      const promises = app.can.some((c) => c.toLowerCase().includes('notch'))
+      expect(app.announces === true, `--${app.id}: can[] ${promises ? 'promises' : 'does not promise'} the notch`).toBe(
+        promises,
+      )
+    }
+  })
+
+  it('offers a notch switch for every app that can announce, and no others', () => {
+    const announcing = APPS.filter((a) => a.announces).map((a) => a.id)
+    expect(announcing).toEqual(['water', 'stand', 'sit', 'caff', 'pomo', 'music'])
+    for (const app of APPS) expect(canAnnounce(app.id)).toBe(app.announces === true)
+    // And every app is a key, so a saved preference is never dropped on load.
+    for (const app of APPS) expect(ISLAND_KEYS).toContain(app.id)
+    expect(ISLAND_KEYS).toHaveLength(APPS.length)
+  })
+
+  it('ships Grid layout on, because it was always in the dock', () => {
+    // Every other app arrives off and is opted into. This one was hardwired
+    // into the dock before it was an app at all, so listing it must not take
+    // it away from anyone who already had it.
+    const fresh = initialState().ui.apps
+    expect(fresh.on.layout).toBe(true)
+    expect(fresh.pinned.layout).toBe(true)
+    for (const app of APPS) if (app.id !== 'layout') expect(fresh.on[app.id]).toBe(false)
+  })
+
+  it('tells the two sitting apps apart in its own copy', () => {
+    // They are easy to confuse, so the catalog has to say which is which.
+    expect(appById('stand').everyMin).toBe(50)
+    expect(appById('sit').everyMin).toBeUndefined()
+    expect(appById('sit').long).toMatch(/measures/i)
+    expect(appById('sit').can.join(' ')).toMatch(/key or click/i)
   })
 })
 
@@ -232,5 +279,35 @@ describe('the pomodoro', () => {
     expect(pomoClock(1)).toBe('0:01')
     expect(pomoClock(0)).toBe('0:00')
     expect(pomoClock(-5)).toBe('0:00')
+  })
+})
+
+describe('the day a glass belongs to', () => {
+  // Built from local-time components throughout, so these say the same thing
+  // in every timezone. Run the suite under TZ=Asia/Kolkata and the old
+  // toISOString() version of this fails: at 01:00 IST the UTC date is still
+  // yesterday, so the count carried over and reset at 05:30 instead of
+  // midnight.
+  const at = (h: number, m = 0, day = 12) => new Date(2026, 9, day, h, m).getTime()
+
+  it('counts a glass on the local day it was drunk', () => {
+    expect(glassesToday(3, dayKey(at(1)), at(1))).toBe(3)
+    expect(glassesToday(3, dayKey(at(23, 50)), at(23, 50))).toBe(3)
+  })
+
+  it('shows nothing the morning after, before a new glass', () => {
+    const lastNight = dayKey(at(23, 50, 11))
+    expect(glassesToday(3, lastNight, at(9, 0, 12))).toBe(0)
+  })
+
+  it('rolls over at local midnight, not at 05:30', () => {
+    // The hours either side of midnight are different days...
+    expect(dayKey(at(23, 50, 11))).not.toBe(dayKey(at(0, 10, 12)))
+    // ...and 01:00 is the same day as 09:00, which the UTC key got wrong.
+    expect(dayKey(at(1))).toBe(dayKey(at(9)))
+  })
+
+  it('is nothing when nothing was ever counted', () => {
+    expect(glassesToday(0, '', at(9))).toBe(0)
   })
 })

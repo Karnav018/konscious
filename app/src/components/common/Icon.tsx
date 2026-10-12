@@ -87,6 +87,68 @@ export const TomatoIcon = ({ size = 16, ...p }: P) => (
   </svg>
 )
 
+/** Now playing. A quaver, which says "a track" without saying "a speaker". */
+export const NoteIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <path d="M9 18V6.2l8-1.6v3.2L9 9.4" />
+    <circle cx="6.6" cy="18" r="2.4" />
+  </svg>
+)
+
+export const PlayIcon = ({ size = 13, ...p }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <path d="M8 5.5v13l11-6.5z" />
+  </svg>
+)
+
+export const PauseIcon = ({ size = 13, ...p }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <rect x="7" y="5.5" width="3.4" height="13" rx="1" />
+    <rect x="13.6" y="5.5" width="3.4" height="13" rx="1" />
+  </svg>
+)
+
+/** Skip. `back` turns it round for previous. */
+export const SkipIcon = ({ size = 13, back = false, ...p }: P & { back?: boolean }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <g transform={back ? 'translate(24 0) scale(-1 1)' : undefined}>
+      <path d="M6 6v12l9-6z" />
+      <rect x="16.4" y="6" width="2.6" height="12" rx="1" />
+    </g>
+  </svg>
+)
+
+/** Caffeine. A cup with a handle; `fill` draws what is still in you, the
+ *  same way the water drop shows the level. */
+export const CupIcon = ({ size = 16, fill = 0, ...p }: P & { fill?: number }) => {
+  const clip = `cup-${Math.round(fill * 100)}`
+  const body = 'M5 8.5h11v6.5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Z'
+  return (
+    <svg {...base(size)} strokeWidth={1.6} {...p}>
+      <defs>
+        <clipPath id={clip}>
+          <rect x="0" y={19 - 10.5 * Math.max(0, Math.min(1, fill))} width="24" height="24" />
+        </clipPath>
+      </defs>
+      <path d={body} />
+      {fill > 0 && <path d={body} fill="currentColor" stroke="none" clipPath={`url(#${clip})`} />}
+      <path d="M16 10h1.6a2.4 2.4 0 0 1 0 4.8H16" />
+      <path d="M7.5 5.6V4M12 5.6V4" />
+    </svg>
+  )
+}
+
+/** Sitting. A figure on a chair, seen from the side — the seated counterpart
+ *  to StandIcon, so the pair reads as a pair. */
+export const ChairIcon = ({ size = 16, ...p }: P) => (
+  <svg {...base(size)} strokeWidth={1.6} {...p}>
+    <circle cx="9" cy="4.8" r="2" />
+    <path d="M9 7.2v4.4h5.5" />
+    <path d="M14.5 11.6v3.2M9 11.6l-2.6 3.2" />
+    <path d="M5 18.4h12M6.4 14.8h9.6" />
+  </svg>
+)
+
 /** Stand up. */
 export const StandIcon = ({ size = 16, ...p }: P) => (
   <svg {...base(size)} strokeWidth={1.6} {...p}>

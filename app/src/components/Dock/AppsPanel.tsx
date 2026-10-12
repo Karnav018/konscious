@@ -19,29 +19,68 @@ import {
   isVertical,
 } from '../../lib/apps'
 import { askNotifyOnce } from '../../app/reminders'
+import { atClock, CUTOFF_CHOICES, DRINKS, LIMIT_CHOICES, mg as mgText, SIZES, todayTotal } from '../../lib/caffeine'
+import { AUTOMATION_SETTINGS, useNowPlaying } from '../../lib/media'
+import { ipc } from '../../lib/ipc'
+import { ALERT_CHOICES, span } from '../../lib/sitting'
+import { canAnnounce } from '../../lib/island'
 import { kbdShift } from '../../lib/platform'
 import { isWarm } from '../../lib/warmth'
 import { WarmthRow } from '../Settings/Settings'
 import {
+  resetCaff,
   resetPomoRounds,
+  resetSit,
   setAppOn,
   setAppPanel,
   setAppPinned,
   setAutoMinimise,
+  setSound,
+  setCaffCutoff,
+  setCaffLimit,
   setEvery,
   setPomoLength,
+  setSitAlertMin,
   setSnoozeMin,
 } from '../../state/commands/apps'
+import { setAppIsland } from '../../state/commands/island'
 import { useUi } from '../../state/selectors'
+import { LayoutGlyph } from '../common/LayoutGlyph'
 import { getState } from '../../state/store'
-import { AppsIcon, AppsOutlineIcon, CloseIcon, DropIcon, FlameIcon, StandIcon, TomatoIcon } from '../common/Icon'
+import {
+  AppsIcon,
+  AppsOutlineIcon,
+  ChairIcon,
+  CloseIcon,
+  CupIcon,
+  DropIcon,
+  FlameIcon,
+  NoteIcon,
+  StandIcon,
+  TomatoIcon,
+} from '../common/Icon'
 
 type Filter = 'All' | 'On' | 'Off'
-const CATEGORIES: AppCategory[] = ['Reminders', 'Timers', 'Display', 'System']
+const CATEGORIES: AppCategory[] = ['Reminders', 'Health', 'Timers', 'Media', 'Workspace', 'Display', 'System']
 
 function Glyph({ id, size = 17 }: { id: AppId; size?: number }) {
   if (id === 'water') return <DropIcon size={size} fill={0.55} />
   if (id === 'stand') return <StandIcon size={size} />
+  if (id === 'caff') return <CupIcon size={size} fill={0.55} />
+  if (id === 'sit') return <ChairIcon size={size} />
+  if (id === 'music') return <NoteIcon size={size} />
+  if (id === 'layout') {
+    return (
+      <LayoutGlyph
+        id="balanced"
+        kinds={['claude', 'claude', 'claude', 'claude']}
+        selected={0}
+        width={size}
+        height={size - 2}
+        border={1.2}
+      />
+    )
+  }
   if (id === 'pomo') return <TomatoIcon size={size} />
   if (id === 'warm') return <FlameIcon size={size} />
   return <AppsOutlineIcon size={size - 1} />
@@ -70,6 +109,57 @@ function Switch({ on, hue, onClick }: { on: boolean; hue: string; onClick: () =>
         }}
         className="rounded-pill"
       />
+    </div>
+  )
+}
+
+/**
+ * Now playing has nothing to configure — but it does have the one thing in
+ * the app that can be refused outside it.
+ *
+ * Automation consent is keyed to the code signature, and Konscious is signed
+ * ad hoc, so the signature changes with every build: expect to be asked again
+ * after an update. And macOS does not ask twice if you decline, so a refusal
+ * has to be reported here with a way out, or the app would simply look broken.
+ */
+function MusicSettings() {
+  const on = useUi((u) => u.apps.on.music)
+  const media = useNowPlaying(on)
+  return (
+    <div className="flex flex-col gap-3">
+      {media.failed ? (
+        <div className="p-2.5 rounded-rs border border-line2 bg-pane flex flex-col gap-1">
+          <span className="text-[12px] font-medium">Could not read your players</span>
+          <span className="text-[11.5px] text-muted leading-[1.45]">
+            Something went wrong on our side rather than yours — nothing here needs changing. Switch the app off
+            and on to try again.
+          </span>
+        </div>
+      ) : media.denied ? (
+        <div className="p-2.5 rounded-rs border bg-pane flex flex-col gap-2" style={{ borderColor: 'var(--warn)' }}>
+          <span className="text-[12px] font-medium">Not allowed to ask the players</span>
+          <span className="text-[11.5px] text-muted leading-[1.45]">
+            macOS is blocking Konscious from asking Spotify and Music what is playing. It won’t ask you again, so
+            it has to be allowed in System Settings › Privacy &amp; Security › Automation.
+          </span>
+          <div
+            onClick={() => void ipc.openUrl(AUTOMATION_SETTINGS).catch(() => {})}
+            className="h-7 flex items-center justify-center rounded-rs border border-line2 cursor-pointer text-[11.5px] text-muted hover:text-text hover:border-accent"
+          >
+            Open Automation settings
+          </div>
+        </div>
+      ) : (
+        <span className="text-[11.5px] text-muted leading-[1.45]">
+          {media.now
+            ? `Reading ${media.now.app}.`
+            : 'Nothing playing. Konscious asks Spotify and Music directly, so audio in a browser tab is invisible to it.'}
+        </span>
+      )}
+      <span className="text-[11px] text-faint leading-[1.45]">
+        Because this build is signed ad hoc, macOS treats every update as a new app and will ask for permission
+        again after one.
+      </span>
     </div>
   )
 }
@@ -142,6 +232,114 @@ function Settings({ id }: { id: AppId }) {
         </>
       )}
 
+      {id === 'caff' && (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <span className={label}>A day’s limit</span>
+            <Choices
+              value={apps.caff.limitMg}
+              options={LIMIT_CHOICES}
+              hue={app.hue}
+              unit="mg"
+              onPick={setCaffLimit}
+            />
+            <span className="text-[11px] text-muted leading-[1.4]">
+              400 mg is the usual figure for a healthy adult — about four coffees.
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className={label}>Warn me about a cup after</span>
+            <div className="flex gap-1 flex-wrap">
+              {CUTOFF_CHOICES.map((m) => (
+                <div
+                  key={m}
+                  onClick={() => setCaffCutoff(m)}
+                  style={{
+                    borderColor: apps.caff.cutoffMin === m ? app.hue : 'var(--line2)',
+                    color: apps.caff.cutoffMin === m ? app.hue : 'var(--muted)',
+                  }}
+                  className="h-7 px-2.5 flex items-center rounded-rs border cursor-pointer font-mono text-[11.5px] tabular-nums"
+                >
+                  {atClock(m)}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className={label}>What a cup counts as, by size</span>
+            <div className="flex items-baseline gap-2">
+              <span className="flex-1" />
+              {SIZES.map((sz) => (
+                <span key={sz.id} className="w-11 text-right font-mono text-[10px] text-faint">
+                  {sz.label}
+                </span>
+              ))}
+            </div>
+            {DRINKS.map((d) => (
+              <div key={d.id} className="flex items-baseline gap-2">
+                <span className="text-[12px] flex-1">{d.name}</span>
+                {SIZES.map((sz) => (
+                  <span key={sz.id} className="w-11 text-right font-mono text-[11px] text-muted">
+                    {d.mg[sz.id]}
+                  </span>
+                ))}
+              </div>
+            ))}
+            <span className="text-[10.5px] text-faint leading-[1.45]">
+              In mg. Sources: USDA and Mayo Clinic for coffee and tea, maker figures for energy drinks.
+            </span>
+          </div>
+          {apps.caff.log.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] flex-1">{mgText(todayTotal(apps.caff.log, Date.now()))} logged today</span>
+              <div
+                onClick={resetCaff}
+                className="h-7 px-2.5 flex items-center rounded-rs border border-line2 cursor-pointer text-[11.5px] text-muted hover:text-text"
+              >
+                Clear
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {id === 'music' && <MusicSettings />}
+
+      {id === 'sit' && (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <span className={label}>Nudge me after sitting</span>
+            <Choices
+              value={apps.sit.alertMin}
+              options={ALERT_CHOICES}
+              hue={app.hue}
+              unit="min"
+              onPick={setSitAlertMin}
+            />
+            <span className="text-[11px] text-muted leading-[1.4]">
+              Measured from the last time you actually got up, not from a timer. Three minutes without a key or
+              click counts as getting up.
+            </span>
+          </div>
+          {(apps.sit.todayMs > 0 || apps.sit.longestMs > 0) && (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex flex-col">
+                <span className="text-[12px]">{span(apps.sit.todayMs)} today</span>
+                {apps.sit.longestMs > 0 && (
+                  <span className="text-[11px] text-muted">{span(apps.sit.longestMs)} at the longest</span>
+                )}
+              </div>
+              <div
+                onClick={resetSit}
+                className="h-7 px-2.5 flex items-center rounded-rs border border-line2 cursor-pointer text-[11.5px] text-muted hover:text-text"
+              >
+                Reset
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {id === 'pomo' && (
         <>
           <div className="flex flex-col gap-1.5">
@@ -176,6 +374,19 @@ function Settings({ id }: { id: AppId }) {
             </div>
           )}
         </>
+      )}
+
+      {canAnnounce(id) && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex flex-col">
+            <span className="text-[12px]">Show in notch</span>
+            <span className="text-[11px] text-muted leading-[1.4]">
+              Its nudge appears in the pill at the top of the window, which works even with system notifications
+              off.
+            </span>
+          </div>
+          <Switch on={apps.island[id]} hue={app.hue} onClick={() => setAppIsland(id, !apps.island[id])} />
+        </div>
       )}
 
       <div className="flex items-center gap-2">
@@ -432,13 +643,23 @@ export function AppsPanel() {
                 <div className="flex flex-col gap-1 items-center text-center py-8 px-4">
                   <span className="text-[12.5px]">Nothing matches “{q}”</span>
                   <span className="text-[11.5px] text-muted leading-[1.45]">
-                    Konscious ships with five apps for now. More will follow, and they’ll appear here when they’re
-                    ready.
+                    Konscious ships with eight apps for now. More will follow, and they’ll appear here when
+                    they’re ready.
                   </span>
                 </div>
               )}
 
               <div className="h-px bg-line" />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex flex-col">
+                  <span className="text-[12px]">Play a sound</span>
+                  <span className="text-[11px] text-muted leading-[1.4]">
+                    A short chime when a nudge arrives — the one part of it that reaches you while you’re looking
+                    somewhere else.
+                  </span>
+                </div>
+                <Switch on={apps.sound} hue="var(--accent)" onClick={() => setSound(!apps.sound)} />
+              </div>
               <div className="flex items-center gap-2 pb-1">
                 <div className="flex-1 flex flex-col">
                   <span className="text-[12px]">Tuck the dock away</span>

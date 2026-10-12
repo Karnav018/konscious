@@ -91,11 +91,39 @@ export interface Stats {
   ram: number
   ssd: number
   tmp: number | null
+  /** Graphics use, or null where the machine will not say. */
+  gpu: number | null
+  /** Graphics memory held, in bytes. */
+  gpuUsed: number | null
   cores: number
   ramTotal: number
   ramUsed: number
   ssdTotal: number
   ssdUsed: number
+}
+
+/** A track, as a player describes it (src-tauri/src/media.rs). */
+export interface NowPlaying {
+  /** The player's own name — "Spotify", "Music", or on Windows whichever app
+   *  owns the system's Now Playing session. */
+  app: string
+  title: string
+  artist: string
+  playing: boolean
+  positionMs: number
+  durationMs: number
+  artworkUrl: string | null
+}
+
+export interface MediaState {
+  now: NowPlaying | null
+  /** macOS refused the Apple event. Told apart from "nothing is playing",
+   *  because the two want completely different things from the user. */
+  denied: boolean
+  /** A script would not compile or run — our bug, not the user's. Kept
+   *  separate so it cannot be mistaken for silence, which is how the first
+   *  version of this hid a real failure. */
+  failed: boolean
 }
 
 /** A session as it travels in a bundle. */

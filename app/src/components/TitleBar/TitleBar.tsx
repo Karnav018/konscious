@@ -23,6 +23,7 @@ import { StatusGlyph } from '../common/StatusGlyph'
 import { UpdateChip } from '../common/UpdateChip'
 import { UsageBar } from '../common/Usage'
 import { Wordmark } from '../common/Wordmark'
+import { Island } from '../Island/Island'
 import { QuickMenu, SettingsButtons, SettingsMenu } from '../Settings/Settings'
 
 const wsSegment =
@@ -176,7 +177,9 @@ export function TitleBar() {
 
       <UpdateChip />
 
-      <div data-tauri-drag-region className="flex-1 self-stretch" />
+      {/* The slack between the two clusters. The island measures this to
+          decide whether it has room, so it carries a hook for it. */}
+      <div data-bar-gap data-tauri-drag-region className="flex-1 self-stretch" />
 
       {!firstRun && (
         <div className="contents max-[900px]:hidden">
@@ -213,6 +216,11 @@ export function TitleBar() {
           <span className="max-[720px]:hidden">New session</span>
         </div>
       </div>
+
+      {/* The island floats over the bar's middle and spills below it when an
+          alert opens. It is a child of the bar so it sits in the bar's own
+          stacking context, above the dock. */}
+      <Island />
 
       {settingsMenu === 'all' && <SettingsMenu />}
       {settingsMenu === 'quick' && <QuickMenu />}

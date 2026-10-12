@@ -12,9 +12,11 @@
 //     pulse, and missed ones do not stack.
 //
 // Everything here is pure. The dock reads it; nothing in it touches the DOM.
+import { dayKey } from './format'
+import { AWAY_SEC } from './sitting'
 
-export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm'
-export type AppCategory = 'Reminders' | 'Timers' | 'Display' | 'System'
+export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit' | 'music' | 'layout'
+export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Media' | 'Workspace' | 'Display' | 'System'
 
 export interface AppDef {
   id: AppId
@@ -33,6 +35,11 @@ export interface AppDef {
   tags: readonly string[]
   /** What the app can do, which later becomes the permission model. */
   can: readonly string[]
+  /** Whether this app has anything to say — a nudge, or something running
+   *  worth showing. Only these get a "Show in notch" switch, and only these
+   *  are allowed through announce(). Declared here so the switch and the
+   *  behaviour cannot drift apart, which they did once. */
+  announces?: boolean
   /** Minutes between nudges, for a reminder. Absent for a gauge. */
   everyMin?: number
   /** What the popover's acknowledge button says. */
@@ -55,7 +62,13 @@ export const APPS: readonly AppDef[] = [
       'The timer restarts from your tap. Missed reminders don’t stack.',
     ],
     tags: ['hydration', 'glass', 'health'],
-    can: ['Show a tile in the dock', 'Raise a system notification', 'Keep a count for today'],
+    can: [
+      'Show a tile in the dock',
+      'Show a nudge in the notch at the top of the window',
+      'Raise a system notification',
+      'Keep a count for today',
+    ],
+    announces: true,
     everyMin: 40,
     ack: 'Had a glass',
   },
@@ -73,9 +86,57 @@ export const APPS: readonly AppDef[] = [
       'The timer restarts from Done, so the next nudge is honest.',
     ],
     tags: ['posture', 'break', 'move', 'health'],
-    can: ['Show a tile in the dock', 'Raise a system notification'],
+    can: ['Show a tile in the dock', 'Show a nudge in the notch at the top of the window', 'Raise a system notification'],
+    announces: true,
     everyMin: 50,
     ack: 'Done',
+  },
+  {
+    id: 'sit',
+    name: 'Sitting',
+    short: 'Sit',
+    hue: 'var(--sit)',
+    category: 'Health',
+    desc: 'How long you have actually been at the desk, measured.',
+    long: 'Stand up runs a timer and nudges you at the interval whether you have been sitting or out at lunch. This measures instead: the system knows how long since your last key or click, and three minutes of that means you got up, so the streak ends and starts again when you come back. What it reports is time you were really there.',
+    steps: [
+      'It reads how long since your last key or click, every 15 seconds.',
+      'Three minutes without one means you left, so the streak ends.',
+      'Cross your threshold in one sitting and you get one nudge.',
+    ],
+    tags: ['sitting', 'posture', 'desk', 'idle', 'health', 'sedentary', 'chair', 'break'],
+    can: [
+      'Show a tile in the dock',
+      'Show a nudge in the notch at the top of the window',
+      'Raise a system notification',
+      'Read how long since this machine last had a key or click',
+      'Keep today’s total and your longest stretch',
+    ],
+    announces: true,
+    ack: 'Up now',
+  },
+  {
+    id: 'caff',
+    name: 'Caffeine',
+    short: 'Caff',
+    hue: 'var(--caff)',
+    category: 'Health',
+    desc: 'What you have had today, and how much is still in you.',
+    long: 'Tap what you drank and it keeps a running figure for how much caffeine is still circulating, not just the day’s total. Caffeine leaves on a half-life of about five hours, so a coffee at 16:00 is still worth about half of it at 21:00 — which is usually the answer to why you are awake. The day’s total is measured against a limit; what is in you is measured against the clock.',
+    steps: [
+      'Tap Espresso, Coffee, Tea or Energy — or type a figure.',
+      'The cup in the dock fills with what is still in you, not what you drank.',
+      'You get one nudge if the day goes over your limit, and one for a cup after your cutoff.',
+    ],
+    tags: ['caffeine', 'coffee', 'espresso', 'tea', 'energy', 'sleep', 'health', 'mg', 'cutoff'],
+    can: [
+      'Show a tile in the dock',
+      'Show a nudge in the notch at the top of the window',
+      'Raise a system notification',
+      'Keep what you logged for the last day',
+    ],
+    announces: true,
+    ack: 'Logged',
   },
   {
     id: 'pomo',
@@ -90,9 +151,57 @@ export const APPS: readonly AppDef[] = [
       'Start it. The tile shows how much is left, and one notification goes out when the stretch ends.',
       'The break starts itself, and the next stretch follows it. Stop whenever.',
     ],
+    announces: true,
     tags: ['pomodoro', 'focus', 'timer', 'break', 'deep work', 'tomato', '25'],
-    can: ['Show a timer in the dock', 'Raise a system notification when a stretch or break ends', 'Keep a count of today’s stretches'],
+    can: [
+      'Show a timer in the dock',
+      'Show the running stretch in the notch at the top of the window',
+      'Raise a system notification when a stretch or break ends',
+      'Keep a count of today’s stretches',
+    ],
     ack: 'Start',
+  },
+  {
+    id: 'music',
+    name: 'Now playing',
+    short: 'Music',
+    hue: 'var(--music)',
+    category: 'Media',
+    desc: 'What is playing, in the notch, with skip and pause.',
+    long: 'Shows the track playing in the pill at the top of the window, with buttons to pause or skip, so you can deal with a song without leaving your sessions. On macOS it asks Spotify and Music directly — the first time, macOS will ask whether to allow that. It cannot see audio playing in a browser tab, which is a limit of the only interface Apple offers for this. On Windows it reads the system’s own Now Playing, which every app reports into, browsers included.',
+    steps: [
+      'Switch it on. On macOS, allow Konscious to control Spotify or Music when asked.',
+      'The notch shows the track while something plays, with a spectrum beside it.',
+      'Click it for the artist, the artwork and the transport buttons.',
+    ],
+    announces: true,
+    tags: ['music', 'spotify', 'now playing', 'media', 'track', 'song', 'player', 'audio', 'pause', 'skip'],
+    can: [
+      'Show what is playing in the notch at the top of the window',
+      'Ask Spotify and Music what is playing, and tell them to pause or skip',
+      'Read the system’s Now Playing session (Windows)',
+    ],
+  },
+  {
+    id: 'layout',
+    name: 'Grid layout',
+    short: 'Grid',
+    // The accent, for the same reason Warm colours uses it: this is how
+    // Konscious arranges its own window, not a thing running beside the
+    // sessions. Two apps sharing the accent is the honest answer here — a
+    // hue of its own would imply it stands apart from the app, and it does
+    // not.
+    hue: 'var(--accent)',
+    category: 'Workspace',
+    desc: 'How the panes are arranged, and a quicker way to change it.',
+    long: 'The picture in the dock is your grid as it stands. Click it to pick another arrangement, even out the pane sizes, or take the one Konscious suggests when the mix of panes changes. It was always in the dock; it is listed here so it can be switched off or hidden like anything else.',
+    steps: [
+      'The tile draws your panes as they are now. Click it for the five layouts.',
+      '⌘L cycles them, ⌘⌥1–5 picks one, ⌘⇧= evens out the sizes.',
+      'Drag the dividers between panes to resize, or double-click one to even it out.',
+    ],
+    tags: ['grid', 'layout', 'panes', 'arrange', 'split', 'tile', 'columns', 'rows', 'resize', 'workspace'],
+    can: ['Show a tile in the dock', 'Change how this window arranges its panes'],
   },
   {
     id: 'warm',
@@ -139,6 +248,9 @@ export const isReminder = (a: AppDef): boolean => a.everyMin !== undefined
 /** The system stats gauge cycles through these, in this order. */
 export const METRICS = [
   { key: 'cpu', label: 'CPU', short: 'CPU', hue: 'var(--cpu)' },
+  // Next to the processor, because they are the two that answer "why is this
+  // machine busy" and you want to see them one after the other.
+  { key: 'gpu', label: 'Graphics', short: 'GPU', hue: 'var(--gpu)' },
   { key: 'ram', label: 'Memory', short: 'RAM', hue: 'var(--ram)' },
   { key: 'ssd', label: 'Disk', short: 'SSD', hue: 'var(--ssd)' },
   { key: 'tmp', label: 'Temperature', short: 'TEMP', hue: 'var(--tmp)' },
@@ -209,6 +321,17 @@ export function nextDueAt(every: number, state: ReminderState, now = Date.now())
   if (state.snoozedUntil !== null && now < state.snoozedUntil) return state.snoozedUntil
   return state.since + every * 60_000
 }
+
+/**
+ * Glasses counted today, which is not the same as the number saved.
+ *
+ * The count carries a day with it, and once that day has passed the number
+ * is yesterday's. Asking for it rather than reading the field is what stops
+ * the dock saying "3 glasses today" at nine the next morning, before a new
+ * glass has been logged to roll it over.
+ */
+export const glassesToday = (glasses: number, glassesOn: string, now = Date.now()): number =>
+  glassesOn === dayKey(now) ? glasses : 0
 
 /** Acknowledged: the interval restarts from the tap, which is what makes the
  *  next nudge honest. */
@@ -327,4 +450,89 @@ export function pomoClock(ms: number): string {
   const total = Math.ceil(Math.max(0, ms) / 1000)
   const m = Math.floor(total / 60)
   return `${m}:${String(total % 60).padStart(2, '0')}`
+}
+
+
+/* ── coming back from sleep ───────────────────────────────────────── */
+
+// A laptop that sleeps mid-pomodoro used to wake up and announce "time for
+// a break" for a stretch that ended three hours ago, then start a break
+// nobody asked for. Stand up fired the moment the lid opened, for sitting
+// you did not do. Neither is a timer being wrong — it is a timer being
+// right about a span of wall clock that was not real.
+
+/** A tick gap longer than this might be sleep. Might: a webview throttles
+ *  its timers when the window is hidden or occluded, and from in here that
+ *  looks exactly the same. */
+export const WAKE_GAP_MS = 60_000
+
+/** Without an idle reading there is no way to tell those two apart, so the
+ *  gap alone has to be long enough that throttling is not a plausible
+ *  explanation for it. */
+export const BLIND_GAP_MS = 5 * 60_000
+
+/** How far a phase may overrun and still count as having just ended. Shut
+ *  the lid for a minute right on the boundary and the break still starts. */
+export const PHASE_GRACE_MS = 2 * 60_000
+
+/**
+ * Whether the machine was really away, rather than the window being throttled.
+ *
+ * The gap on its own is not evidence. The confirmation is the system's idle
+ * time, which after a real sleep covers the whole gap, and which for a
+ * throttled window in active use is a few seconds.
+ */
+export function sleptThrough(gapMs: number, idleSec: number | null): boolean {
+  if (gapMs < WAKE_GAP_MS) return false
+  if (idleSec === null) return gapMs >= BLIND_GAP_MS
+  return idleSec * 1000 >= Math.min(gapMs, AWAY_SEC * 1000)
+}
+
+export interface WakeInput {
+  pomo: PomoState
+  stand: ReminderState
+  /** Wall clock between the last tick and this one. */
+  gapMs: number
+  /** Seconds since the last key or click, or null where we cannot ask. */
+  idleSec: number | null
+  now: number
+}
+
+export interface WakeResult {
+  pomo: PomoState
+  stand: ReminderState
+  /** The pomodoro was abandoned rather than advanced. */
+  stopped: boolean
+  /** The stand-up nudge was treated as answered. */
+  stood: boolean
+}
+
+/**
+ * What to do with the two timers that slept.
+ *
+ * The pomodoro stops rather than hands over: a stretch that ran out hours
+ * ago is not one you can be given the other half of, which is the same rule
+ * appsFrom already applies across a restart. Rounds are kept, because those
+ * stretches were real.
+ *
+ * Stand up counts the sleep as having stood, if it was at least as long as
+ * the three minutes Sitting treats as leaving the desk. Nothing is tallied
+ * — you were away, which is all the nudge was asking for.
+ *
+ * Water is deliberately untouched. Its nudge is "you have not had a drink
+ * in a while", and that is as true after a nap as before one.
+ */
+export function afterWake({ pomo, stand, gapMs, idleSec, now }: WakeInput): WakeResult {
+  if (!sleptThrough(gapMs, idleSec)) return { pomo, stand, stopped: false, stood: false }
+
+  const overrun = pomo.endsAt === null ? 0 : now - pomo.endsAt
+  const stopped = pomo.phase !== 'idle' && pomo.endsAt !== null && overrun > PHASE_GRACE_MS
+  const stood = gapMs >= AWAY_SEC * 1000
+
+  return {
+    pomo: stopped ? stopPomo(pomo) : pomo,
+    stand: stood ? acknowledged(now) : stand,
+    stopped,
+    stood,
+  }
 }

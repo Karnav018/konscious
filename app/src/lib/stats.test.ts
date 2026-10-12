@@ -8,6 +8,8 @@ const machine = (over: Partial<Stats> = {}): Stats => ({
   ram: 61,
   ssd: 72,
   tmp: 52,
+  gpu: 31,
+  gpuUsed: 2 * 1024 ** 3,
   cores: 10,
   ramTotal: 32 * 1024 ** 3,
   ramUsed: 19 * 1024 ** 3,
@@ -17,10 +19,22 @@ const machine = (over: Partial<Stats> = {}): Stats => ({
 })
 
 describe('what the machine reports', () => {
-  it('counts a temperature it has, and leaves out one it has not', () => {
-    expect(availableMetrics(machine())).toEqual(['cpu', 'ram', 'ssd', 'tmp'])
-    expect(availableMetrics(machine({ tmp: null }))).toEqual(['cpu', 'ram', 'ssd'])
+  it('counts what the machine reports, and leaves out what it does not', () => {
+    expect(availableMetrics(machine())).toEqual(['cpu', 'gpu', 'ram', 'ssd', 'tmp'])
+    // Most Apple silicon reports no temperature; a PC may report no readable
+    // graphics. Either is dropped from the cycle rather than shown empty.
+    expect(availableMetrics(machine({ tmp: null }))).toEqual(['cpu', 'gpu', 'ram', 'ssd'])
+    expect(availableMetrics(machine({ gpu: null }))).toEqual(['cpu', 'ram', 'ssd', 'tmp'])
+    expect(availableMetrics(machine({ gpu: null, tmp: null }))).toEqual(['cpu', 'ram', 'ssd'])
     expect(availableMetrics(null)).toEqual([])
+  })
+
+  it('says what the graphics figure means, or that it cannot tell', () => {
+    expect(statValue('gpu', machine())).toBe(31)
+    expect(statDetail('gpu', machine())).toBe('2.0 GB of graphics memory held')
+    expect(statDetail('gpu', machine({ gpu: null }))).toBe('this machine does not report it')
+    // Utilisation without a memory figure is still worth showing.
+    expect(statDetail('gpu', machine({ gpuUsed: null }))).toBe('graphics chip')
   })
 
   it('puts the figures behind each percentage into words', () => {

@@ -24,6 +24,7 @@ import type {
   InitInfo,
   Kind,
   Layout,
+  MediaState,
   SessionInfo,
   SessionMemory,
   Snapshot,
@@ -77,6 +78,13 @@ export const ipc = {
   sessionList: () => invoke<SessionInfo[]>('session_list'),
   sessionMemory: () => invoke<SessionMemory[]>('session_memory'),
   systemStats: () => invoke<Stats>('system_stats'),
+  /** Seconds since the user last touched the machine; null where the
+   *  platform cannot say. The sitting tracker measures from this. */
+  systemIdleSecs: () => invoke<number | null>('system_idle_secs'),
+  /** What is playing, and whether macOS let us look. */
+  mediaNow: () => invoke<MediaState>('media_now'),
+  /** Play/pause, next or previous. True when a player took it. */
+  mediaControl: (action: 'toggle' | 'next' | 'prev') => invoke<boolean>('media_control', { action }),
 
   /* ── moving a workspace between machines ───────────────────────── */
 

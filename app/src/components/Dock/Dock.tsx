@@ -18,6 +18,7 @@ import {
   BREAK_CHOICES,
   type Edge,
   FOCUS_CHOICES,
+  glassesToday,
   isDue,
   isVertical,
   nearestEdge,
@@ -26,10 +27,15 @@ import {
   pomoLeft,
   pomoProgress,
 } from '../../lib/apps'
+import { cupFill, doseFor, DRINKS, inBody, MAX_MG, mg as mgText, SIZES, todayTotal } from '../../lib/caffeine'
 import { clock } from '../../lib/format'
+import { AUTOMATION_SETTINGS, progress as trackProgress, trackLabel, useNowPlaying } from '../../lib/media'
+import { ipc } from '../../lib/ipc'
 import { kbdShift } from '../../lib/platform'
+import { sitFill, span, streakMs } from '../../lib/sitting'
 import { isWarm } from '../../lib/warmth'
 import { WarmthRow } from '../Settings/Settings'
+import { logCaffeine } from '../../app/caffeine'
 import {
   acknowledge,
   setAppPanel,
@@ -37,12 +43,27 @@ import {
   setDockPlace,
   setPomoLength,
   skip,
+  setCaffSize,
   snooze,
+  standNow,
   startPomo,
   stopPomoTimer,
+  undoDose,
 } from '../../state/commands/apps'
 import { useRuntimes, useUi } from '../../state/selectors'
-import { AppsIcon, DropIcon, FlameIcon, StandIcon, TomatoIcon } from '../common/Icon'
+import {
+  AppsIcon,
+  ChairIcon,
+  CupIcon,
+  DropIcon,
+  FlameIcon,
+  NoteIcon,
+  PauseIcon,
+  PlayIcon,
+  SkipIcon,
+  StandIcon,
+  TomatoIcon,
+} from '../common/Icon'
 import { Gauge, Ring } from './Gauge'
 import { LayoutTile } from './LayoutTile'
 
@@ -103,9 +124,7 @@ function WarmTile({ size, edge }: { size: number; edge: Edge }) {
   const warmth = useUi((u) => u.warmth)
   const open = useUi((u) => u.appPopover === 'warm')
   const on = warm && isWarm(warmth)
-  const side = isVertical(edge)
-    ? { [edge === 'right' ? 'right' : 'left']: size + 14, top: -6 }
-    : { [edge === 'bottom' ? 'bottom' : 'top']: size + 14, right: -6 }
+  const side = popoverSide(edge, size)
   return (
     <div style={{ position: 'relative' }}>
     <div
@@ -157,8 +176,373 @@ function WarmTile({ size, edge }: { size: number; edge: Edge }) {
 function AppGlyph({ id, fill }: { id: AppId; fill: number }) {
   if (id === 'water') return <DropIcon size={15} fill={fill} />
   if (id === 'stand') return <StandIcon size={15} />
+  if (id === 'caff') return <CupIcon size={15} fill={fill} />
+  if (id === 'sit') return <ChairIcon size={15} />
+  if (id === 'music') return <NoteIcon size={15} />
   if (id === 'pomo') return <TomatoIcon size={15} />
   return <AppsIcon />
+}
+
+/** Where a tile's popover opens, which depends on the dock's edge. */
+const popoverSide = (edge: Edge, size: number) =>
+  isVertical(edge)
+    ? { [edge === 'right' ? 'right' : 'left']: size + 14, top: -6 }
+    : { [edge === 'bottom' ? 'bottom' : 'top']: size + 14, right: -6 }
+
+/** Caffeine: a cup filled with what is still in you, not with what you
+ *  drank. Clicking it logs a drink. */
+function CaffTile({ edge, size, now }: { edge: Edge; size: number; now: number }) {
+  const caff = useUi((u) => u.apps.caff)
+  const open = useUi((u) => u.appPopover === 'caff')
+  const [custom, setCustom] = useState('')
+  // Which drink is in the field, for the highlight. Not committed state: the
+  // field value is the source of truth, this only says which button last
+  // filled it. A manual edit clears it, so changing size does not overwrite
+  // a number the user typed by hand.
+  const [picked, setPicked] = useState<string | null>(null)
+  const hue = 'var(--caff)'
+  const held = inBody(caff.log, now)
+  const today = todayTotal(caff.log, now)
+  const over = today > caff.limitMg
+  const log = (amount: number) => {
+    logCaffeine(amount)
+    setCustom('')
+    setPicked(null)
+  }
+  // Tapping a drink fills the field; Add (or Enter) commits. One path in.
+  const pick = (id: string) => {
+    setCustom(String(doseFor(id as Parameters<typeof doseFor>[0], caff.size)))
+    setPicked(id)
+  }
+  const chooseSize = (size: (typeof SIZES)[number]['id']) => {
+    setCaffSize(size)
+    // Refill from the picked drink at the new size, unless the user has since
+    // typed their own number — then their number wins until the next tap.
+    if (picked) setCustom(String(doseFor(picked as Parameters<typeof doseFor>[0], size)))
+  }
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        onClick={(e) => {
+          e.stopPropagation()
+          setAppPopover(open ? null : 'caff')
+        }}
+        title={`Caffeine — ${mgText(held)} still in you`}
+        style={{ width: size, height: size, borderRadius: 7, background: open ? 'var(--sel)' : 'transparent' }}
+        className="grid place-items-center cursor-pointer hover:bg-sel"
+      >
+        <span
+          style={{
+            width: GLYPH,
+            height: GLYPH,
+            borderRadius: 6,
+            border: `1.5px solid ${over ? 'var(--hot)' : hue}`,
+            color: over ? 'var(--hot)' : hue,
+          }}
+          className="grid place-items-center"
+        >
+          <CupIcon size={15} fill={cupFill(caff.log, now, caff.limitMg)} />
+        </span>
+      </div>
+      {open && (
+        <div
+          data-dock-popover
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', ...popoverSide(edge, size), width: 246, boxShadow: 'var(--shadow)' }}
+          className="p-2.5 bg-raised border border-line2 rounded-r z-[40] flex flex-col gap-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <span style={{ color: hue }}>
+              <CupIcon size={16} fill={0.5} />
+            </span>
+            <span className="text-[12.5px] font-medium flex-1">Caffeine</span>
+          </div>
+
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-[20px] tabular-nums" style={{ color: hue }}>
+              {mgText(held)}
+              <span className="text-[11px] text-faint font-ui"> still in you</span>
+            </span>
+            <span className="text-[11.5px]" style={{ color: over ? 'var(--hot)' : 'var(--muted)' }}>
+              {mgText(today)} today, of {mgText(caff.limitMg)}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-faint flex-1">Add</span>
+              {/* Size applies to whichever drink you tap. */}
+              <div className="flex gap-[2px] p-[2px] rounded-rs bg-pane border border-line">
+                {SIZES.map((sz) => (
+                  <div
+                    key={sz.id}
+                    onClick={() => chooseSize(sz.id)}
+                    title={`${sz.label === 'S' ? 'Small' : sz.label === 'M' ? 'Medium' : 'Large'} servings`}
+                    style={{
+                      background: caff.size === sz.id ? hue : 'transparent',
+                      color: caff.size === sz.id ? '#fff' : 'var(--muted)',
+                    }}
+                    className="w-6 h-5 grid place-items-center rounded-[4px] cursor-pointer text-[11px] font-medium"
+                  >
+                    {sz.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {DRINKS.map((drink) => (
+                <div
+                  key={drink.id}
+                  onClick={() => pick(drink.id)}
+                  title={`${drink.name} — ${doseFor(drink.id, caff.size)} mg`}
+                  style={{
+                    borderColor: picked === drink.id ? hue : 'var(--line2)',
+                    color: picked === drink.id ? hue : 'var(--muted)',
+                  }}
+                  className="h-7 px-2 flex items-center rounded-rs border cursor-pointer text-[11.5px] hover:text-text hover:border-accent"
+                >
+                  {drink.name}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-1">
+              <input
+                value={custom}
+                onChange={(e) => {
+                  setCustom(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))
+                  setPicked(null)
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && custom && log(Number(custom))}
+                placeholder={`mg (up to ${MAX_MG})`}
+                className="h-7 flex-1 min-w-0 px-2 rounded-rs bg-pane border border-line text-[11.5px] outline-none focus:border-accent"
+              />
+              <div
+                onClick={() => custom && log(Number(custom))}
+                title="Log this amount"
+                style={{ opacity: custom ? 1 : 0.4 }}
+                className="h-7 px-2.5 grid place-items-center rounded-rs bg-accent text-accent-ink cursor-pointer text-[11.5px] font-medium"
+              >
+                Add
+              </div>
+            </div>
+          </div>
+
+          {caff.log.length > 0 && (
+            <div
+              onClick={() => undoDose()}
+              className="h-7 flex items-center justify-center rounded-rs border border-line2 cursor-pointer text-[11.5px] text-muted hover:text-text"
+            >
+              Undo the last one
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Now playing: the track, and the three buttons. The island is where this
+ *  mostly lives; the tile is for when the window is too narrow for the island
+ *  or the notch is switched off. */
+function MusicTile({ edge, size }: { edge: Edge; size: number }) {
+  const on = useUi((u) => u.apps.on.music)
+  const open = useUi((u) => u.appPopover === 'music')
+  // Polled while the tile is in the dock, which is the point of the hook's
+  // gate: switched off, no Apple event is ever sent.
+  const media = useNowPlaying(on)
+  const hue = 'var(--music)'
+  const playing = !!media.now?.playing
+  const btn = 'w-8 h-8 grid place-items-center rounded-rs cursor-pointer text-muted hover:text-text hover:bg-sel'
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        onClick={(e) => {
+          e.stopPropagation()
+          setAppPopover(open ? null : 'music')
+        }}
+        title={media.now ? `${trackLabel(media.now)}${playing ? '' : ' · paused'}` : 'Now playing'}
+        style={{ width: size, height: size, borderRadius: 7, background: open ? 'var(--sel)' : 'transparent' }}
+        className="grid place-items-center cursor-pointer hover:bg-sel"
+      >
+        <span
+          style={{
+            width: GLYPH,
+            height: GLYPH,
+            borderRadius: 6,
+            border: `1.5px solid ${hue}`,
+            background: playing ? `color-mix(in srgb, ${hue} 20%, transparent)` : 'transparent',
+            color: hue,
+          }}
+          className={`grid place-items-center${media.now ? '' : ' opacity-50'}`}
+        >
+          <NoteIcon size={15} />
+        </span>
+      </div>
+      {open && (
+        <div
+          data-dock-popover
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', ...popoverSide(edge, size), width: 246, boxShadow: 'var(--shadow)' }}
+          className="p-2.5 bg-raised border border-line2 rounded-r z-[40] flex flex-col gap-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <span style={{ color: hue }}>
+              <NoteIcon size={16} />
+            </span>
+            <span className="text-[12.5px] font-medium flex-1">Now playing</span>
+          </div>
+
+          {media.failed ? (
+            <span className="text-[11.5px] text-muted leading-[1.45]">
+              Konscious could not read your players. That is a fault on our side, not a setting of yours.
+            </span>
+          ) : media.denied ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-[11.5px] text-muted leading-[1.45]">
+                macOS is not letting Konscious ask Spotify or Music what is playing.
+              </span>
+              <div
+                onClick={() => void ipc.openUrl(AUTOMATION_SETTINGS).catch(() => {})}
+                className="h-7 flex items-center justify-center rounded-rs border border-line2 cursor-pointer text-[11.5px] text-muted hover:text-text hover:border-accent"
+              >
+                Open Automation settings
+              </div>
+            </div>
+          ) : media.now ? (
+            <>
+              <div className="flex items-center gap-2.5">
+                {media.now.artworkUrl ? (
+                  <img
+                    src={media.now.artworkUrl}
+                    alt=""
+                    style={{ width: 38, height: 38, borderRadius: 4 }}
+                    className="flex-none object-cover"
+                  />
+                ) : (
+                  <span
+                    style={{ width: 38, height: 38, borderRadius: 4, borderColor: 'var(--line2)', color: hue }}
+                    className="flex-none grid place-items-center rounded-rs border"
+                  >
+                    <NoteIcon size={17} />
+                  </span>
+                )}
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <span className="text-[12px] font-medium overflow-hidden text-ellipsis whitespace-nowrap">
+                    {media.now.title}
+                  </span>
+                  <span className="text-[11px] text-muted overflow-hidden text-ellipsis whitespace-nowrap">
+                    {media.now.artist || media.now.app}
+                  </span>
+                </div>
+              </div>
+              {media.now.durationMs > 0 && (
+                <span className="block rounded-pill" style={{ height: 3, background: 'var(--line2)' }}>
+                  <span
+                    className="block rounded-pill"
+                    style={{ width: `${trackProgress(media.now) * 100}%`, height: 3, background: hue }}
+                  />
+                </span>
+              )}
+              <div className="flex items-center justify-center gap-1">
+                <div className={btn} title="Previous" onClick={() => void ipc.mediaControl('prev').catch(() => {})}>
+                  <SkipIcon size={14} back />
+                </div>
+                <div
+                  className={btn}
+                  title={playing ? 'Pause' : 'Play'}
+                  onClick={() => void ipc.mediaControl('toggle').catch(() => {})}
+                >
+                  {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+                </div>
+                <div className={btn} title="Next" onClick={() => void ipc.mediaControl('next').catch(() => {})}>
+                  <SkipIcon size={14} />
+                </div>
+              </div>
+            </>
+          ) : (
+            <span className="text-[11.5px] text-muted leading-[1.45]">
+              Nothing playing. Konscious can see Spotify and Music; audio in a browser tab is invisible to it.
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Sitting: a ring that fills across your threshold, measured from the last
+ *  time you actually got up. */
+function SitTile({ edge, size, now }: { edge: Edge; size: number; now: number }) {
+  const sit = useUi((u) => u.apps.sit)
+  const open = useUi((u) => u.appPopover === 'sit')
+  const hue = 'var(--sit)'
+  const held = streakMs(sit, now)
+  const sitting = sit.streakSince !== null
+  const over = held >= sit.alertMin * 60_000
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        onClick={(e) => {
+          e.stopPropagation()
+          setAppPopover(open ? null : 'sit')
+        }}
+        title={sitting ? `Sitting ${span(held)}` : 'Sitting — away from the desk'}
+        style={{ width: size, height: size, borderRadius: 7, background: open ? 'var(--sel)' : 'transparent' }}
+        className="grid place-items-center cursor-pointer hover:bg-sel"
+      >
+        {sitting ? (
+          <Ring fill={sitFill(sit, now)} colour={over ? 'var(--hot)' : hue} size={GLYPH}>
+            <ChairIcon size={12} />
+          </Ring>
+        ) : (
+          <span
+            style={{ width: GLYPH, height: GLYPH, borderRadius: 6, border: `1.5px solid ${hue}`, color: hue }}
+            className="grid place-items-center opacity-50"
+          >
+            <ChairIcon size={15} />
+          </span>
+        )}
+      </div>
+      {open && (
+        <div
+          data-dock-popover
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', ...popoverSide(edge, size), width: 236, boxShadow: 'var(--shadow)' }}
+          className="p-2.5 bg-raised border border-line2 rounded-r z-[40] flex flex-col gap-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <span style={{ color: hue }}>
+              <ChairIcon size={16} />
+            </span>
+            <span className="text-[12.5px] font-medium flex-1">Sitting</span>
+          </div>
+
+          {sitting ? (
+            <span className="font-mono text-[20px] tabular-nums" style={{ color: over ? 'var(--hot)' : hue }}>
+              {span(held)}
+              <span className="text-[11px] text-faint font-ui"> in this stretch</span>
+            </span>
+          ) : (
+            <span className="text-[12px] text-muted">Away from the desk.</span>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11.5px] text-muted">{span(sit.todayMs)} today</span>
+            {sit.longestMs > 0 && <span className="text-[11.5px] text-faint">{span(sit.longestMs)} at the longest</span>}
+          </div>
+
+          {sitting && (
+            <div
+              onClick={() => standNow()}
+              className="h-7 flex items-center justify-center rounded-rs bg-accent text-accent-ink cursor-pointer text-[12px] font-medium"
+            >
+              Up now
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** The pomodoro's tile: a ring that fills across the phase, the minutes left
@@ -178,9 +562,7 @@ function PomoTile({ edge, size }: { edge: Edge; size: number }) {
   const ringColour = pomo.phase === 'break' ? `color-mix(in srgb, ${hue} 55%, var(--muted))` : hue
   const progress = pomoProgress(pomo, set, now)
   const left = pomoLeft(pomo, now)
-  const side = isVertical(edge)
-    ? { [edge === 'right' ? 'right' : 'left']: size + 14, top: -6 }
-    : { [edge === 'bottom' ? 'bottom' : 'top']: size + 14, right: -6 }
+  const side = popoverSide(edge, size)
   const choice =
     'h-6 px-2 flex items-center justify-center rounded-rs border text-[11.5px] cursor-pointer font-mono tabular-nums'
   return (
@@ -302,14 +684,14 @@ function PomoTile({ edge, size }: { edge: Edge; size: number }) {
 }
 
 /** What to do about a nudge: acknowledge, hold it, or let this one go. */
-function Popover({ id, edge }: { id: ReminderId; edge: Edge }) {
+function Popover({ id, edge, now }: { id: ReminderId; edge: Edge; now: number }) {
   const app = appById(id)
   const snoozeMin = useUi((u) => u.apps.snoozeMin)
-  const glasses = useUi((u) => u.apps.glasses)
+  // Through the dock's own clock, so a day that rolls over while this is
+  // open empties the count rather than leaving yesterday's on screen.
+  const glasses = useUi((u) => glassesToday(u.apps.glasses, u.apps.glassesOn, now))
   const allowed = useUi((u) => u.notifyAllowed)
-  const side = isVertical(edge)
-    ? { [edge === 'right' ? 'right' : 'left']: TILE + 14, top: -6 }
-    : { [edge === 'bottom' ? 'bottom' : 'top']: TILE + 14, right: -6 }
+  const side = popoverSide(edge, TILE)
   const btn =
     'h-7 px-2.5 flex items-center justify-center rounded-rs text-[12px] cursor-pointer border border-line2 hover:border-accent'
   return (
@@ -353,7 +735,7 @@ function Popover({ id, edge }: { id: ReminderId; edge: Edge }) {
   )
 }
 
-function Tile({ id, due, edge }: { id: AppId; due: boolean; edge: Edge }) {
+function Tile({ id, due, edge, now }: { id: AppId; due: boolean; edge: Edge; now: number }) {
   const app = appById(id)
   const open = useUi((u) => u.appPopover === id)
   const every = useUi((u) => (isReminderId(id) ? u.apps.every[id] : 0))
@@ -388,7 +770,7 @@ function Tile({ id, due, edge }: { id: AppId; due: boolean; edge: Edge }) {
           <AppGlyph id={id} fill={due ? 1 : hover ? 0.35 : 0} />
         </span>
       </div>
-      {open && isReminderId(id) && <Popover id={id} edge={edge} />}
+      {open && isReminderId(id) && <Popover id={id} edge={edge} now={now} />}
     </div>
   )
 }
@@ -530,9 +912,6 @@ export function Dock() {
         </>
       )}
 
-      {/* How the grid is arranged: part of the workspace, so above the apps. */}
-      {!tucked && <LayoutTile edge={edge} size={TILE} />}
-
       <div
         onClick={(e) => {
           e.stopPropagation()
@@ -547,12 +926,20 @@ export function Dock() {
       {visibleTiles.length > 0 && <Divider vertical={vertical} />}
       {visibleTiles
         .map((a) =>
-          a.id === 'pomo' ? (
+          a.id === 'layout' ? (
+            <LayoutTile key={a.id} edge={edge} size={TILE} />
+          ) : a.id === 'pomo' ? (
             <PomoTile key={a.id} edge={edge} size={TILE} />
+          ) : a.id === 'caff' ? (
+            <CaffTile key={a.id} edge={edge} size={TILE} now={now} />
+          ) : a.id === 'sit' ? (
+            <SitTile key={a.id} edge={edge} size={TILE} now={now} />
+          ) : a.id === 'music' ? (
+            <MusicTile key={a.id} edge={edge} size={TILE} />
           ) : a.id === 'warm' ? (
             <WarmTile key={a.id} size={TILE} edge={edge} />
           ) : (
-            <Tile key={a.id} id={a.id} due={dueIds.includes(a.id)} edge={edge} />
+            <Tile key={a.id} id={a.id} due={dueIds.includes(a.id)} edge={edge} now={now} />
           ),
         )}
       </div>
