@@ -18,6 +18,7 @@ import {
   BREAK_CHOICES,
   type Edge,
   FOCUS_CHOICES,
+  glassesToday,
   isDue,
   isVertical,
   nearestEdge,
@@ -638,10 +639,12 @@ function PomoTile({ edge, size }: { edge: Edge; size: number }) {
 }
 
 /** What to do about a nudge: acknowledge, hold it, or let this one go. */
-function Popover({ id, edge }: { id: ReminderId; edge: Edge }) {
+function Popover({ id, edge, now }: { id: ReminderId; edge: Edge; now: number }) {
   const app = appById(id)
   const snoozeMin = useUi((u) => u.apps.snoozeMin)
-  const glasses = useUi((u) => u.apps.glasses)
+  // Through the dock's own clock, so a day that rolls over while this is
+  // open empties the count rather than leaving yesterday's on screen.
+  const glasses = useUi((u) => glassesToday(u.apps.glasses, u.apps.glassesOn, now))
   const allowed = useUi((u) => u.notifyAllowed)
   const side = popoverSide(edge, TILE)
   const btn =
@@ -687,7 +690,7 @@ function Popover({ id, edge }: { id: ReminderId; edge: Edge }) {
   )
 }
 
-function Tile({ id, due, edge }: { id: AppId; due: boolean; edge: Edge }) {
+function Tile({ id, due, edge, now }: { id: AppId; due: boolean; edge: Edge; now: number }) {
   const app = appById(id)
   const open = useUi((u) => u.appPopover === id)
   const every = useUi((u) => (isReminderId(id) ? u.apps.every[id] : 0))
@@ -722,7 +725,7 @@ function Tile({ id, due, edge }: { id: AppId; due: boolean; edge: Edge }) {
           <AppGlyph id={id} fill={due ? 1 : hover ? 0.35 : 0} />
         </span>
       </div>
-      {open && isReminderId(id) && <Popover id={id} edge={edge} />}
+      {open && isReminderId(id) && <Popover id={id} edge={edge} now={now} />}
     </div>
   )
 }
@@ -891,7 +894,7 @@ export function Dock() {
           ) : a.id === 'warm' ? (
             <WarmTile key={a.id} size={TILE} edge={edge} />
           ) : (
-            <Tile key={a.id} id={a.id} due={dueIds.includes(a.id)} edge={edge} />
+            <Tile key={a.id} id={a.id} due={dueIds.includes(a.id)} edge={edge} now={now} />
           ),
         )}
       </div>

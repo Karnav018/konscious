@@ -10,6 +10,7 @@ import {
   freshPomo,
   freshReminder,
   gaugeFill,
+  glassesToday,
   HOLD_MS,
   HOT_PCT,
   isDue,
@@ -30,6 +31,7 @@ import {
   snoozed,
   TEMP_MAX,
 } from './apps'
+import { dayKey } from './format'
 import { canAnnounce, ISLAND_KEYS } from './island'
 import { initialState } from '../state/store'
 
@@ -277,5 +279,35 @@ describe('the pomodoro', () => {
     expect(pomoClock(1)).toBe('0:01')
     expect(pomoClock(0)).toBe('0:00')
     expect(pomoClock(-5)).toBe('0:00')
+  })
+})
+
+describe('the day a glass belongs to', () => {
+  // Built from local-time components throughout, so these say the same thing
+  // in every timezone. Run the suite under TZ=Asia/Kolkata and the old
+  // toISOString() version of this fails: at 01:00 IST the UTC date is still
+  // yesterday, so the count carried over and reset at 05:30 instead of
+  // midnight.
+  const at = (h: number, m = 0, day = 12) => new Date(2026, 9, day, h, m).getTime()
+
+  it('counts a glass on the local day it was drunk', () => {
+    expect(glassesToday(3, dayKey(at(1)), at(1))).toBe(3)
+    expect(glassesToday(3, dayKey(at(23, 50)), at(23, 50))).toBe(3)
+  })
+
+  it('shows nothing the morning after, before a new glass', () => {
+    const lastNight = dayKey(at(23, 50, 11))
+    expect(glassesToday(3, lastNight, at(9, 0, 12))).toBe(0)
+  })
+
+  it('rolls over at local midnight, not at 05:30', () => {
+    // The hours either side of midnight are different days...
+    expect(dayKey(at(23, 50, 11))).not.toBe(dayKey(at(0, 10, 12)))
+    // ...and 01:00 is the same day as 09:00, which the UTC key got wrong.
+    expect(dayKey(at(1))).toBe(dayKey(at(9)))
+  })
+
+  it('is nothing when nothing was ever counted', () => {
+    expect(glassesToday(0, '', at(9))).toBe(0)
   })
 })

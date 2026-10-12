@@ -17,6 +17,7 @@ import {
   stopPomo,
 } from '../../lib/apps'
 import { freshCaff, MAX_MG, withDose } from '../../lib/caffeine'
+import { dayKey } from '../../lib/format'
 import { type IslandApp, withoutApp } from '../../lib/island'
 import { type SitState, withoutStreak } from '../../lib/sitting'
 import { act } from '../act'
@@ -86,7 +87,10 @@ export const markDue = (id: ReminderId, at: number) =>
 
 /** "Had a glass" / "Done": the interval restarts from the tap. */
 export function acknowledge(id: ReminderId, now = Date.now()) {
-  const today = new Date(now).toISOString().slice(0, 10)
+  // The local day, not the UTC one. toISOString() here meant the count
+  // rolled over at 05:30 for anyone in IST, and a glass at 01:00 was filed
+  // under the previous day.
+  const today = dayKey(now)
   const fresh = getState().ui.apps.glassesOn !== today
   act('apps/acknowledge', (d) => {
     d.ui.apps.reminders[id] = acknowledged(now)

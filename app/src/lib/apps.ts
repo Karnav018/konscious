@@ -12,6 +12,7 @@
 //     pulse, and missed ones do not stack.
 //
 // Everything here is pure. The dock reads it; nothing in it touches the DOM.
+import { dayKey } from './format'
 
 export type AppId = 'water' | 'stand' | 'sys' | 'pomo' | 'warm' | 'caff' | 'sit' | 'music' | 'layout'
 export type AppCategory = 'Reminders' | 'Health' | 'Timers' | 'Media' | 'Workspace' | 'Display' | 'System'
@@ -319,6 +320,17 @@ export function nextDueAt(every: number, state: ReminderState, now = Date.now())
   if (state.snoozedUntil !== null && now < state.snoozedUntil) return state.snoozedUntil
   return state.since + every * 60_000
 }
+
+/**
+ * Glasses counted today, which is not the same as the number saved.
+ *
+ * The count carries a day with it, and once that day has passed the number
+ * is yesterday's. Asking for it rather than reading the field is what stops
+ * the dock saying "3 glasses today" at nine the next morning, before a new
+ * glass has been logged to roll it over.
+ */
+export const glassesToday = (glasses: number, glassesOn: string, now = Date.now()): number =>
+  glassesOn === dayKey(now) ? glasses : 0
 
 /** Acknowledged: the interval restarts from the tap, which is what makes the
  *  next nudge honest. */
