@@ -1,7 +1,7 @@
 // Notes: the active workspace's Today list and scratch pad, in place of the
 // grid (sessions keep running behind it). Edits are a draft until Save (⌘S)
 // or Discard; text goes into a session's prompt with ➜, never with Enter.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { discardNotesChanges, openTaskSession, saveNotes, sendTask, sendToPrompt } from '../../app/notes'
 import { STATUS_COLOR } from '../../lib/format'
@@ -30,7 +30,7 @@ export function NotesView() {
   const sessions = useSessions()
   const runtimes = useRuntimes()
   const layout = useActiveLayout()
-  const taskInput = useRef<HTMLInputElement>(null)
+  const taskInput = useRef<HTMLTextAreaElement>(null)
 
   // Typing goes to Notes now, not to the terminal that had focus.
   useEffect(() => {
@@ -126,9 +126,16 @@ function Today({
   tasks: ReturnType<typeof currentNotes>['tasks']
   sessions: SessionMeta[]
   target: SessionMeta | null
-  inputRef: React.RefObject<HTMLInputElement | null>
+  inputRef: React.RefObject<HTMLTextAreaElement | null>
 }) {
   const [draft, setDraft] = useState('')
+  // The box grows with what is typed, up to its max-height, then scrolls.
+  useLayoutEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [draft, inputRef])
   const done = tasks.filter((t) => t.done).length
   const list = ordered(tasks)
 
@@ -148,12 +155,16 @@ function Today({
             style={{ width: tasks.length ? `${Math.round((done / tasks.length) * 100)}%` : '0%', background: 'var(--accent)' }}
           />
         </div>
-        <div className="flex items-center gap-2 h-[38px] px-3 rounded-rs border border-line bg-win">
-          <span className="text-faint text-[16px] leading-none">+</span>
-          <input
+        {/* A textarea, not an input, so a long task wraps as you type it
+            instead of scrolling out of sight. It is still one line of data:
+            ↵ adds it, and a pasted newline becomes a space. */}
+        <div className="flex items-start gap-2 min-h-[38px] px-3 py-[9px] rounded-rs border border-line bg-win">
+          <span className="text-faint text-[16px] leading-[20px]">+</span>
+          <textarea
             ref={inputRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            rows={1}
+            onChange={(e) => setDraft(e.target.value.replace(/\r?\n/g, ' '))}
             onKeyDown={(e) => {
               if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
               e.preventDefault()
@@ -163,7 +174,7 @@ function Today({
             placeholder="Add a task, press ↵"
             aria-label="Add a task"
             spellCheck={false}
-            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[13.5px] text-text"
+            className="flex-1 min-w-0 max-h-[132px] resize-none overflow-y-auto bg-transparent border-0 outline-none p-0 text-[13.5px] leading-[20px] text-text break-words"
           />
         </div>
       </div>
@@ -253,6 +264,29 @@ function Scratch({ wsId, wsName, scratch, targets }: { wsId: string; wsName: str
   const [hover, setHover] = useState<number | null>(null)
   const [menu, setMenu] = useState<Menu | null>(null)
   const blocks = useMemo(() => blocksOf(scratch), [scratch])
+  // The pad wraps, so a line can take several rows and the gutter arrows can't
+  // sit at line × LH. A hidden copy of the text, laid out at the same width,
+  // says where each line starts and how tall it is. Null until measured (or
+  // where nothing lays out, as in tests), which falls back to one row a line.
+  const mirror = useRef<HTMLDivElement>(null)
+  const [rows, setRows] = useState<{ top: number[]; height: number[] } | null>(null)
+  useLayoutEffect(() => {
+    const m = mirror.current
+    const t = area.current
+    if (!m || !t) return
+    const measure = () => {
+      m.style.width = `${t.clientWidth}px`
+      const kids = Array.from(m.children) as HTMLElement[]
+      if (!m.offsetHeight) return setRows(null)
+      setRows({ top: kids.map((k) => k.offsetTop), height: kids.map((k) => k.offsetHeight) })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(t)
+    return () => ro.disconnect()
+  }, [scratch])
+  const lineTop = (i: number) => PAD + (rows?.top[i] ?? i * LH)
+  const lineBottom = (i: number) => lineTop(i) + (rows?.height[i] ?? LH)
   const runtimes = useRuntimes()
   const shellName = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : (u.env?.shell ?? '/bin/zsh').split('/').pop()))
 
@@ -326,7 +360,7 @@ function Scratch({ wsId, wsName, scratch, targets }: { wsId: string; wsName: str
               aria-label={`Send block ${i + 1} to a session`}
               className="absolute left-3 w-[22px] h-[22px] grid place-items-center rounded-rs cursor-pointer hover:bg-sel hover:text-accent"
               style={{
-                top: PAD + b.start * LH - scroll - 1,
+                top: lineTop(b.start) - scroll - 1,
                 color: band === b ? 'var(--accent)' : 'var(--faint)',
                 background: menu?.mode === i ? 'var(--sel)' : undefined,
               }}
@@ -339,9 +373,24 @@ function Scratch({ wsId, wsName, scratch, targets }: { wsId: string; wsName: str
           {band && (
             <div
               className="absolute -left-1.5 right-3.5 rounded-[6px] pointer-events-none"
-              style={{ top: PAD + band.start * LH - scroll, height: (band.end - band.start + 1) * LH, background: 'var(--accentSoft)' }}
+              style={{
+                top: lineTop(band.start) - scroll,
+                height: lineBottom(band.end) - lineTop(band.start),
+                background: 'var(--accentSoft)',
+              }}
             />
           )}
+          {/* The measuring copy: same font, width and wrapping as the pad. */}
+          <div
+            ref={mirror}
+            aria-hidden
+            className="absolute left-0 top-0 invisible pointer-events-none font-mono text-[13px] whitespace-pre-wrap break-words"
+            style={{ lineHeight: `${LH}px`, paddingRight: 22, boxSizing: 'border-box' }}
+          >
+            {scratch.split('\n').map((line, i) => (
+              <div key={i}>{line || ' '}</div>
+            ))}
+          </div>
           <textarea
             ref={area}
             value={scratch}
@@ -350,11 +399,10 @@ function Scratch({ wsId, wsName, scratch, targets }: { wsId: string; wsName: str
             onMouseUp={readSel}
             onKeyUp={readSel}
             onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
-            wrap="off"
             spellCheck={false}
             aria-label="Scratch"
             placeholder="Start typing… blank lines split blocks"
-            className="relative flex-1 min-w-0 resize-none border-0 outline-none bg-transparent font-mono text-[13px] text-text whitespace-pre overflow-auto select-text"
+            className="relative flex-1 min-w-0 resize-none border-0 outline-none bg-transparent font-mono text-[13px] text-text whitespace-pre-wrap break-words overflow-y-auto overflow-x-hidden select-text"
             style={{ lineHeight: `${LH}px`, padding: `${PAD}px 22px 22px 0` }}
           />
         </div>
