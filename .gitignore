@@ -19,6 +19,9 @@ AGENTS.md
 # is just where a local build drops them.
 release/
 
+# pnpm's package cache, if a container build ever puts it next to the project
+.pnpm-store/
+
 # Always tracked: build scripts. Keep this block last so no rule above can
 # ignore them.
 !scripts/

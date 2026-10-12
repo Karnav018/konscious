@@ -31,6 +31,7 @@ import { cupFill, doseFor, DRINKS, inBody, MAX_MG, mg as mgText, SIZES, todayTot
 import { clock } from '../../lib/format'
 import { AUTOMATION_SETTINGS, progress as trackProgress, trackLabel, useNowPlaying } from '../../lib/media'
 import { ipc } from '../../lib/ipc'
+import { kbdShift } from '../../lib/platform'
 import { sitFill, span, streakMs } from '../../lib/sitting'
 import { isWarm } from '../../lib/warmth'
 import { WarmthRow } from '../Settings/Settings'
@@ -916,7 +917,7 @@ export function Dock() {
           e.stopPropagation()
           setAppPanel('catalog')
         }}
-        title="Apps (⌘⇧A)"
+        title={`Apps (${kbdShift('A')})`}
         style={{ width: TILE, height: TILE, borderRadius: 7 }}
         className="grid place-items-center cursor-pointer hover:bg-sel"
       >

@@ -19,8 +19,8 @@ import {
   toggleFocus,
 } from '../../app/actions'
 import { STATUS_COLOR, STATUS_LABEL } from '../../lib/format'
-import { shellLabel } from '../../lib/path'
-import { IS_WINDOWS, kbd, kbdShift } from '../../lib/platform'
+import { shellName } from '../../lib/path'
+import { kbd, kbdShift } from '../../lib/platform'
 import { requestStart, terminals } from '../../lib/terminals'
 import { setInspector } from '../../state/commands/ui'
 import { isEnded } from '../../state/machine'
@@ -172,7 +172,7 @@ export function SessionPane({
   const menuOpen = useUi((u) => u.paneMenu === id)
   // Files from Explorer are over this pane: they'll paste here on drop.
   const fileOver = useUi((u) => u.fileDrop === id)
-  const shellName = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : (u.env?.shell ?? '/bin/zsh').split('/').pop()))
+  const shell = useUi((u) => shellName(u.env?.shell))
   const body = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -226,7 +226,7 @@ export function SessionPane({
           {meta.name}
         </span>
         {meta.kind === 'shell' && (
-          <span className="font-mono text-[10.5px] px-1.5 py-px rounded-rs bg-sel text-muted flex-none">{shellName}</span>
+          <span className="font-mono text-[10.5px] px-1.5 py-px rounded-rs bg-sel text-muted flex-none">{shell}</span>
         )}
         {meta.kind === 'claude' && <ModelBadge model={rt.context?.model} />}
         {rt.unread && <span className="w-1.5 h-1.5 rounded-[3px] bg-accent flex-none" title="Finished while you were away" />}

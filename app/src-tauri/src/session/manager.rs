@@ -85,7 +85,10 @@ impl Session {
             (t.status, t.hooks_active)
         };
         let exit = self.exit.locked().clone();
-        let running = proc.as_ref().is_some_and(|p| p.is_alive());
+        // Still running until the exit is recorded: the process is reaped a
+        // moment (≤ EOF_DRAIN) before its final status is set, and in between
+        // "not running, still Starting" would be a contradiction.
+        let running = proc.as_ref().is_some_and(|p| p.is_alive() || exit.is_none());
         let (cols, rows) = *self.pty_size.locked();
         SessionInfo {
             id: spec.id,
@@ -519,14 +522,17 @@ mod tests {
         let b = m.start(spec("s1", Kind::Shell, cwd), 80, 24, None).unwrap();
         assert_eq!(a.run_id, b.run_id, "second start must not respawn");
         m.stop("s1").unwrap();
+        // The exit is reported after the trailing output drains (EOF_DRAIN), a
+        // moment after `running` drops, and the event comes last — wait for it.
+        let completed = || events.locked().iter().any(|(n, v)| n == EV_STATUS && v["status"] == "completed");
         let deadline = Instant::now() + Duration::from_secs(5);
-        while m.list()[0].running && Instant::now() < deadline {
+        while !completed() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(20));
         }
+        assert!(completed());
         let info = &m.list()[0];
         assert!(!info.running);
         assert_eq!(info.status, Status::Completed);
-        assert!(events.locked().iter().any(|(n, v)| n == EV_STATUS && v["status"] == "completed"));
     }
 
     #[test]

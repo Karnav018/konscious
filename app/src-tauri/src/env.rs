@@ -136,10 +136,20 @@ impl EnvHandle {
 
 #[cfg(unix)]
 fn user_shell() -> String {
-    std::env::var("SHELL")
-        .ok()
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "/bin/zsh".into())
+    std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(default_shell)
+}
+
+/// Without $SHELL: macOS's default, zsh; on Linux, bash where it exists
+/// (zsh often doesn't), else plain sh.
+#[cfg(unix)]
+fn default_shell() -> String {
+    if cfg!(target_os = "macos") {
+        "/bin/zsh".into()
+    } else if std::path::Path::new("/bin/bash").exists() {
+        "/bin/bash".into()
+    } else {
+        "/bin/sh".into()
+    }
 }
 
 /// Terminal panes on Windows: PowerShell 7 if installed, else Windows PowerShell.
@@ -239,7 +249,23 @@ fn capture_login_env(shell: &str, home: &str) -> Option<BTreeMap<String, String>
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .process_group(0);
-    for key in ["USER", "LOGNAME", "TMPDIR", "LANG"] {
+    // Linux keeps the desktop session in the app's environment, not in rc
+    // files: without these a pane has no display, clipboard, session bus or
+    // SSH agent (wl-paste, xdg-open, Claude's image paste all fail).
+    #[cfg(target_os = "linux")]
+    const SESSION: &[&str] = &[
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "XAUTHORITY",
+        "XDG_RUNTIME_DIR",
+        "XDG_SESSION_TYPE",
+        "XDG_CURRENT_DESKTOP",
+        "DBUS_SESSION_BUS_ADDRESS",
+        "SSH_AUTH_SOCK",
+    ];
+    #[cfg(not(target_os = "linux"))]
+    const SESSION: &[&str] = &[];
+    for &key in ["USER", "LOGNAME", "TMPDIR", "LANG"].iter().chain(SESSION) {
         if let Ok(v) = std::env::var(key) {
             cmd.env(key, v);
         }

@@ -6,8 +6,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { discardNotesChanges, openTaskSession, saveNotes, sendTask, sendToPrompt } from '../../app/notes'
 import { STATUS_COLOR } from '../../lib/format'
 import { blocksOf, linkedSession, mentionName, ordered, todayLabel } from '../../lib/notes'
-import { basename, shellLabel } from '../../lib/path'
-import { IS_WINDOWS } from '../../lib/platform'
+import { basename, shellName } from '../../lib/path'
+import { IS_PC } from '../../lib/platform'
 import { addTask, clearDone, currentNotes, deleteTask, setScratch, toggleTask } from '../../state/commands/notes'
 import { useActiveLayout, useActiveWorkspace, useRuntimes, useSessions, useUi } from '../../state/selectors'
 import { useApp } from '../../state/store'
@@ -18,9 +18,9 @@ import { CheckIcon, CloseIcon, NotesIcon, SendIcon } from '../common/Icon'
 const LH = 22
 const PAD = 14
 
-const SAVE_KEY = IS_WINDOWS ? 'Ctrl+S' : '⌘S'
+const SAVE_KEY = IS_PC ? 'Ctrl+S' : '⌘S'
 const isSaveKey = (e: KeyboardEvent) =>
-  e.key.toLowerCase() === 's' && !e.shiftKey && !e.altKey && (IS_WINDOWS ? e.ctrlKey && !e.metaKey : e.metaKey && !e.ctrlKey)
+  e.key.toLowerCase() === 's' && !e.shiftKey && !e.altKey && (IS_PC ? e.ctrlKey && !e.metaKey : e.metaKey && !e.ctrlKey)
 
 const btn = 'h-7 px-3 flex items-center rounded-rs cursor-pointer text-[12.5px] whitespace-nowrap'
 
@@ -288,7 +288,7 @@ function Scratch({ wsId, wsName, scratch, targets }: { wsId: string; wsName: str
   const lineTop = (i: number) => PAD + (rows?.top[i] ?? i * LH)
   const lineBottom = (i: number) => lineTop(i) + (rows?.height[i] ?? LH)
   const runtimes = useRuntimes()
-  const shellName = useUi((u) => (IS_WINDOWS ? shellLabel(u.env?.shell) : (u.env?.shell ?? '/bin/zsh').split('/').pop()))
+  const shell = useUi((u) => shellName(u.env?.shell))
 
   // Another workspace's pad: nothing selected, no menu.
   useEffect(() => {
@@ -435,7 +435,7 @@ function Scratch({ wsId, wsName, scratch, targets }: { wsId: string; wsName: str
                 >
                   <span className="w-[7px] h-[7px] rounded-full flex-none" style={{ background: STATUS_COLOR[runtimes[m.id]?.status ?? 'idle'] }} />
                   <span className="flex-1 min-w-0 text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">{m.name}</span>
-                  <span className="font-mono text-[10.5px] text-faint">{m.kind === 'shell' ? shellName : 'claude'}</span>
+                  <span className="font-mono text-[10.5px] text-faint">{m.kind === 'shell' ? shell : 'claude'}</span>
                 </div>
               ))}
               {!targets.length && (

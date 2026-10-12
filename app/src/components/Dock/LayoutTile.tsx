@@ -7,16 +7,16 @@ import { useEffect, useRef } from 'react'
 import { evenOutPanes, gridPanes, pickGridLayout } from '../../app/layouts'
 import { type Edge, isVertical } from '../../lib/apps'
 import { GRID_LAYOUTS, layoutInfo, suggestFor, treeFor, unavailable } from '../../lib/layouts'
-import { IS_WINDOWS } from '../../lib/platform'
+import { IS_PC } from '../../lib/platform'
 import { setLayoutMenu, settleLayoutNudge, showLayoutNudge } from '../../state/commands/ui'
 import { useActiveLayout, useActiveWorkspaceId, useSessions, useUi } from '../../state/selectors'
 import { getState } from '../../state/store'
 import { CheckIcon } from '../common/Icon'
 import { LayoutGlyph } from '../common/LayoutGlyph'
 
-const CYCLE_KEY = IS_WINDOWS ? 'Ctrl+Shift+L' : '⌘L'
-const pickKey = (i: number) => (IS_WINDOWS ? '' : `⌘⌥${i + 1}`)
-const EVEN_KEY = IS_WINDOWS ? '' : '⌘⇧='
+const CYCLE_KEY = IS_PC ? 'Ctrl+Shift+L' : '⌘L'
+const pickKey = (i: number) => (IS_PC ? '' : `⌘⌥${i + 1}`)
+const EVEN_KEY = IS_PC ? '' : '⌘⇧='
 
 export function LayoutTile({ edge, size }: { edge: Edge; size: number }) {
   const wsId = useActiveWorkspaceId()

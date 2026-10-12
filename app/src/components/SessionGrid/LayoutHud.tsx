@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 
 import { GRID_LAYOUTS, layoutInfo, treeFor } from '../../lib/layouts'
-import { IS_WINDOWS } from '../../lib/platform'
+import { IS_PC } from '../../lib/platform'
 import { useActiveLayout, useSessions, useUi } from '../../state/selectors'
 import { LayoutGlyph } from '../common/LayoutGlyph'
 
@@ -65,7 +65,7 @@ export function LayoutHud() {
       <span className="text-[13px] font-medium">
         {layoutInfo(layout.grid).name}{' '}
         <span className="font-mono text-[11px] text-faint font-normal">
-          {IS_WINDOWS ? '· Ctrl+Shift+L next' : '· ⌘L next · ⌘⇧L back'}
+          {IS_PC ? '· Ctrl+Shift+L next' : '· ⌘L next · ⌘⇧L back'}
         </span>
       </span>
     </div>

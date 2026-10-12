@@ -4,7 +4,7 @@
 // No version and no file names here: the download buttons follow the newest
 // GitHub release on their own (src/release.ts, src/useDownloads.ts), so a
 // release that CI publishes is on the site without touching it.
-import { repo } from './release'
+import { type Os, repo } from './release'
 
 export const site = {
   name: 'Konscious',
@@ -23,11 +23,17 @@ export const site = {
       label: 'Download for Windows',
       detail: '64-bit, Windows 10 or 11',
     },
+    linux: {
+      os: 'Linux',
+      label: 'Download for Linux',
+      detail: 'AppImage, 64-bit, Ubuntu 22.04+, Debian 12+, Fedora 36+',
+    },
   },
   // Claude Code's own installers (docs.claude.com/claude-code).
   claudeInstall: {
     mac: 'curl -fsSL https://claude.ai/install.sh | bash',
     windows: 'irm https://claude.ai/install.ps1 | iex',
+    linux: 'curl -fsSL https://claude.ai/install.sh | bash',
   },
   nav: [
     { label: 'Features', href: '#features' },
@@ -39,7 +45,10 @@ export const site = {
 const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
 
 /** The visitor's platform decides which download leads. */
-export const visitorOs: 'mac' | 'windows' = /Windows/i.test(ua) ? 'windows' : 'mac'
+export const visitorOs: Os = /Windows/i.test(ua) ? 'windows' : /Linux/i.test(ua) && !/Android/i.test(ua) ? 'linux' : 'mac'
+
+/** Every platform, the visitor's first. */
+export const osOrder: Os[] = [visitorOs, ...(['mac', 'windows', 'linux'] as const).filter((os) => os !== visitorOs)]
 
 /** Phones and tablets can't run the app: show them the section, not a file. */
 export const onPhone = /iPhone|iPad|Android/i.test(ua)

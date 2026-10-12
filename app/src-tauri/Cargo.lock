@@ -2021,6 +2021,7 @@ name = "konscious"
 version = "0.3.2"
 dependencies = [
  "base64 0.22.1",
+ "gtk",
  "libc",
  "objc2",
  "objc2-app-kit",
