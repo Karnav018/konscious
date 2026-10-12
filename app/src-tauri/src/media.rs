@@ -100,11 +100,11 @@ impl Action {
 
 /// The separator the script joins fields with: ASCII unit separator, which no
 /// track title has ever contained.
-#[cfg_attr(windows, allow(dead_code))]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 const SEP: char = '\u{1f}';
 
 /// Apple event error for "the user said no to Automation".
-#[cfg_attr(windows, allow(dead_code))]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 const NOT_PERMITTED: &str = "-1743";
 
 /// One field-separated line from the script into a track. The unit of
@@ -112,7 +112,7 @@ const NOT_PERMITTED: &str = "-1743";
 /// with tests rather than three lines inline: Spotify reports milliseconds
 /// and Music reports seconds, and getting it wrong makes a progress bar that
 /// is wrong by a factor of a thousand.
-#[cfg_attr(windows, allow(dead_code))]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn parse_line(line: &str) -> Option<NowPlaying> {
     let f: Vec<&str> = line.split(SEP).collect();
     if f.len() < 7 {
@@ -144,7 +144,7 @@ pub fn parse_line(line: &str) -> Option<NowPlaying> {
 /// Windows names the source by its app user model id — "Spotify.exe", or a
 /// package family name, or for some browsers an opaque code. Trim it to
 /// something that can sit on one line of a pill.
-#[cfg_attr(target_os = "macos", allow(dead_code))]
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn pretty_app(id: &str) -> String {
     let tail = id.rsplit(['\\', '/', '!']).next().unwrap_or(id);
     let base = tail.strip_suffix(".exe").unwrap_or(tail);
@@ -161,7 +161,7 @@ pub fn pretty_app(id: &str) -> String {
 
 /// Which of the players to believe. One that is playing beats one that is
 /// merely open, so a paused Music does not hide a running Spotify.
-#[cfg_attr(windows, allow(dead_code))]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn pick(out: &str) -> MediaState {
     let denied = out.lines().any(|l| {
         let mut f = l.split(SEP);
