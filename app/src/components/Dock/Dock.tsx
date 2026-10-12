@@ -27,7 +27,7 @@ import {
   pomoLeft,
   pomoProgress,
 } from '../../lib/apps'
-import { cupFill, DRINKS, inBody, MAX_MG, mg as mgText, todayTotal } from '../../lib/caffeine'
+import { cupFill, doseFor, DRINKS, inBody, MAX_MG, mg as mgText, SIZES, todayTotal } from '../../lib/caffeine'
 import { clock } from '../../lib/format'
 import { AUTOMATION_SETTINGS, progress as trackProgress, trackLabel, useNowPlaying } from '../../lib/media'
 import { ipc } from '../../lib/ipc'
@@ -42,6 +42,7 @@ import {
   setDockPlace,
   setPomoLength,
   skip,
+  setCaffSize,
   snooze,
   standNow,
   startPomo,
@@ -193,6 +194,11 @@ function CaffTile({ edge, size, now }: { edge: Edge; size: number; now: number }
   const caff = useUi((u) => u.apps.caff)
   const open = useUi((u) => u.appPopover === 'caff')
   const [custom, setCustom] = useState('')
+  // Which drink is in the field, for the highlight. Not committed state: the
+  // field value is the source of truth, this only says which button last
+  // filled it. A manual edit clears it, so changing size does not overwrite
+  // a number the user typed by hand.
+  const [picked, setPicked] = useState<string | null>(null)
   const hue = 'var(--caff)'
   const held = inBody(caff.log, now)
   const today = todayTotal(caff.log, now)
@@ -200,6 +206,18 @@ function CaffTile({ edge, size, now }: { edge: Edge; size: number; now: number }
   const log = (amount: number) => {
     logCaffeine(amount)
     setCustom('')
+    setPicked(null)
+  }
+  // Tapping a drink fills the field; Add (or Enter) commits. One path in.
+  const pick = (id: string) => {
+    setCustom(String(doseFor(id as Parameters<typeof doseFor>[0], caff.size)))
+    setPicked(id)
+  }
+  const chooseSize = (size: (typeof SIZES)[number]['id']) => {
+    setCaffSize(size)
+    // Refill from the picked drink at the new size, unless the user has since
+    // typed their own number — then their number wins until the next tap.
+    if (picked) setCustom(String(doseFor(picked as Parameters<typeof doseFor>[0], size)))
   }
   return (
     <div style={{ position: 'relative' }}>
@@ -250,15 +268,37 @@ function CaffTile({ edge, size, now }: { edge: Edge; size: number; now: number }
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] text-faint">Add</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-faint flex-1">Add</span>
+              {/* Size applies to whichever drink you tap. */}
+              <div className="flex gap-[2px] p-[2px] rounded-rs bg-pane border border-line">
+                {SIZES.map((sz) => (
+                  <div
+                    key={sz.id}
+                    onClick={() => chooseSize(sz.id)}
+                    title={`${sz.label === 'S' ? 'Small' : sz.label === 'M' ? 'Medium' : 'Large'} servings`}
+                    style={{
+                      background: caff.size === sz.id ? hue : 'transparent',
+                      color: caff.size === sz.id ? '#fff' : 'var(--muted)',
+                    }}
+                    className="w-6 h-5 grid place-items-center rounded-[4px] cursor-pointer text-[11px] font-medium"
+                  >
+                    {sz.label}
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="flex gap-1 flex-wrap">
               {DRINKS.map((drink) => (
                 <div
                   key={drink.id}
-                  onClick={() => log(drink.mg)}
-                  title={`${drink.name} — ${drink.mg} mg`}
-                  style={{ borderColor: 'var(--line2)' }}
-                  className="h-7 px-2 flex items-center rounded-rs border cursor-pointer text-[11.5px] text-muted hover:text-text hover:border-accent"
+                  onClick={() => pick(drink.id)}
+                  title={`${drink.name} — ${doseFor(drink.id, caff.size)} mg`}
+                  style={{
+                    borderColor: picked === drink.id ? hue : 'var(--line2)',
+                    color: picked === drink.id ? hue : 'var(--muted)',
+                  }}
+                  className="h-7 px-2 flex items-center rounded-rs border cursor-pointer text-[11.5px] hover:text-text hover:border-accent"
                 >
                   {drink.name}
                 </div>
@@ -267,13 +307,17 @@ function CaffTile({ edge, size, now }: { edge: Edge; size: number; now: number }
             <div className="flex gap-1">
               <input
                 value={custom}
-                onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+                onChange={(e) => {
+                  setCustom(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))
+                  setPicked(null)
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && custom && log(Number(custom))}
                 placeholder={`mg (up to ${MAX_MG})`}
                 className="h-7 flex-1 min-w-0 px-2 rounded-rs bg-pane border border-line text-[11.5px] outline-none focus:border-accent"
               />
               <div
                 onClick={() => custom && log(Number(custom))}
+                title="Log this amount"
                 style={{ opacity: custom ? 1 : 0.4 }}
                 className="h-7 px-2.5 grid place-items-center rounded-rs bg-accent text-accent-ink cursor-pointer text-[11.5px] font-medium"
               >

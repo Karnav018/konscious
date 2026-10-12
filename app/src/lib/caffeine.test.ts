@@ -6,8 +6,11 @@ import {
   DEFAULT_CUTOFF_MIN,
   DEFAULT_LIMIT_MG,
   type Dose,
+  DEFAULT_SIZE,
+  doseFor,
   DRINKS,
   freshCaff,
+  SIZES,
   halfGoneAt,
   HALF_LIFE_H,
   inBody,
@@ -58,7 +61,7 @@ describe('what is still in you', () => {
 
   it('is nothing with nothing logged', () => {
     expect(inBody([], noon)).toBe(0)
-    expect(freshCaff()).toEqual({ log: [], limitMg: DEFAULT_LIMIT_MG, cutoffMin: DEFAULT_CUTOFF_MIN })
+    expect(freshCaff()).toEqual({ log: [], limitMg: DEFAULT_LIMIT_MG, cutoffMin: DEFAULT_CUTOFF_MIN, size: DEFAULT_SIZE })
   })
 })
 
@@ -158,11 +161,56 @@ describe('what the tile and the panel show', () => {
 })
 
 describe('the quick-add row', () => {
-  it('offers four drinks with sane figures', () => {
+  it('offers four drinks at three sizes, all within the custom cap', () => {
     expect(DRINKS.map((d) => d.id)).toEqual(['espresso', 'coffee', 'tea', 'energy'])
+    expect(SIZES.map((s) => s.id)).toEqual(['s', 'm', 'l'])
     for (const d of DRINKS) {
-      expect(d.mg).toBeGreaterThan(0)
-      expect(d.mg).toBeLessThanOrEqual(MAX_MG)
+      for (const size of SIZES) {
+        const mg = d.mg[size.id]
+        expect(mg, `${d.id} ${size.id}`).toBeGreaterThan(0)
+        expect(mg, `${d.id} ${size.id}`).toBeLessThanOrEqual(MAX_MG)
+      }
     }
+  })
+
+  it('has every cell of the 4×3 table', () => {
+    for (const d of DRINKS) {
+      expect(Object.keys(d.mg).sort()).toEqual(['l', 'm', 's'])
+    }
+  })
+
+  it('reads each cell back through doseFor', () => {
+    expect(doseFor('espresso', 's')).toBe(47)
+    expect(doseFor('espresso', 'm')).toBe(63)
+    expect(doseFor('espresso', 'l')).toBe(126)
+    expect(doseFor('coffee', 's')).toBe(65)
+    expect(doseFor('coffee', 'm')).toBe(95)
+    expect(doseFor('coffee', 'l')).toBe(145)
+    expect(doseFor('tea', 's')).toBe(30)
+    expect(doseFor('tea', 'm')).toBe(47)
+    expect(doseFor('tea', 'l')).toBe(65)
+    expect(doseFor('energy', 's')).toBe(55)
+    expect(doseFor('energy', 'm')).toBe(80)
+    expect(doseFor('energy', 'l')).toBe(160)
+  })
+
+  it('logs the shipped figure at the default size, so nothing changed', () => {
+    // The invariant. Medium is what each drink logged before sizes existed,
+    // and Medium is the default, so a tap behaves exactly as it always did.
+    expect(doseFor('espresso', DEFAULT_SIZE)).toBe(63)
+    expect(doseFor('coffee', DEFAULT_SIZE)).toBe(95)
+    expect(doseFor('tea', DEFAULT_SIZE)).toBe(47)
+    expect(doseFor('energy', DEFAULT_SIZE)).toBe(80)
+  })
+
+  it('reads larger than medium and smaller than medium at the ends', () => {
+    for (const d of DRINKS) {
+      expect(d.mg.s).toBeLessThanOrEqual(d.mg.m)
+      expect(d.mg.l).toBeGreaterThan(d.mg.m)
+    }
+  })
+
+  it('starts fresh at the default size', () => {
+    expect(freshCaff().size).toBe(DEFAULT_SIZE)
   })
 })

@@ -19,7 +19,7 @@ import {
   isVertical,
 } from '../../lib/apps'
 import { askNotifyOnce } from '../../app/reminders'
-import { atClock, CUTOFF_CHOICES, DRINKS, LIMIT_CHOICES, mg as mgText, todayTotal } from '../../lib/caffeine'
+import { atClock, CUTOFF_CHOICES, DRINKS, LIMIT_CHOICES, mg as mgText, SIZES, todayTotal } from '../../lib/caffeine'
 import { AUTOMATION_SETTINGS, useNowPlaying } from '../../lib/media'
 import { ipc } from '../../lib/ipc'
 import { ALERT_CHOICES, span } from '../../lib/sitting'
@@ -265,13 +265,28 @@ function Settings({ id }: { id: AppId }) {
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className={label}>What a cup counts as</span>
+            <span className={label}>What a cup counts as, by size</span>
+            <div className="flex items-baseline gap-2">
+              <span className="flex-1" />
+              {SIZES.map((sz) => (
+                <span key={sz.id} className="w-11 text-right font-mono text-[10px] text-faint">
+                  {sz.label}
+                </span>
+              ))}
+            </div>
             {DRINKS.map((d) => (
               <div key={d.id} className="flex items-baseline gap-2">
                 <span className="text-[12px] flex-1">{d.name}</span>
-                <span className="font-mono text-[11px] text-muted">{d.mg} mg</span>
+                {SIZES.map((sz) => (
+                  <span key={sz.id} className="w-11 text-right font-mono text-[11px] text-muted">
+                    {d.mg[sz.id]}
+                  </span>
+                ))}
               </div>
             ))}
+            <span className="text-[10.5px] text-faint leading-[1.45]">
+              In mg. Sources: USDA and Mayo Clinic for coffee and tea, maker figures for energy drinks.
+            </span>
           </div>
           {apps.caff.log.length > 0 && (
             <div className="flex items-center gap-2">

@@ -26,15 +26,52 @@ export interface Dose {
  *  people — this is the usual figure, not a measurement of you. */
 export const HALF_LIFE_H = 5
 
-/** The quick-add row. Published averages for an ordinary serving. */
+/** The three serving sizes the quick-add offers. */
+export type CupSize = 's' | 'm' | 'l'
+export const SIZES: readonly { id: CupSize; label: string }[] = [
+  { id: 's', label: 'S' },
+  { id: 'm', label: 'M' },
+  { id: 'l', label: 'L' },
+]
+export const DEFAULT_SIZE: CupSize = 'm'
+
+/**
+ * The quick-add row, each drink at three sizes, in mg.
+ *
+ * The medium column is the single figure this app shipped with, so the
+ * default — Medium — logs exactly what a tap logged before sizes existed.
+ * That is the invariant: a test pins it, and it is why the sizes are an
+ * explicit per-drink table rather than a multiplier, since caffeine does not
+ * scale the same way across a cup of tea and a double espresso.
+ *
+ * Small and large bracket the medium with real servings. Sources: USDA
+ * FoodData Central and Mayo Clinic for brewed coffee (≈95 mg per 8 oz, ≈145
+ * per 12 oz, ≈65 per 6 oz) and black tea; standard espresso references
+ * (ristretto ≈47, single ≈63, double ≈126); manufacturer figures for energy
+ * drinks (Red Bull 250 ml ≈80, a small can ≈55, a 500 ml ≈160).
+ *
+ * Note for the brief: the suggested medium values (126 / 145 / 47 / 160) did
+ * not match the shipped figures for espresso, coffee or energy, which would
+ * have changed what a default tap logs. The shipped figures win, as the
+ * "no behaviour change at default" rule requires; the suggestions became the
+ * large column where they fit.
+ */
 export const DRINKS = [
-  { id: 'espresso', name: 'Espresso', mg: 63 },
-  { id: 'coffee', name: 'Coffee', mg: 95 },
-  { id: 'tea', name: 'Tea', mg: 47 },
-  { id: 'energy', name: 'Energy drink', mg: 80 },
+  { id: 'espresso', name: 'Espresso', mg: { s: 47, m: 63, l: 126 } },
+  { id: 'coffee', name: 'Coffee', mg: { s: 65, m: 95, l: 145 } },
+  { id: 'tea', name: 'Tea', mg: { s: 30, m: 47, l: 65 } },
+  { id: 'energy', name: 'Energy drink', mg: { s: 55, m: 80, l: 160 } },
 ] as const
 
 export type DrinkId = (typeof DRINKS)[number]['id']
+
+/** What one drink at one size comes to, in mg. */
+export function doseFor(drink: DrinkId, size: CupSize): number {
+  return (DRINKS.find((d) => d.id === drink) ?? DRINKS[1]).mg[size]
+}
+
+/** The size after the current one, label included, for a compact control. */
+export const sizeLabel = (size: CupSize): string => SIZES.find((s) => s.id === size)?.label ?? 'M'
 
 /** The FDA's figure for what a healthy adult can have in a day. */
 export const DEFAULT_LIMIT_MG = 400
@@ -56,9 +93,17 @@ export interface CaffState {
   limitMg: number
   /** Minutes from midnight, after which a cup earns a warning. */
   cutoffMin: number
+  /** The serving size the quick-add is set to, so the common case is one
+   *  tap at the size you usually drink. */
+  size: CupSize
 }
 
-export const freshCaff = (): CaffState => ({ log: [], limitMg: DEFAULT_LIMIT_MG, cutoffMin: DEFAULT_CUTOFF_MIN })
+export const freshCaff = (): CaffState => ({
+  log: [],
+  limitMg: DEFAULT_LIMIT_MG,
+  cutoffMin: DEFAULT_CUTOFF_MIN,
+  size: DEFAULT_SIZE,
+})
 
 /** Doses still worth keeping. Older than a rolling day and less than 3% of a
  *  dose remains, which rounds to nothing. */

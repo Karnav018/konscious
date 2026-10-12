@@ -17,7 +17,7 @@ import {
   stopPomo,
   type WakeResult,
 } from '../../lib/apps'
-import { freshCaff, MAX_MG, withDose } from '../../lib/caffeine'
+import { type CupSize, freshCaff, MAX_MG, withDose } from '../../lib/caffeine'
 import { dayKey } from '../../lib/format'
 import { type IslandApp, withoutApp } from '../../lib/island'
 import { type SitState, withoutStreak } from '../../lib/sitting'
@@ -179,6 +179,9 @@ export const setCaffLimit = (mg: number) =>
 
 export const setCaffCutoff = (minutes: number) =>
   act('apps/caffCutoff', (d) => void (d.ui.apps.caff.cutoffMin = Math.min(1439, Math.max(0, Math.round(minutes)))))
+
+/** The quick-add's serving size, remembered so the usual drink is one tap. */
+export const setCaffSize = (size: CupSize) => act('apps/caffSize', (d) => void (d.ui.apps.caff.size = size))
 
 /** "I logged that by mistake": the last drink goes. */
 export const undoDose = () =>

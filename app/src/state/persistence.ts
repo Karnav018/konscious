@@ -10,7 +10,7 @@ import { produce } from 'immer'
 import { z } from 'zod'
 
 import { APPS, type AppId } from '../lib/apps'
-import { DEFAULT_CUTOFF_MIN, DEFAULT_LIMIT_MG, MAX_MG, trim } from '../lib/caffeine'
+import { DEFAULT_CUTOFF_MIN, DEFAULT_LIMIT_MG, DEFAULT_SIZE, MAX_MG, trim } from '../lib/caffeine'
 import { DEFAULT_ALERT_MIN } from '../lib/sitting'
 import { type IslandApp, ISLAND_KEYS } from '../lib/island'
 import { CAP, emptyLayout } from '../lib/grid'
@@ -151,8 +151,9 @@ const ConfigFileV1 = z.object({
             .catch([]),
           limitMg: z.number().min(50).max(2000).catch(DEFAULT_LIMIT_MG),
           cutoffMin: z.number().min(0).max(1439).catch(DEFAULT_CUTOFF_MIN),
+          size: z.enum(['s', 'm', 'l']).catch(DEFAULT_SIZE).optional(),
         })
-        .catch({ log: [], limitMg: DEFAULT_LIMIT_MG, cutoffMin: DEFAULT_CUTOFF_MIN })
+        .catch({ log: [], limitMg: DEFAULT_LIMIT_MG, cutoffMin: DEFAULT_CUTOFF_MIN, size: DEFAULT_SIZE })
         .optional(),
       /** Sitting. The streak itself is not restored — see appsFrom. */
       sit: z
@@ -367,7 +368,9 @@ function appsFrom(saved: unknown): AppsState {
   }
   // A coffee from last week is not in you. The log is a rolling day wherever
   // it is read, so it is trimmed on the way in too.
-  const caff = got.caff ? { ...base.caff, ...got.caff, log: trim(got.caff.log ?? [], Date.now()) } : base.caff
+  const caff = got.caff
+    ? { ...base.caff, ...got.caff, log: trim(got.caff.log ?? [], Date.now()), size: got.caff.size ?? base.caff.size }
+    : base.caff
   // A sitting streak is not resumed. The app was shut, so we have no idea
   // whether you stayed in the chair, and claiming the streak held would be
   // the one thing this app must not do. Today's tally and the longest
