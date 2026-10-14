@@ -13,6 +13,7 @@ import { freshIsland } from '../lib/island'
 import type { SitState } from '../lib/sitting'
 import { freshSit } from '../lib/sitting'
 import type { Place } from '../lib/sun'
+import { DEFAULT_PALETTE, type PaletteId, type TermFontId } from '../lib/themes'
 import type { WarmWhen } from '../lib/warmth'
 import { DEFAULT_K } from '../lib/warmth'
 import type {
@@ -114,6 +115,10 @@ export interface UiState {
   env: EnvInfo | null
   envError: string | null
   theme: Theme
+  /** The theme (lib/themes), its accent per theme, and the panes' font. */
+  palette: PaletteId
+  accents: Partial<Record<PaletteId, number>>
+  termFont: TermFontId
   /** Warm colours for late sessions, and the temperature chosen for them. */
   warm: boolean
   warmth: number
@@ -213,6 +218,9 @@ export const initialState = (): AppState => ({
     env: null,
     envError: null,
     theme: 'dark',
+    palette: DEFAULT_PALETTE,
+    accents: {},
+    termFont: 'theme',
     warm: false,
     warmth: DEFAULT_K,
     warmWhen: 'always',

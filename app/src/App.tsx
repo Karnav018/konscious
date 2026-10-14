@@ -17,6 +17,7 @@ import { bootstrap } from './app/bootstrap'
 import { cycleGridLayout, evenOutPanes, pickGridLayout } from './app/layouts'
 import { startReminders } from './app/reminders'
 import { startBundleOpens } from './app/transfer'
+import { SettingsSheet } from './components/Settings/Settings'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { DeleteSessionDialog } from './components/DeleteSessionDialog/DeleteSessionDialog'
 import { RemoveWorkspaceDialog } from './components/RemoveWorkspaceDialog/RemoveWorkspaceDialog'
@@ -159,6 +160,7 @@ export default function App() {
   const inspector = useUi((u) => u.inspector)
   const newSession = useUi((u) => u.newSession)
   const confirmDelete = useUi((u) => u.confirmDelete)
+  const settingsOpen = useUi((u) => !!u.settingsMenu)
   const confirmRemoveWs = useUi((u) => u.confirmRemoveWorkspace)
   const notesOpen = useUi((u) => u.notesOpen)
   const notesSave = useUi((u) => u.notesSave)
@@ -244,6 +246,7 @@ export default function App() {
         {booted && lockOk && inspector && !firstRun && <Inspector />}
         {booted && lockOk && wsMenu && !firstRun && <WorkspaceMenu />}
         {booted && lockOk && newSession && <NewSessionModal />}
+        {booted && lockOk && settingsOpen && <SettingsSheet />}
         {booted && lockOk && confirmDelete && <DeleteSessionDialog />}
         {booted && lockOk && confirmRemoveWs && <RemoveWorkspaceDialog />}
         {booted && lockOk && notesSave && <NotesSaveDialog />}

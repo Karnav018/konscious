@@ -9,11 +9,12 @@ import { layoutOf } from '../state/commands/layout'
 import { setContext } from '../state/commands/runtime'
 import { flash, setBooted, setEnv, setEnvError, setFullscreen, setInit, setLimits, setSuggestions } from '../state/commands/ui'
 import { forksNeeded } from '../lib/restore'
+import { paletteById } from '../lib/themes'
 import { startUpdateChecks } from '../lib/update'
 import { startFileDrop } from './fileDrop'
 import { decode, hydrate, startPersistence } from '../state/persistence'
 import { getState } from '../state/store'
-import { onInfo, reattachSession, refreshGit, setClaudeSessionId, setTheme, startSession } from './actions'
+import { applyTermLook, onInfo, reattachSession, refreshGit, setClaudeSessionId, setTheme, startSession } from './actions'
 
 /** Background (not visible) sessions resume one by one, this far apart. */
 const STAGGER_MS = 300
@@ -41,11 +42,10 @@ export async function bootstrap() {
   setTheme(dec.theme)
   startPersistence(dec)
 
-  await Promise.race([
-    Promise.all([document.fonts.load('12.5px "JetBrains Mono"'), document.fonts.load('13px "IBM Plex Sans"')]),
-    sleep(1500),
-  ])
+  // The theme's interface font; applyTermLook loads the terminal's.
+  await Promise.race([document.fonts.load(`13px ${paletteById(dec.palette).ui}`), sleep(1500)])
   terminals.setAppearance({ theme: dec.theme, fontSize: dec.fontSize })
+  await applyTermLook()
 
   await ipc.onStatus(onInfo)
   await ipc.onClaudeId(({ id, claudeSessionId }) => setClaudeSessionId(id, claudeSessionId))

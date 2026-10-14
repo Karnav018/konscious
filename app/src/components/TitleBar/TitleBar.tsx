@@ -24,7 +24,7 @@ import { UpdateChip } from '../common/UpdateChip'
 import { UsageBar } from '../common/Usage'
 import { Wordmark } from '../common/Wordmark'
 import { Island } from '../Island/Island'
-import { QuickMenu, SettingsButtons, SettingsMenu } from '../Settings/Settings'
+import { SettingsButtons } from '../Settings/Settings'
 
 const wsSegment =
   'relative z-[1] h-[24px] flex items-center gap-1.5 px-2 rounded-rs cursor-pointer min-w-0 max-w-[140px] transition-colors duration-200'
@@ -111,7 +111,6 @@ function WorkspaceSwitch({ firstRun }: { firstRun: boolean }) {
 }
 
 export function TitleBar() {
-  const settingsMenu = useUi((u) => u.settingsMenu)
   const limits = useUi((u) => u.limits)
   const limitsAt = useUi((u) => u.limitsAt)
   const limitsLive = useUi((u) => u.limitsLive)
@@ -222,8 +221,6 @@ export function TitleBar() {
           stacking context, above the dock. */}
       <Island />
 
-      {settingsMenu === 'all' && <SettingsMenu />}
-      {settingsMenu === 'quick' && <QuickMenu />}
     </div>
   )
 }

@@ -20,16 +20,17 @@ import { appById, pomoClock, pomoLeft, pomoProgress } from '../../lib/apps'
 import {
   BREAK_MARQUEE,
   BREAK_WORDS,
+  centredWidth,
   COLLAPSE_MS,
   CYCLE_MS,
   type IslandApp,
   type IslandEvent,
   nextIndex,
-  showsCentred,
   rankActivities,
 } from '../../lib/island'
 import { BARS, barTiming, needsMarquee, progress, trackLabel, useNowPlaying } from '../../lib/media'
 import { ipc } from '../../lib/ipc'
+import { islandEdge, paletteById } from '../../lib/themes'
 import { acknowledge, skip, snooze } from '../../state/commands/apps'
 import { dismissIsland, expandIsland } from '../../state/commands/island'
 import { useUi } from '../../state/selectors'
@@ -217,6 +218,7 @@ function BreakLine({ reduced, now }: { reduced: boolean; now: number }) {
 
 export function Island() {
   const events = useUi((u) => u.island.events)
+  const edge = useUi((u) => islandEdge(paletteById(u.palette), u.theme))
   const expanded = useUi((u) => u.island.expanded)
   const islandOn = useUi((u) => u.apps.island)
   const pomoOn = useUi((u) => u.apps.on.pomo)
@@ -242,7 +244,9 @@ export function Island() {
   // clusters is a real element (the bar's flex-1 spacer), so measuring it
   // gives both edges at once, and a ResizeObserver on it catches a chip
   // appearing as well as the window changing size.
-  const [visible, setVisible] = useState(true)
+  // It always shows, always on the centre line; a crowded bar only narrows it
+  // (lib/island centredWidth).
+  const [fit, setFit] = useState(COMPACT.w)
   useEffect(() => {
     const spacer = document.querySelector('[data-bar-gap]')
     const row = spacer?.parentElement
@@ -253,7 +257,7 @@ export function Island() {
       // Decided here rather than at render, because the answer depends on
       // the previous answer: a showing island is harder to dislodge, which
       // is what stops it blinking as the bar's chips come and go.
-      setVisible((was) => showsCentred(b.width, s.left - b.left, s.right - b.left, COMPACT.w, was))
+      setFit(centredWidth(b.width, s.left - b.left, s.right - b.left, COMPACT.w))
     }
     measure()
     if (typeof ResizeObserver === 'undefined') return
@@ -337,10 +341,9 @@ export function Island() {
 
   // Only the compact footprint decides: an alert is wider, but it hangs below
   // the bar where there is nothing to run into.
-  if (!visible) return null
 
   const mode = !cur ? 'idle' : open ? 'alert' : 'compact'
-  const width = mode === 'idle' ? IDLE.w : mode === 'compact' ? COMPACT.w : ALERT.w
+  const width = mode === 'idle' ? Math.min(IDLE.w, fit) : mode === 'compact' ? fit : ALERT.w
   const height = mode === 'idle' ? IDLE.h : mode === 'compact' ? COMPACT.h : actions ? ACTIONS_H : ALERT.h
   const hue = cur ? hueOf(cur.app) : WHITE
   const livePomo = cur?.kind === 'live' && cur.app === 'pomo'
@@ -370,6 +373,8 @@ export function Island() {
         width,
         height,
         background: '#000',
+        // Sides and bottom only: the top is the window's edge.
+        boxShadow: edge ? `inset 0 -1px 0 ${edge}, inset 1px 0 0 ${edge}, inset -1px 0 0 ${edge}` : undefined,
         borderBottomLeftRadius: mode === 'idle' ? 4 : 14,
         borderBottomRightRadius: mode === 'idle' ? 4 : 14,
         overflow: 'hidden',

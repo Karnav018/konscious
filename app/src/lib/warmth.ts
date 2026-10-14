@@ -111,6 +111,10 @@ export function warmColor(value: string, kelvin: number): string {
 // compound, and the warm pass writes overrides on <html>.
 const base = new Map<Theme, Map<string, string>>()
 
+/** The palette under the warm pass changed (another theme or accent): read
+ *  the base values afresh next time. */
+export const forgetBaseTokens = () => base.clear()
+
 function baseTokens(theme: Theme): Map<string, string> {
   const cached = base.get(theme)
   if (cached) return cached

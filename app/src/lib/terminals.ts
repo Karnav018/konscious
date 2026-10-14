@@ -27,6 +27,7 @@ import { getState } from '../state/store'
 import { pathsForTerminal } from './paste'
 import { claudeCaret, claudeInputRows, keysToDelete, type Row } from './selectionDelete'
 import { isAppShortcut } from './shortcuts'
+import { ansiFor, DEFAULT_PALETTE, type Palette, type PaletteId, paletteById, rgba, selectionFor, termFontStack } from './themes'
 import { NEUTRAL_K, warmColor } from './warmth'
 
 const ACK_BATCH = 32 * 1024
@@ -53,7 +54,7 @@ export function autoFontSize(width: number, base: number, ratio = charRatio): nu
 function measureCharRatio() {
   const ctx = document.createElement('canvas').getContext('2d')
   if (!ctx) return
-  ctx.font = '100px "JetBrains Mono"'
+  ctx.font = `100px ${family}`
   const w = ctx.measureText('MMMMMMMMMM').width / 10
   if (w > 30 && w < 90) charRatio = w / 100
 }
@@ -156,6 +157,10 @@ export const onStartRequest = (fn: (id: string) => void) => {
 }
 export const requestStart = (id: string) => startHook?.(id)
 let theme: Theme = 'dark'
+// The theme (lib/themes) and the panes' font family, as Settings picks them.
+let palette: Palette = paletteById(DEFAULT_PALETTE)
+let accent: number | undefined
+let family = "'JetBrains Mono'"
 // Colour temperature for the hardcoded colours below; the ones that come from
 // CSS variables are already warmed by lib/warmth's pass over them.
 let warmth = NEUTRAL_K
@@ -183,31 +188,19 @@ const css = (name: string) => getComputedStyle(document.documentElement).getProp
 
 function xtermTheme(): ITheme {
   const dark = theme === 'dark'
-  const ansi = dark
-    ? {
-        black: '#383232', red: '#f07a7a', green: '#8fce9f', yellow: '#e9bc6a',
-        blue: '#9fb4e0', magenta: '#c890a7', cyan: '#8fcfcf', white: '#e6dfd0',
-        brightBlack: '#8c807b', brightRed: '#f59a9a', brightGreen: '#aedcb9', brightYellow: '#f0cd8c',
-        brightBlue: '#bccbea', brightMagenta: '#dcb0c2', brightCyan: '#afdddd', brightWhite: '#fbf5e5',
-      }
-    : {
-        black: '#212121', red: '#c0392b', green: '#3f8f5e', yellow: '#a8741a',
-        blue: '#3d6aa8', magenta: '#a35c7a', cyan: '#2e7f86', white: '#5e5654',
-        brightBlack: '#9c8f8b', brightRed: '#d9534f', brightGreen: '#4ea570', brightYellow: '#c08a2a',
-        brightBlue: '#4f7fc0', brightMagenta: '#b8708f', brightCyan: '#3a959d', brightWhite: '#212121',
-      }
+  const ansi = ansiFor(palette, theme, accent)
   const warm = (c: string) => warmColor(c, warmth)
   return {
     background: css('--pane') || warm(dark ? '#292626' : '#fffcf5'),
     foreground: css('--text'),
     cursor: css('--accent'),
     cursorAccent: css('--pane'),
-    // Selection is a #C890A7 tint: clearly "selected", never read as an error.
-    selectionBackground: warm(dark ? 'rgba(200,144,167,0.32)' : 'rgba(200,144,167,0.35)'),
-    scrollbarSliderBackground: warm(dark ? 'rgba(251,245,229,0.12)' : 'rgba(33,33,33,0.12)'),
-    scrollbarSliderHoverBackground: warm(dark ? 'rgba(251,245,229,0.2)' : 'rgba(33,33,33,0.18)'),
-    scrollbarSliderActiveBackground: warm(dark ? 'rgba(251,245,229,0.28)' : 'rgba(33,33,33,0.24)'),
-    ...(Object.fromEntries(Object.entries(ansi).map(([k, v]) => [k, warm(v)])) as typeof ansi),
+    // Selection is an accent tint: clearly "selected", never read as an error.
+    selectionBackground: warm(selectionFor(palette, theme, accent)),
+    scrollbarSliderBackground: warm(rgba(palette[theme].text, 0.12)),
+    scrollbarSliderHoverBackground: warm(rgba(palette[theme].text, dark ? 0.2 : 0.18)),
+    scrollbarSliderActiveBackground: warm(rgba(palette[theme].text, dark ? 0.28 : 0.24)),
+    ...(Object.fromEntries(Object.entries(ansi).map(([k, v]) => [k, warm(v)])) as Partial<ITheme>),
   }
 }
 
@@ -410,7 +403,7 @@ export const terminals = {
     const term = new Terminal({
       cols: 120,
       rows: 32,
-      fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace',
+      fontFamily: termFontStack(family),
       fontSize,
       lineHeight: 1.2,
       letterSpacing: 0,
@@ -670,15 +663,28 @@ export const terminals = {
     entries.delete(id)
   },
 
-  /** Theme, colour temperature and base font size (the auto size is derived
-   *  per pane in fit()). */
-  setAppearance(next: { theme?: Theme; fontSize?: number; warmth?: number }) {
+  /** Theme, colour temperature, base font size (the auto size is derived per
+   *  pane in fit()) and font family. Load a new family before passing it
+   *  (loadTermFont): xterm measures its cells when the option changes. */
+  setAppearance(next: {
+    theme?: Theme
+    fontSize?: number
+    warmth?: number
+    look?: { palette: PaletteId; accent: number | undefined; family: string }
+  }) {
     if (next.theme) theme = next.theme
     if (next.fontSize) fontSize = next.fontSize
     if (next.warmth !== undefined) warmth = next.warmth
+    if (next.look) {
+      palette = paletteById(next.look.palette)
+      accent = next.look.accent
+      family = next.look.family
+    }
     measureCharRatio()
     const t = xtermTheme()
+    const stack = termFontStack(family)
     for (const e of entries.values()) {
+      if (e.term.options.fontFamily !== stack) e.term.options.fontFamily = stack
       e.term.options.theme = t
       terminals.scheduleFit(e.id)
     }

@@ -17,6 +17,7 @@ import { CAP, emptyLayout } from '../lib/grid'
 import { DEFAULT_GRID } from '../lib/layouts'
 import { ipc } from '../lib/ipc'
 import type { Place } from '../lib/sun'
+import { DEFAULT_PALETTE, PALETTE_IDS, type PaletteId, TERM_FONT_IDS, type TermFontId } from '../lib/themes'
 import { DEFAULT_K, NEUTRAL_K, WARMEST_K, type WarmWhen } from '../lib/warmth'
 import type { Layout, LayoutNode, Limits, NoteTask, SessionMeta, Snapshot, Theme, Workspace, WorkspaceNotes } from '../types'
 import { act } from './act'
@@ -97,6 +98,10 @@ const LimitWindowV = z.object({ pct: z.number().min(0).max(1000), resetsAt: z.nu
 const ConfigFileV1 = z.object({
   version: z.literal(SCHEMA_VERSION),
   theme: z.enum(['dark', 'light']).catch('dark'),
+  /** The theme, the accent picked in each, and the panes' font (0.3.4). */
+  palette: z.enum(PALETTE_IDS).catch(DEFAULT_PALETTE).optional(),
+  accents: z.record(z.string(), z.number().int().min(0).max(2)).catch({}).optional(),
+  termFont: z.enum(TERM_FONT_IDS).catch('theme').optional(),
   /** Warm colours for late sessions, and the temperature they warm to. */
   warm: z.boolean().catch(false).optional(),
   warmth: z.number().min(WARMEST_K).max(NEUTRAL_K).catch(DEFAULT_K).optional(),
@@ -233,6 +238,9 @@ export interface Decoded {
   layouts: Record<string, Layout>
   notes: Record<string, WorkspaceNotes>
   theme: Theme
+  palette: PaletteId
+  accents: Partial<Record<PaletteId, number>>
+  termFont: TermFontId
   apps: AppsState
   warm: boolean
   warmth: number
@@ -327,6 +335,9 @@ export function decode(snap: Snapshot): Decoded {
     notes,
     activeId: cfg?.activeWorkspace ?? null,
     theme: cfg?.theme ?? 'dark',
+    palette: cfg?.palette ?? DEFAULT_PALETTE,
+    accents: cfg?.accents ?? {},
+    termFont: cfg?.termFont ?? 'theme',
     apps: appsFrom(cfg?.apps),
     warm: cfg?.warm ?? false,
     warmWhen: cfg?.warmWhen ?? 'always',
@@ -400,6 +411,9 @@ export function hydrate(dec: Decoded) {
     d.layout.byWorkspace = dec.layouts
     d.notes.byWorkspace = dec.notes
     d.ui.theme = dec.theme
+    d.ui.palette = dec.palette
+    d.ui.accents = dec.accents
+    d.ui.termFont = dec.termFont
     d.ui.apps = dec.apps
     d.ui.warm = dec.warm
     d.ui.warmWhen = dec.warmWhen
@@ -428,6 +442,9 @@ export function serialize(s: AppState = getState()) {
     config: {
       version: SCHEMA_VERSION,
       theme: s.ui.theme,
+      palette: s.ui.palette,
+      accents: s.ui.accents,
+      termFont: s.ui.termFont,
       apps: s.ui.apps,
       warm: s.ui.warm,
       warmWhen: s.ui.warmWhen,
@@ -507,7 +524,7 @@ export function startPersistence(dec: Pick<Decoded, 'readonly'>) {
   if (dec.readonly) setPersistStatus({ state: 'readonly', message: dec.readonly })
   for (const [target, data] of targets(getState())) written.set(target, JSON.stringify(data))
   useApp.subscribe(
-    (s) => [s.workspace, s.layout, s.notes, s.ui.theme, s.ui.warm, s.ui.warmth, s.ui.warmWhen, s.ui.warmFrom, s.ui.warmTo, s.ui.warmPlace, s.ui.fontSize, s.ui.limits, s.ui.apps] as const,
+    (s) => [s.workspace, s.layout, s.notes, s.ui.theme, s.ui.palette, s.ui.accents, s.ui.termFont, s.ui.warm, s.ui.warmth, s.ui.warmWhen, s.ui.warmFrom, s.ui.warmTo, s.ui.warmPlace, s.ui.fontSize, s.ui.limits, s.ui.apps] as const,
     schedule,
     { equalityFn: (a, b) => a.every((x, i) => x === b[i]) },
   )

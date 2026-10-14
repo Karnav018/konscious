@@ -8,9 +8,9 @@
 <h3 align="center">Run Claude Code in six places at once.<br>Konscious shows you which one is waiting.</h3>
 
 <p align="center">
-  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.3/Konscious-0.3.3-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
-  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.3/Konscious_0.3.3_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
-  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.3/Konscious_0.3.3_amd64.AppImage"><img src="https://img.shields.io/badge/Download_for_Linux-AppImage-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Linux"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.4/Konscious-0.3.4-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-7.9_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for macOS"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.4/Konscious_0.3.4_x64-setup.exe"><img src="https://img.shields.io/badge/Download_for_Windows-3.2_MB-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Windows"></a>
+  <a href="https://github.com/Karnav018/konscious/releases/download/v0.3.4/Konscious_0.3.4_amd64.AppImage"><img src="https://img.shields.io/badge/Download_for_Linux-AppImage-C890A7?style=for-the-badge&labelColor=212121" alt="Download for Linux"></a>
   <a href="https://konscious.hawkapp.in"><img src="https://img.shields.io/badge/Website-konscious.hawkapp.in-FBF5E5?style=for-the-badge&labelColor=212121" alt="Website"></a>
 </p>
 
@@ -59,9 +59,9 @@ Konscious runs your own Claude Code, so install it and sign in first.
 
 | | macOS | Windows | Linux |
 |---|---|---|---|
-| **Download** | [Konscious-0.3.3-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.3.3/Konscious-0.3.3-universal.dmg) | [Konscious_0.3.3_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.3.3/Konscious_0.3.3_x64-setup.exe) | [Konscious_0.3.3_amd64.AppImage](https://github.com/Karnav018/konscious/releases/download/v0.3.3/Konscious_0.3.3_amd64.AppImage) or [.deb](https://github.com/Karnav018/konscious/releases/download/v0.3.3/Konscious_0.3.3_amd64.deb) |
+| **Download** | [Konscious-0.3.4-universal.dmg](https://github.com/Karnav018/konscious/releases/download/v0.3.4/Konscious-0.3.4-universal.dmg) | [Konscious_0.3.4_x64-setup.exe](https://github.com/Karnav018/konscious/releases/download/v0.3.4/Konscious_0.3.4_x64-setup.exe) | [Konscious_0.3.4_amd64.AppImage](https://github.com/Karnav018/konscious/releases/download/v0.3.4/Konscious_0.3.4_amd64.AppImage) or [.deb](https://github.com/Karnav018/konscious/releases/download/v0.3.4/Konscious_0.3.4_amd64.deb) |
 | **Runs on** | macOS 13 or later, Apple silicon and Intel | Windows 10 or 11, 64-bit | x64 with glibc 2.35 or later: Ubuntu 22.04, Debian 12, Fedora 36, Arch and newer |
-| **Install** | Open the DMG and drag Konscious to Applications | Run the installer. It installs for your account, no admin needed | Make the AppImage executable (`chmod +x`) and run it, or `sudo apt install ./Konscious_0.3.3_amd64.deb` |
+| **Install** | Open the DMG and drag Konscious to Applications | Run the installer. It installs for your account, no admin needed | Make the AppImage executable (`chmod +x`) and run it, or `sudo apt install ./Konscious_0.3.4_amd64.deb` |
 | **First launch** | The app isn't notarized yet, so macOS stops it once: open **System Settings › Privacy & Security** and click **Open Anyway** | If Windows says it protected your PC, click **More info**, then **Run anyway** | Nothing to click through. If the AppImage won't start, install FUSE 2 (`sudo apt install libfuse2`, or `libfuse2t64` on Ubuntu 24.04) |
 | **Claude Code** | `curl -fsSL https://claude.ai/install.sh \| bash` | `irm https://claude.ai/install.ps1 \| iex` | `curl -fsSL https://claude.ai/install.sh \| bash` |
 
@@ -131,7 +131,7 @@ Windows.
 <details>
 <summary><b>Releasing</b></summary>
 
-A release is a tag. `scripts/release.sh 0.3.3` writes the version into the app, the website and this README, then pushes `v0.3.3`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS, the installer on Windows and the AppImage and .deb on Linux, runs each platform's checks, signs them all for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour.
+A release is a tag. `scripts/release.sh 0.3.4` writes the version into the app, the website and this README, then pushes `v0.3.4`; [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the universal DMG on macOS, the installer on Windows and the AppImage and .deb on Linux, runs each platform's checks, signs them all for the updater and publishes one GitHub release. Installed copies poll `releases/latest/download/latest.json`, so they see it within the hour.
 
 To add a platform to a release that is already out without rebuilding the others — the way Linux was first released — run the workflow by hand with `tag` set to that release, `ref` to the branch to build (`main`), and `mac_from_run` / `windows_from_run` to the release's own run, whose builds it reuses: `gh workflow run release.yml --ref main -f tag=v<version> -f ref=main -f mac_from_run=<run> -f windows_from_run=<run>`.
 
