@@ -2,6 +2,7 @@
 import type { EnvInfo, InitInfo, Limits, Suggestion, Theme } from '../../types'
 import { withAttached } from '../../lib/attach'
 import type { Place } from '../../lib/sun'
+import type { PaletteId, TermFontId } from '../../lib/themes'
 import type { WarmWhen } from '../../lib/warmth'
 import { act } from '../act'
 import { getState, type NewSessionDraft, type PersistStatus, type SettingsMenu, type UpdateState, type WsFilter } from '../store'
@@ -23,6 +24,11 @@ export const setEnvError = (message: string) => act('app/envError', (d) => void 
 export const setSuggestions = (s: Suggestion[]) => act('app/suggestions', (d) => void (d.ui.suggestions = s))
 export const setFullscreen = (on: boolean) => act('window/fullscreen', (d) => void (d.ui.fullscreen = on))
 export const setThemeValue = (theme: Theme) => act('ui/theme', (d) => void (d.ui.theme = theme))
+export const setPaletteValue = (palette: PaletteId) => act('ui/palette', (d) => void (d.ui.palette = palette))
+export const setAccentValue = (palette: PaletteId, index: number) =>
+  act('ui/accent', (d) => void (d.ui.accents = { ...d.ui.accents, [palette]: index }))
+export const setTermFontValue = (font: TermFontId) => act('ui/termFont', (d) => void (d.ui.termFont = font))
+export const setFontSizeValue = (size: number) => act('ui/fontSize', (d) => void (d.ui.fontSize = size))
 /** The warm-colours setting. `kelvin` is kept while it is switched off, so the
  *  slider comes back where it was left. */
 export const setWarmValue = (on: boolean, kelvin?: number) =>

@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   ALERT_TTL_MS,
   GUTTER,
-  HYSTERESIS,
   BREAK_WORDS,
   canAnnounce,
+  centredWidth,
   expired,
   freshIsland,
   type IslandApp,
@@ -14,7 +14,7 @@ import {
   ISLAND_KEYS,
   MAX,
   nextIndex,
-  showsCentred,
+  MIN_W,
   rankActivities,
   withoutApp,
   withoutId,
@@ -178,85 +178,22 @@ describe('which apps can speak', () => {
 })
 
 describe('where the island goes', () => {
-  // It is a notch: it is centred or it is not there. The island is 220 wide
-  // compact. A window width cannot answer this — the app root is 1080px at
-  // its narrowest, so a width test would only ever cover 1080 to 1100.
   const W = 220
-
-  it('shows when the gap straddles the middle with room to spare', () => {
-    // A 1920 bar whose clusters end at 700 and start at 1200: the island
-    // spans 850–1070, well inside.
-    expect(showsCentred(1920, 700, 1200, W)).toBe(true)
+  it('is full width when the bar has room around the centre', () => {
+    expect(centredWidth(1920, 700, 1200, W)).toBe(W)
   })
 
-  it('goes rather than sit off to one side', () => {
-    // 1280 wide, a 570px gap — easily wide enough for the pill, but it does
-    // not straddle the centre, and off-centre it stops reading as a notch.
-    expect(showsCentred(1280, 700, 1270, W)).toBe(false)
+  it('never moves off the centre line: a crowded bar narrows it instead', () => {
+    // The right cluster starts 80px past the centre: 2 × (80 − gutter) wide.
+    expect(centredWidth(1280, 300, 720, W)).toBe(2 * (80 - GUTTER))
   })
 
-  it('goes when a cluster reaches past the centre, however wide the window', () => {
-    expect(showsCentred(1920, 1000, 1800, W)).toBe(false)
+  it('never hides: at worst it is MIN_W wide', () => {
+    expect(centredWidth(1280, 800, 1000, W)).toBe(MIN_W)
+    expect(centredWidth(1280, 820, 800, W)).toBe(MIN_W)
   })
 
-  it('goes once the clusters have met', () => {
-    expect(showsCentred(1280, 800, 800, W)).toBe(false)
-    expect(showsCentred(1280, 820, 800, W)).toBe(false)
-  })
-
-  it('keeps a gutter on each side rather than touching', () => {
-    const mid = 640
-    expect(showsCentred(1280, mid - W / 2, mid + W / 2, W)).toBe(false)
-    expect(showsCentred(1280, mid - W / 2 - GUTTER, mid + W / 2 + GUTTER, W)).toBe(true)
-  })
-
-  it('shows when nothing has been measured, rather than hiding for good', () => {
-    expect(showsCentred(0, 0, 0, W)).toBe(true)
-  })
-
-  it('judges by the tighter side, since it is centred', () => {
-    // Acres of room on the left, none on the right: still no.
-    expect(showsCentred(1280, 100, 700, W)).toBe(false)
-  })
-})
-
-describe('the island does not blink', () => {
-  // The title bar breathes while you work. The "N waiting" chip is about
-  // ninety pixels and comes and goes as sessions change state, so a
-  // measurement right at the threshold flips back and forth with it — and
-  // the pill appeared and disappeared several times a minute.
-  const W = 220
-  const need = W / 2 + GUTTER
-
-  /** A bar 1280 wide whose clusters leave `room` either side of centre. */
-  const bar = (room: number, showing: boolean) =>
-    showsCentred(1280, 640 - room, 640 + room, W, showing)
-
-  it('lets it in only with the full clearance', () => {
-    expect(bar(need, false)).toBe(true)
-    expect(bar(need - 1, false)).toBe(false)
-  })
-
-  it('keeps it once it is there, through a chip appearing', () => {
-    expect(bar(need - 1, true)).toBe(true)
-    expect(bar(need - HYSTERESIS + 1, true)).toBe(true)
-  })
-
-  it('still gives up the place when the bar is genuinely tighter', () => {
-    expect(bar(need - HYSTERESIS - 1, true)).toBe(false)
-  })
-
-  it('does not flip back and forth across one chip’s width', () => {
-    // 45px: half the waiting chip, so either edge of it moves the gap by
-    // about this much. Sitting just inside the threshold, the island must
-    // survive the chip arriving.
-    const jiggle = 45
-    let showing = bar(need + 4, false)
-    expect(showing).toBe(true)
-    for (let i = 0; i < 6; i++) {
-      // the chip appears, then goes, then appears...
-      showing = bar(need + 4 - (i % 2 ? 0 : jiggle / 2), showing)
-      expect(showing, `blinked off on pass ${i}`).toBe(true)
-    }
+  it('takes its full width before anything is measured', () => {
+    expect(centredWidth(0, 0, 0, W)).toBe(W)
   })
 })

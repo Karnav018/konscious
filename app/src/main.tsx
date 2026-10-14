@@ -1,9 +1,29 @@
-import '@fontsource/ibm-plex-sans/400.css'
-import '@fontsource/ibm-plex-sans/500.css'
-import '@fontsource/ibm-plex-sans/600.css'
+import '@fontsource/poppins/400.css'
+import '@fontsource/poppins/500.css'
+import '@fontsource/poppins/600.css'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/500.css'
 import '@fontsource/jetbrains-mono/700.css'
+// The interface font is Poppins in every theme but Paper and Risograph,
+// which are IBM Plex Mono throughout; the rest are Terminal font choices.
+// Bundled, since the app works offline; a face is only read from disk once
+// something uses it.
+import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-mono/500.css'
+import '@fontsource/ibm-plex-mono/600.css'
+import '@fontsource/ibm-plex-mono/700.css'
+import '@fontsource/geist-mono/400.css'
+import '@fontsource/geist-mono/700.css'
+import '@fontsource/fira-code/400.css'
+import '@fontsource/fira-code/700.css'
+import '@fontsource/source-code-pro/400.css'
+import '@fontsource/source-code-pro/700.css'
+import '@fontsource/inconsolata/400.css'
+import '@fontsource/inconsolata/700.css'
+import '@fontsource/ubuntu-mono/400.css'
+import '@fontsource/ubuntu-mono/700.css'
+import '@fontsource/space-mono/400.css'
+import '@fontsource/space-mono/700.css'
 import './styles/globals.css'
 
 import React from 'react'

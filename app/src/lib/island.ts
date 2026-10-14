@@ -62,18 +62,6 @@ export const PHASE_ALERT_MS = 8000
 /** Clear space to keep either side of the island. */
 export const GUTTER = 12
 
-/**
- * How much tighter than the threshold the bar must get before a showing
- * island gives up its place.
- *
- * Without this it blinks. The title bar breathes while you work — the
- * "N waiting" chip is about ninety pixels and comes and goes as sessions
- * change state, a usage figure gains a digit, a session name changes — and
- * a measurement taken right at the threshold flips back and forth with it.
- * The island then appears and disappears several times a minute, which is
- * the one thing a calm notch must not do.
- */
-export const HYSTERESIS = 28
 
 
 /** Every app, so a per-app flag is never dropped on load for want of being
@@ -155,42 +143,19 @@ export function nextIndex(count: number, i: number, delta: number): number {
   return (((i + delta) % count) + count) % count
 }
 
+/** The narrowest the compact island gets when the bar is crowded. Below this
+ *  its text has no room to say anything. */
+export const MIN_W = 120
+
 /**
- * Whether the island shows, which is only ever at the true centre.
- *
- * It is a notch, and a notch is centred — off to one side it stops reading as
- * one. So when the title bar's clusters crowd the middle it does not shuffle
- * sideways to stay visible; it goes, and the dock and the system notification
- * carry the nudge instead.
- *
- * `leftRight` is the right edge of everything on the left — the wordmark, the
- * workspace switch, the mode control, the new-terminal button, the waiting
- * chip and the update chip — and `rightLeft` is the left edge of everything
- * on the right. Both are measured from the bar's own left edge.
- *
- * A window width will not do here. The root is 1080px at its narrowest, so a
- * width test protects a twenty-pixel band and nothing else, while the left
- * cluster alone can pass the centre of a window far wider than that.
+ * How wide the compact island may be. It never moves and never hides: it sits
+ * on the window's centre line, always. A crowded bar only narrows it, to
+ * twice its tighter clearance from the centre, never below MIN_W.
  */
-export function showsCentred(
-  barW: number,
-  leftRight: number,
-  rightLeft: number,
-  w: number,
-  /** Whether it is on screen now. Shown, it is harder to dislodge. */
-  showing = false,
-  gutter = GUTTER,
-): boolean {
-  // Nothing measured yet, or an environment with no layout. Showing is the
-  // safer default: hiding on a failed measurement hides it for good.
-  if (barW <= 0) return true
-  // The clusters have met. There is no middle to be in.
-  if (rightLeft <= leftRight) return false
+export function centredWidth(barW: number, leftRight: number, rightLeft: number, w: number, gutter = GUTTER): number {
+  // Nothing measured yet, or an environment with no layout.
+  if (barW <= 0) return w
   const mid = barW / 2
-  // The tighter of the two sides decides it: the island is centred, so it
-  // can only be as wide as twice its smaller clearance.
-  const room = Math.min(mid - leftRight, rightLeft - mid)
-  const need = w / 2 + gutter
-  // Already there: it keeps its place until the bar is meaningfully tighter.
-  return room >= (showing ? need - HYSTERESIS : need)
+  const room = 2 * (Math.min(mid - leftRight, rightLeft - mid) - gutter)
+  return Math.max(MIN_W, Math.min(w, room))
 }

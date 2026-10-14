@@ -6,6 +6,7 @@ import { trimSep } from '../lib/path'
 import { IS_WINDOWS } from '../lib/platform'
 import { terminals } from '../lib/terminals'
 import { localPlace, type Place, sunTimes } from '../lib/sun'
+import { type PaletteId, paletteById, type TermFontId, termFont, termFontStack, themeCss, themeTokens } from '../lib/themes'
 import {
   atLocalMinutes,
   DEFAULT_K,
@@ -13,6 +14,7 @@ import {
   kelvinAt,
   kelvinFor,
   nextBoundary,
+  forgetBaseTokens,
   NEUTRAL_K,
   paintWarmth,
   type WarmWhen,
@@ -37,7 +39,11 @@ import {
   closeWorkspaceMenu,
   flash,
   openNewSessionDraft,
+  setAccentValue,
+  setFontSizeValue,
+  setPaletteValue,
   setPaneMenu,
+  setTermFontValue,
   setThemeValue,
   setWarmHoursValue,
   setWarmOverride,
@@ -519,7 +525,78 @@ export function repaintIfDue() {
 export function setTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme
   setThemeValue(theme)
+  paintLook()
   repaint()
+}
+
+/* ── themes ───────────────────────────────────────────────────────── */
+
+const LOOK_STYLE_ID = 'konscious-theme'
+
+/** Writes the theme's overrides over tokens.css (lib/themes) for the mode in
+ *  force. The stock look writes nothing. The warm pass reads its base values
+ *  from the result, so those are read again. */
+function paintLook() {
+  const { theme, palette, accents } = getState().ui
+  const p = paletteById(palette)
+  const root = document.documentElement
+  root.dataset.palette = p.id
+  let el = document.getElementById(LOOK_STYLE_ID) as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = LOOK_STYLE_ID
+    document.head.appendChild(el)
+  }
+  el.textContent = themeCss(themeTokens(p, theme, accents[p.id]))
+  forgetBaseTokens()
+}
+
+/** Resolves once `family` can draw (or after a moment, if it never will):
+ *  xterm measures its cells when the font changes, and a font still loading
+ *  measures as the fallback. */
+async function loadFont(family: string, size = 13) {
+  const giveUp = new Promise((r) => setTimeout(r, 1500))
+  await Promise.race([document.fonts.load(`${size}px ${family}`), giveUp]).catch(() => {})
+}
+
+/** The terminals' colours and font for the theme, accent and font chosen. */
+export async function applyTermLook() {
+  const { palette, accents, termFont: font } = getState().ui
+  const p = paletteById(palette)
+  const family = termFont(p, font)
+  await loadFont(family)
+  // Bold is a second file; load it too so bold text doesn't draw synthetic.
+  void document.fonts.load(`bold 13px ${termFontStack(family)}`).catch(() => {})
+  terminals.setAppearance({ look: { palette: p.id, accent: accents[p.id], family } })
+}
+
+export async function setPalette(palette: PaletteId) {
+  setPaletteValue(palette)
+  const p = paletteById(palette)
+  // The interface font first, so the window doesn't redraw in a fallback.
+  await loadFont(p.ui)
+  paintLook()
+  repaint()
+  await applyTermLook()
+}
+
+export async function setAccent(palette: PaletteId, index: number) {
+  setAccentValue(palette, index)
+  paintLook()
+  repaint()
+  await applyTermLook()
+}
+
+export async function setTerminalFont(font: TermFontId) {
+  setTermFontValue(font)
+  await applyTermLook()
+}
+
+/** The panes' base size; a pane sized by hand (⌘+ / ⌘−) keeps its own. */
+export function setTerminalSize(size: number) {
+  const next = Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(size)))
+  setFontSizeValue(next)
+  terminals.setAppearance({ fontSize: next })
 }
 
 /** The title-bar lamp: warm colours on or off, at the temperature chosen. A

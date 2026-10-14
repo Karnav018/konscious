@@ -78,13 +78,17 @@ describe('the notch island', () => {
     expect(r.getByText('A glass now and then.')).toBeTruthy()
   })
 
-  it('stays out of a bar whose gap cannot hold it at all', () => {
+  it('still shows, on the centre line, in a bar too crowded for it', () => {
     // 1280 wide with the waiting and update chips showing: the left cluster
-    // reaches 930 and the right starts at 1000 — a 70px gap for a 220px box.
+    // reaches 930 and the right starts at 1000. The island is where a nudge
+    // always reaches, so it neither hides nor moves: it stays centred.
     layout(1280, 930, 1000)
     pushIsland({ app: 'water', title: 'Drink water' })
     const r = render(inBar())
-    expect(r.container.querySelector('[data-island]')).toBeNull()
+    const el = r.container.querySelector('[data-island]') as HTMLElement
+    expect(el).not.toBeNull()
+    expect(el.style.left).toBe('50%')
+    expect(r.getByText('Drink water')).toBeTruthy()
   })
 
   it('shows centred once the bar is wide enough for it', () => {
@@ -97,13 +101,17 @@ describe('the notch island', () => {
     expect(r.getByText('Drink water')).toBeTruthy()
   })
 
-  it('goes rather than sit off centre when the clusters crowd the middle', () => {
-    // A 570px gap would hold the pill, but not around the centre — and a
-    // notch that is not centred does not read as one.
-    layout(1280, 700, 1270)
+  it('narrows rather than moving when the clusters crowd the middle', () => {
+    // The right cluster starts 80px past the centre: the compact island
+    // stays centred and takes 2 × (80 − 12) = 136px.
+    vi.useFakeTimers()
+    layout(1280, 300, 720)
     pushIsland({ app: 'water', title: 'Drink water' })
     const r = render(inBar())
-    expect(r.container.querySelector('[data-island]')).toBeNull()
+    act(() => void vi.advanceTimersByTime(COLLAPSE_MS + 1500))
+    const el = r.container.querySelector('[data-island]') as HTMLElement
+    expect(el.style.left).toBe('50%')
+    expect(el.style.width).toBe('136px')
   })
 
   it('collapses a fresh alert once it has stopped being news', () => {

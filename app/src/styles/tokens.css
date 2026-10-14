@@ -3,9 +3,9 @@
    Dark is the default; light applies with <html data-theme="light">. */
 
 :root {
-  --ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --ui: 'Poppins', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
-  --head: 'IBM Plex Sans', system-ui, sans-serif;
+  --head: 'Poppins', system-ui, sans-serif;
   --r: 10px;
   --rs: 6px;
   --wr: 12px;
