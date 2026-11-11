@@ -5,7 +5,8 @@ import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/500.css'
 import '@fontsource/jetbrains-mono/700.css'
 // The interface font is Poppins in every theme but Paper and Risograph,
-// which are IBM Plex Mono throughout; the rest are Terminal font choices.
+// which are IBM Plex Mono throughout, and Glass, which uses the system's own
+// face; the rest are Terminal font choices.
 // Bundled, since the app works offline; a face is only read from disk once
 // something uses it.
 import '@fontsource/ibm-plex-mono/400.css'

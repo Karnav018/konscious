@@ -1,6 +1,7 @@
-// Themes: eight palettes, each with a dark and a light variant and three
+// Themes: nine palettes, each with a dark and a light variant and three
 // accents. A theme changes colour, type and corner radius; the status colours
-// (ok, waiting, error) keep their meaning in every one.
+// (ok, waiting, error) keep their meaning in every one. Glass also changes
+// what the window is made of, on a Mac (see `glass` below).
 //
 // tokens.css stays the source of the Konscious theme, so with Konscious and its
 // first accent nothing here applies and the app looks exactly as it always
@@ -12,7 +13,7 @@ import type { Theme } from '../types'
 /** Dark or light, as the Appearance switch picks it. */
 export type Mode = Theme
 
-export type PaletteId = 'konscious' | 'graphite' | 'ember' | 'moss' | 'tide' | 'paper' | 'riso' | 'contrast'
+export type PaletteId = 'konscious' | 'graphite' | 'ember' | 'moss' | 'tide' | 'paper' | 'riso' | 'contrast' | 'glass'
 
 interface Base {
   stage: string
@@ -49,6 +50,11 @@ export interface Palette {
   contrast?: boolean
   /** Terminal selection, when it is not a tint of the accent. */
   selection?: Record<Mode, string>
+  /** The window is glass: macOS draws its own material behind the title bar,
+   *  the status bar and the gaps between panes, and the desktop shows through.
+   *  Panes, menus and sheets stay solid, because they are what you read. Only
+   *  on a Mac (showsGlass); anywhere else these are ordinary colours. */
+  glass?: boolean
 }
 
 const acc = (name: string, dark: string, light: string): Accent => ({ name, dark, light })
@@ -155,14 +161,39 @@ export const PALETTES: Palette[] = [
     dark: { stage: '#000000', win: '#000000', pane: '#0a0a0a', raised: '#161616', line: '#6a6a6a', line2: '#9a9a9a', text: '#ffffff', muted: '#e6e6e6', faint: '#c4c4c4' },
     light: { stage: '#ffffff', win: '#ffffff', pane: '#ffffff', raised: '#ffffff', line: '#5c5c5c', line2: '#1f1f1f', text: '#000000', muted: '#1a1a1a', faint: '#3a3a3a' },
   },
+  {
+    id: 'glass',
+    name: 'Glass',
+    desc: 'The window in macOS glass, your desktop showing through around the panes. Neutral greys, the system font, and panes that stay solid.',
+    // The system's own face (San Francisco), so the window reads as part of
+    // the Mac it is on. Nothing to bundle and nothing to load.
+    ui: 'system-ui',
+    mono: "'JetBrains Mono'",
+    r: 12,
+    rs: 8,
+    glass: true,
+    // Graphite is the Mac's own neutral accent: the glass carries the colour
+    // of whatever is behind it, and this one adds none of its own.
+    accents: [acc('Blue', '#4da3ff', '#0066d6'), acc('Lilac', '#c0a2ff', '#6f3fd6'), acc('Graphite', '#c7c7cc', '#55555c')],
+    dark: { stage: '#141416', win: '#1c1c1e', pane: '#1b1b1e', raised: '#2a2a2e', line: '#343438', line2: '#48484d', text: '#f5f5f7', muted: '#b4b4bb', faint: '#7d7d85' },
+    light: { stage: '#dcdce1', win: '#ececf0', pane: '#ffffff', raised: '#ffffff', line: '#dedee3', line2: '#c7c7cd', text: '#1d1d1f', muted: '#4f4f55', faint: '#85858c' },
+  },
 ]
 
 export const DEFAULT_PALETTE: PaletteId = 'konscious'
 
 /** For the settings file's schema. */
-export const PALETTE_IDS = ['konscious', 'graphite', 'ember', 'moss', 'tide', 'paper', 'riso', 'contrast'] as const satisfies readonly PaletteId[]
+export const PALETTE_IDS = ['konscious', 'graphite', 'ember', 'moss', 'tide', 'paper', 'riso', 'contrast', 'glass'] as const satisfies readonly PaletteId[]
 
 export const paletteById = (id: string): Palette => PALETTES.find((p) => p.id === id) ?? PALETTES[0]
+
+/** Does `p` turn the window to glass here? Only on a Mac: the material is the
+ *  system's, and Windows and Linux have nothing of the kind to ask for. */
+export const showsGlass = (p: Palette, mac: boolean) => mac && p.glass === true
+
+/** The themes Settings offers. Glass is left out where it cannot be glass,
+ *  unless it is already the one in use (a settings file from a Mac). */
+export const palettesFor = (mac: boolean, current?: PaletteId): Palette[] => PALETTES.filter((p) => !p.glass || mac || p.id === current)
 
 /** The accent picked for `p`, clamped to the three it has. */
 export const accentOf = (p: Palette, index: number | undefined): Accent => p.accents[index ?? 0] ?? p.accents[0]
@@ -237,6 +268,9 @@ export function statusColors(p: Palette, mode: Mode) {
  *  (Paper, High contrast, Risograph…) it would vanish, so it gets an edge in
  *  the theme's border colour. Konscious's #212121 is light enough without. */
 export function islandEdge(p: Palette, mode: Mode): string | null {
+  // Dark glass has no colour of its own to count on: what is behind it may be
+  // a black wallpaper or another dark window.
+  if (p.glass && mode === 'dark') return p.dark.line2
   return contrast('#000000', p[mode].win) < 1.25 ? p[mode].line2 : null
 }
 

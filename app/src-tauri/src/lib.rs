@@ -5,6 +5,8 @@ mod commands;
 mod env;
 mod error;
 mod git;
+#[cfg(target_os = "macos")]
+mod glass;
 mod idle;
 mod media;
 mod memory;
@@ -262,6 +264,7 @@ pub fn run() {
             commands::fs_suggest_folders,
             commands::fs_is_dir,
             commands::clipboard_read,
+            commands::window_glass,
         ])
         .build(context)
         .expect("error while building Konscious");

@@ -397,6 +397,17 @@ pub async fn media_control(action: String) -> AppResult<bool> {
     Ok(tauri::async_runtime::spawn_blocking(move || crate::media::control(what)).await.unwrap_or(false))
 }
 
+/// The Glass theme: the system's glass behind the page, lit for `mode`
+/// ("dark" or "light"); null puts the plain window back. Nothing happens on
+/// Windows and Linux, where the theme is not offered.
+#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+pub async fn window_glass(window: tauri::WebviewWindow, mode: Option<String>) -> AppResult<()> {
+    #[cfg(target_os = "macos")]
+    crate::glass::set(&window, mode.as_deref()).map_err(|e| AppError::Unavailable(format!("glass: {e}")))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn file_thumbnail(path: String) -> AppResult<Option<String>> {
     Ok(crate::preview::thumbnail(&path))

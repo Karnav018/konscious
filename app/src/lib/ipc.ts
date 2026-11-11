@@ -199,6 +199,9 @@ export const ipc = {
     await w.show()
     await w.setFocus()
   },
+  /** The Glass theme (macOS): the system's glass behind the page, lit for the
+   *  mode the theme is in; null puts the plain window back. */
+  windowGlass: (mode: 'dark' | 'light' | null) => invoke<void>('window_glass', { mode }),
   isFullscreen: () => getCurrentWindow().isFullscreen(),
   onWindowResized: (cb: () => void) => getCurrentWindow().onResized(cb),
 }
