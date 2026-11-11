@@ -191,6 +191,25 @@ export const paletteById = (id: string): Palette => PALETTES.find((p) => p.id ==
  *  system's, and Windows and Linux have nothing of the kind to ask for. */
 export const showsGlass = (p: Palette, mac: boolean) => mac && p.glass === true
 
+/** How see-through Glass is, 0 (solid) to 100 (clear), as Settings has it.
+ *  The default is on the solid side: text in a menu has to read first. */
+export const GLASS_DEFAULT = 45
+export const clampGlass = (amount: number) => Math.min(100, Math.max(0, Math.round(Number.isFinite(amount) ? amount : GLASS_DEFAULT)))
+
+/**
+ * The slider as the stylesheet wants it, in percent: how much of the window
+ * colour is laid over the system's glass (`tint`), and how solid a floating
+ * surface is before it blurs what is under it (`body`). At 0 all are 100 and
+ * nothing shows through at all; the window moves further than the surfaces,
+ * because a menu holds text and the title bar mostly does not.
+ */
+export function glassLevels(amount: number): { tint: number; body: number; inner: number } {
+  const t = clampGlass(amount) / 100
+  // `inner` is a surface inside another one, which cannot blur what is under
+  // it (styles/globals.css says why), so it stays twice as solid.
+  return { tint: Math.round(100 - 82 * t), body: Math.round(100 - 50 * t), inner: Math.round(100 - 25 * t) }
+}
+
 /** The themes Settings offers. Glass is left out where it cannot be glass,
  *  unless it is already the one in use (a settings file from a Mac). */
 export const palettesFor = (mac: boolean, current?: PaletteId): Palette[] => PALETTES.filter((p) => !p.glass || mac || p.id === current)

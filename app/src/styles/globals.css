@@ -97,8 +97,11 @@ body {
    shadow, the dock), and inside a surface the colour tokens are renamed to
    glass, so a card, a field or a control placed in one later is glass too. */
 :root[data-glass] {
-  background: color-mix(in srgb, var(--win) var(--glassTint), transparent);
-  --glassTint: 40%;
+  /* --glassTint, --glassBody and --glassInner come from the Glass slider in
+     Settings (app/actions, paintGlassLevels): how much window colour covers
+     the system's glass, and how solid a floating surface is. The numbers after
+     the commas are the slider's default, for the moment before it is read. */
+  background: color-mix(in srgb, var(--win) var(--glassTint, 63%), transparent);
   /* A control's body, the raised part of one, the edge they share, and a
      well for text fields. Mixed from --text so they are light on dark glass
      and dark on light. */
@@ -116,7 +119,6 @@ body {
   --spring: cubic-bezier(0.3, 1.6, 0.5, 1);
 }
 :root[data-glass][data-theme='light'] {
-  --glassTint: 30%;
   --glassFill: rgba(255, 255, 255, 0.42);
   --glassFillOn: rgba(255, 255, 255, 0.86);
   --glassEdge: color-mix(in srgb, var(--text) 11%, transparent);
@@ -201,10 +203,45 @@ body {
   --line: var(--glassEdge);
   --line2: var(--glassEdge);
   --segShadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 1px 3px rgba(0, 0, 0, 0.2);
-  background-color: color-mix(in srgb, var(--raisedSolid) 62%, transparent);
+  background-color: color-mix(in srgb, var(--raisedSolid) var(--glassBody, 78%), transparent);
   -webkit-backdrop-filter: blur(34px) saturate(1.8);
   backdrop-filter: blur(34px) saturate(1.8);
   animation: cw-glass-pop 480ms var(--spring);
+}
+/* A surface that blurs is the whole backdrop for whatever is inside it: a
+   panel inside a blurring parent finds nothing behind it to blur, and where it
+   reaches past the parent's edge the panes show through it sharp. That is
+   exactly what the dock's panels did, opening out of the dock.
+
+   So the dock blurs through a layer of its own (::before), which is not an
+   ancestor of its panels, and they blur the panes like any other surface. */
+/* Spelled with the dock's own classes so it outranks the surface rule above,
+   which finds the dock by those classes too. */
+:root[data-glass] [data-dock].bg-raised.border-line2 {
+  background-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-glass] [data-dock]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--raisedSolid) var(--glassBody, 78%), transparent);
+  -webkit-backdrop-filter: blur(34px) saturate(1.8);
+  backdrop-filter: blur(34px) saturate(1.8);
+}
+/* Anywhere else one surface sits inside another (a card in the inspector, a
+   list opening out of a dialog), the inner one cannot blur for the same
+   reason, so it does not try: it is nearly solid instead, which reads the same
+   over its own parent and stays readable where it overhangs it. */
+:root[data-glass] :is(.shadow-pop.bg-raised, .shadow-pop.bg-win, .bg-raised.border-line2:not([data-dock]), [data-dock-popover])
+  :is(.bg-raised.border-line2, .shadow-pop.bg-raised, .shadow-pop.bg-win) {
+  background-color: color-mix(in srgb, var(--raisedSolid) var(--glassInner, 89%), transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 /* A menu that opens out of the title bar is a surface, not a bar control. */
 :root[data-glass] .cw-bar .shadow-pop .rounded-rs {

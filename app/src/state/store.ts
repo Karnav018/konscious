@@ -13,7 +13,7 @@ import { freshIsland } from '../lib/island'
 import type { SitState } from '../lib/sitting'
 import { freshSit } from '../lib/sitting'
 import type { Place } from '../lib/sun'
-import { DEFAULT_PALETTE, type PaletteId, type TermFontId } from '../lib/themes'
+import { DEFAULT_PALETTE, GLASS_DEFAULT, type PaletteId, type TermFontId } from '../lib/themes'
 import type { WarmWhen } from '../lib/warmth'
 import { DEFAULT_K } from '../lib/warmth'
 import type {
@@ -119,6 +119,8 @@ export interface UiState {
   palette: PaletteId
   accents: Partial<Record<PaletteId, number>>
   termFont: TermFontId
+  /** How see-through the Glass theme is, 0–100 (lib/themes, glassLevels). */
+  glass: number
   /** Warm colours for late sessions, and the temperature chosen for them. */
   warm: boolean
   warmth: number
@@ -221,6 +223,7 @@ export const initialState = (): AppState => ({
     palette: DEFAULT_PALETTE,
     accents: {},
     termFont: 'theme',
+    glass: GLASS_DEFAULT,
     warm: false,
     warmth: DEFAULT_K,
     warmWhen: 'always',

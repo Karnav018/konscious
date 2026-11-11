@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import { ansiFor, contrast, islandEdge, PALETTE_IDS, PALETTES, paletteById, palettesFor, selectionFor, showsGlass, TERM_FONT_IDS, TERM_FONTS, themeCss, themeTokens } from './themes'
+import { ansiFor, clampGlass, contrast, GLASS_DEFAULT, glassLevels, islandEdge, PALETTE_IDS, PALETTES, paletteById, palettesFor, selectionFor, showsGlass, TERM_FONT_IDS, TERM_FONTS, themeCss, themeTokens } from './themes'
 
 const css = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8')
 const block = (selector: string) => css.slice(css.indexOf(selector), css.indexOf('}', css.indexOf(selector)))
@@ -90,6 +90,22 @@ describe('themes', () => {
   it('always edges the notch island on dark glass, whatever is behind the window', () => {
     expect(islandEdge(paletteById('glass'), 'dark')).toBe('#48484d')
     expect(islandEdge(paletteById('glass'), 'light')).toBeNull()
+  })
+
+  it('turns the Glass slider into levels: solid at 0, and a menu always more solid than the window', () => {
+    expect(glassLevels(0)).toEqual({ tint: 100, body: 100, inner: 100 })
+    expect(glassLevels(100)).toEqual({ tint: 18, body: 50, inner: 75 })
+    for (const amount of [10, 25, GLASS_DEFAULT, 75, 100]) {
+      const { tint, body, inner } = glassLevels(amount)
+      expect(body, `${amount} body`).toBeGreaterThan(tint)
+      expect(inner, `${amount} inner`).toBeGreaterThan(body)
+    }
+    // Text in a menu has to read at every setting, so a surface never drops
+    // below half solid.
+    expect(glassLevels(100).body).toBeGreaterThanOrEqual(50)
+    expect(clampGlass(-5)).toBe(0)
+    expect(clampGlass(140)).toBe(100)
+    expect(clampGlass(Number.NaN)).toBe(GLASS_DEFAULT)
   })
 
   it('gives terminals the theme accent as magenta', () => {

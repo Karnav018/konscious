@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   setAccent,
+  setGlassAmount,
   setPalette,
   setTerminalFont,
   setTerminalSize,
@@ -245,6 +246,7 @@ function ThemeRow() {
   const accents = useUi((u) => u.accents)
   const p = paletteById(current)
   const picked = accents[p.id] ?? 0
+  const glass = useUi((u) => u.glass)
   return (
     <>
       <Section>
@@ -301,9 +303,27 @@ function ThemeRow() {
         </div>
       </Section>
       {showsGlass(p, !IS_PC) && (
-        <div className={`${hint} px-1`}>
-          Your desktop shows through the title bar and between panes. Panes stay solid, so text reads the same as in any theme.
-        </div>
+        <Section title="Glass">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={glass}
+            onChange={(e) => setGlassAmount(Number(e.target.value))}
+            aria-label="How see-through the glass is"
+            className="w-full cursor-pointer"
+            style={{ accentColor: 'var(--accent)' }}
+          />
+          <div className="flex items-center justify-between font-mono text-[10.5px] text-faint">
+            <span>Solid</span>
+            <span className="text-accent">{glass}%</span>
+            <span>Clear</span>
+          </div>
+          <div className={hint}>
+            How much shows through the window, the dock, menus and sheets. Panes stay solid, so text reads the same as in any theme.
+          </div>
+        </Section>
       )}
       <Section title="Accent">
         <div className="flex items-center gap-3">

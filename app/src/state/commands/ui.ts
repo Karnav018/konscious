@@ -28,6 +28,7 @@ export const setPaletteValue = (palette: PaletteId) => act('ui/palette', (d) => 
 export const setAccentValue = (palette: PaletteId, index: number) =>
   act('ui/accent', (d) => void (d.ui.accents = { ...d.ui.accents, [palette]: index }))
 export const setTermFontValue = (font: TermFontId) => act('ui/termFont', (d) => void (d.ui.termFont = font))
+export const setGlassValue = (amount: number) => act('ui/glass', (d) => void (d.ui.glass = amount))
 export const setFontSizeValue = (size: number) => act('ui/fontSize', (d) => void (d.ui.fontSize = size))
 /** The warm-colours setting. `kelvin` is kept while it is switched off, so the
  *  slider comes back where it was left. */

@@ -6,7 +6,7 @@ import { trimSep } from '../lib/path'
 import { IS_PC, IS_WINDOWS } from '../lib/platform'
 import { terminals } from '../lib/terminals'
 import { localPlace, type Place, sunTimes } from '../lib/sun'
-import { type PaletteId, paletteById, showsGlass, type TermFontId, termFont, termFontStack, themeCss, themeTokens } from '../lib/themes'
+import { clampGlass, glassLevels, type PaletteId, paletteById, showsGlass, type TermFontId, termFont, termFontStack, themeCss, themeTokens } from '../lib/themes'
 import {
   atLocalMinutes,
   DEFAULT_K,
@@ -44,6 +44,7 @@ import {
   setPaletteValue,
   setPaneMenu,
   setTermFontValue,
+  setGlassValue,
   setThemeValue,
   setWarmHoursValue,
   setWarmOverride,
@@ -543,6 +544,7 @@ function paintGlass(mode: Theme | null) {
   const root = document.documentElement
   if (mode) root.dataset.glass = ''
   else delete root.dataset.glass
+  paintGlassLevels()
   if (mode === glassShown) return
   glassShown = mode
   // If the window refuses, the page must not stay see-through over nothing.
@@ -551,6 +553,22 @@ function paintGlass(mode: Theme | null) {
     glassShown = null
     delete root.dataset.glass
   })
+}
+
+/** How see-through the glass is, handed to the stylesheet as percentages
+ *  (lib/themes, glassLevels). They only mean anything under data-glass. */
+function paintGlassLevels() {
+  const root = document.documentElement
+  const { tint, body, inner } = glassLevels(getState().ui.glass)
+  root.style.setProperty('--glassTint', `${tint}%`)
+  root.style.setProperty('--glassBody', `${body}%`)
+  root.style.setProperty('--glassInner', `${inner}%`)
+}
+
+/** The Glass slider in Settings: 0 is solid, 100 is as clear as it goes. */
+export function setGlassAmount(amount: number) {
+  setGlassValue(clampGlass(amount))
+  paintGlassLevels()
 }
 
 /** Writes the theme's overrides over tokens.css (lib/themes) for the mode in
