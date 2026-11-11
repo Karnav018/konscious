@@ -3,10 +3,10 @@
 import { CAP } from '../lib/grid'
 import { errorMessage, ipc, type SessionSpec } from '../lib/ipc'
 import { trimSep } from '../lib/path'
-import { IS_WINDOWS } from '../lib/platform'
+import { IS_PC, IS_WINDOWS } from '../lib/platform'
 import { terminals } from '../lib/terminals'
 import { localPlace, type Place, sunTimes } from '../lib/sun'
-import { type PaletteId, paletteById, type TermFontId, termFont, termFontStack, themeCss, themeTokens } from '../lib/themes'
+import { type PaletteId, paletteById, showsGlass, type TermFontId, termFont, termFontStack, themeCss, themeTokens } from '../lib/themes'
 import {
   atLocalMinutes,
   DEFAULT_K,
@@ -533,6 +533,26 @@ export function setTheme(theme: Theme) {
 
 const LOOK_STYLE_ID = 'konscious-theme'
 
+// The Glass theme, in two halves that have to agree: macOS puts its glass
+// behind the page (ipc.windowGlass), and data-glass on <html> stops the page
+// painting over it (styles/globals.css). The window is only told when
+// something changed, so a theme without glass never makes the call at all.
+let glassShown: Theme | null = null
+
+function paintGlass(mode: Theme | null) {
+  const root = document.documentElement
+  if (mode) root.dataset.glass = ''
+  else delete root.dataset.glass
+  if (mode === glassShown) return
+  glassShown = mode
+  // If the window refuses, the page must not stay see-through over nothing.
+  void ipc.windowGlass(mode).catch(() => {
+    if (glassShown !== mode) return
+    glassShown = null
+    delete root.dataset.glass
+  })
+}
+
 /** Writes the theme's overrides over tokens.css (lib/themes) for the mode in
  *  force. The stock look writes nothing. The warm pass reads its base values
  *  from the result, so those are read again. */
@@ -541,6 +561,7 @@ function paintLook() {
   const p = paletteById(palette)
   const root = document.documentElement
   root.dataset.palette = p.id
+  paintGlass(showsGlass(p, !IS_PC) ? theme : null)
   let el = document.getElementById(LOOK_STYLE_ID) as HTMLStyleElement | null
   if (!el) {
     el = document.createElement('style')

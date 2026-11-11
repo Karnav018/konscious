@@ -65,6 +65,211 @@ body {
   user-select: none;
 }
 
+/* ── Glass ─────────────────────────────────────────────────────────
+   The theme with `glass` in lib/themes, on a Mac. Everything here hangs off
+   data-glass on <html>, so no other theme can be touched by it.
+
+   There are two kinds of glass in this window, and it matters which is which.
+
+   The window itself is the system's: macOS draws Liquid Glass behind this page
+   (src-tauri/src/glass.rs) and the page stops covering it. The surfaces marked
+   .cw-chrome go clear (the title bar, the status bar and the space between
+   panes), and <html> lays one thin tint of the window colour over the glass.
+   The tint is what keeps the title bar readable when a bright wallpaper is
+   behind a dark theme, and it is mixed from --win, so the warm-colours pass
+   reaches the glass without knowing about it.
+
+   Everything that floats is drawn here, to match: the dock and its panels,
+   menus, sheets, dialogs and the controls on all of them. A webview cannot
+   ask the system for a glass button, and the system's glass can only bend
+   what is behind the window, never the panes inside it. So these are a
+   translucent body with a lit top edge that blurs the panes under them
+   (backdrop-filter), and they move the way glass does: a surface arrives with
+   a small spring, and a control gives when pressed and springs back past its
+   size when let go.
+
+   Panes are neither. Text on glass is harder to read, and a see-through
+   terminal would cost the renderer its opaque fast path. They float on the
+   glass as solid cards.
+
+   Nothing is restyled component by component. Surfaces are found by what they
+   already are (a raised panel with a strong border, anything with the popover
+   shadow, the dock), and inside a surface the colour tokens are renamed to
+   glass, so a card, a field or a control placed in one later is glass too. */
+:root[data-glass] {
+  background: color-mix(in srgb, var(--win) var(--glassTint), transparent);
+  --glassTint: 40%;
+  /* A control's body, the raised part of one, the edge they share, and a
+     well for text fields. Mixed from --text so they are light on dark glass
+     and dark on light. */
+  --glassFill: color-mix(in srgb, var(--text) 8%, transparent);
+  --glassFillOn: color-mix(in srgb, var(--text) 20%, transparent);
+  --glassEdge: color-mix(in srgb, var(--text) 15%, transparent);
+  --glassWell: rgba(0, 0, 0, 0.24);
+  /* Light from above: a bright top edge and a faint dark one underneath. */
+  --glassShine: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.14);
+  /* A floating surface's own colour: the solid one, kept under another name
+     because inside a surface --raised means glass. */
+  --raisedSolid: var(--raised);
+  /* Overshoot and settle. Refined to a real spring just below, where the
+     webview can describe one (macOS 14 and later). */
+  --spring: cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+:root[data-glass][data-theme='light'] {
+  --glassTint: 30%;
+  --glassFill: rgba(255, 255, 255, 0.42);
+  --glassFillOn: rgba(255, 255, 255, 0.86);
+  --glassEdge: color-mix(in srgb, var(--text) 11%, transparent);
+  --glassWell: rgba(255, 255, 255, 0.5);
+  --glassShine: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+}
+/* Every drop shadow in the app comes from --shadow, some through a class and
+   some inline, so the lit edge is added there once. Three attributes, to
+   outrank the theme's own stylesheet (lib/themes, themeCss). */
+:root[data-glass][data-theme][data-palette] {
+  --shadow: var(--glassShine), 0 22px 60px rgba(0, 0, 0, 0.4);
+}
+:root[data-glass][data-theme='light'][data-palette] {
+  --shadow: var(--glassShine), 0 18px 50px rgba(29, 29, 31, 0.18);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root[data-glass] {
+    --spring: linear(
+      0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159,
+      1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%,
+      0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1
+    );
+  }
+}
+
+:root[data-glass] body,
+:root[data-glass] #root,
+:root[data-glass] .cw-chrome {
+  background-color: transparent;
+}
+
+/* Panes as cards on the glass: more room around them, so the glass is seen as
+   what they sit on, and a soft edge of shadow so they lift off it. The hard
+   lines under the title bar and over the status bar go, since the glass runs
+   behind all three. */
+:root[data-glass] .cw-stage {
+  padding: 2px 8px 6px;
+}
+:root[data-glass] .cw-bar,
+:root[data-glass] .cw-chrome.border-t {
+  border-color: transparent;
+}
+:root[data-glass] .group\/pane {
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.28), 0 6px 22px rgba(0, 0, 0, 0.2);
+}
+
+/* Title-bar controls: glass capsules, straight on the system's glass. The bar
+   renames the surface colours, so every control in it follows without a rule
+   of its own. */
+:root[data-glass] .cw-bar {
+  --pane: var(--glassFill);
+  --sel: var(--glassFill);
+  --raised: var(--glassFillOn);
+  --line: var(--glassEdge);
+  --segShadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 4px rgba(0, 0, 0, 0.22);
+}
+:root[data-glass] .cw-bar .rounded-rs {
+  border-radius: var(--pill);
+}
+:root[data-glass] .cw-bar .bg-pane,
+:root[data-glass] .cw-bar .bg-sel {
+  box-shadow: var(--glassShine);
+}
+:root[data-glass] .cw-bar .bg-sel {
+  border-color: var(--glassEdge);
+}
+
+/* Floating surfaces: the dock and its panels, menus, sheets, dialogs, the
+   inspector. Glass over the panes: they blur what is under them and arrive
+   with a small spring. Only `scale` is animated, and only on the way in, so
+   each one's own position, opacity and fade are left alone. */
+:root[data-glass] .bg-raised.border-line2,
+:root[data-glass] .shadow-pop.bg-raised,
+:root[data-glass] .shadow-pop.bg-win,
+:root[data-glass] [data-dock],
+:root[data-glass] [data-dock-popover] {
+  /* What sits inside a surface is glass on glass. */
+  --raised: var(--glassFill);
+  --sel: var(--glassFill);
+  --pane: var(--glassWell);
+  --win: var(--glassWell);
+  --line: var(--glassEdge);
+  --line2: var(--glassEdge);
+  --segShadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 1px 3px rgba(0, 0, 0, 0.2);
+  background-color: color-mix(in srgb, var(--raisedSolid) 62%, transparent);
+  -webkit-backdrop-filter: blur(34px) saturate(1.8);
+  backdrop-filter: blur(34px) saturate(1.8);
+  animation: cw-glass-pop 480ms var(--spring);
+}
+/* A menu that opens out of the title bar is a surface, not a bar control. */
+:root[data-glass] .cw-bar .shadow-pop .rounded-rs {
+  border-radius: var(--rs);
+}
+@keyframes cw-glass-pop {
+  from { scale: 0.94; }
+}
+
+/* The one coloured control, wherever it is: it keeps its colour, takes the
+   light, and is a capsule like the system's own buttons. */
+:root[data-glass] .bg-accent.cursor-pointer,
+:root[data-glass] .cw-bar .shadow-pop .bg-accent.cursor-pointer {
+  border-radius: var(--pill);
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 58%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+/* The give. A control shrinks at once under the pointer and springs back when
+   it is let go: the press is quick and the release is the spring, which is why
+   the two have different timings. Controls only (buttons, segmented controls,
+   dock tiles, everything in the title bar): a long list row that squashed when
+   clicked would be wrong, so rows give only a little. */
+:root[data-glass] .cursor-pointer.rounded-rs,
+:root[data-glass] .cursor-pointer.rounded-pill,
+:root[data-glass] .bg-accent.cursor-pointer,
+:root[data-glass] .cw-bar .cursor-pointer,
+:root[data-glass] [data-dock] .cursor-pointer {
+  transition: scale 560ms var(--spring), background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
+}
+:root[data-glass] .cursor-pointer.rounded-rs:active,
+:root[data-glass] .cursor-pointer.rounded-pill:active {
+  scale: 0.97;
+}
+:root[data-glass] .bg-accent.cursor-pointer:active,
+:root[data-glass] .bg-sel > .cursor-pointer:active,
+:root[data-glass] .cw-bar .cursor-pointer:active {
+  scale: 0.92;
+}
+:root[data-glass] [data-dock] .cursor-pointer:active {
+  scale: 0.86;
+}
+:root[data-glass] .cursor-pointer.rounded-rs:active,
+:root[data-glass] .cursor-pointer.rounded-pill:active,
+:root[data-glass] .bg-accent.cursor-pointer:active,
+:root[data-glass] .cw-bar .cursor-pointer:active,
+:root[data-glass] [data-dock] .cursor-pointer:active {
+  transition-duration: 90ms, 160ms, 160ms, 160ms;
+  transition-timing-function: ease-out;
+}
+/* Less motion asked for: glass that stays still. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-glass] .bg-raised.border-line2,
+  :root[data-glass] .shadow-pop.bg-raised,
+  :root[data-glass] .shadow-pop.bg-win,
+  :root[data-glass] [data-dock],
+  :root[data-glass] [data-dock-popover] {
+    animation: none;
+  }
+  :root[data-glass] .cursor-pointer {
+    transition: none !important;
+    scale: none !important;
+  }
+}
+
 *,
 *::before,
 *::after {

@@ -215,10 +215,10 @@ export default function App() {
   return (
     // Linux: a tiling window manager decides the width (half a laptop screen
     // is ~790px), so the layout must fit it rather than be cut off.
-    <div className={`h-full ${IS_LINUX ? '' : 'min-w-[1080px]'} flex flex-col bg-win relative overflow-hidden text-text`}>
+    <div className={`h-full ${IS_LINUX ? '' : 'min-w-[1080px]'} flex flex-col bg-win cw-chrome relative overflow-hidden text-text`}>
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-1 gap-2 bg-win relative">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-1 gap-2 bg-win cw-chrome cw-stage relative">
           {/* Notes covers the stage; the panes stay laid out (hidden, inert)
               underneath so the terminals keep their size and keep running. */}
           <div className="flex-1 min-h-0 flex flex-col relative">
