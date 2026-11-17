@@ -23,20 +23,23 @@ export type Args = Record<string, unknown>
 
 /** The dialog gives up a little before Rust stops waiting (agent.rs ASK_WAIT). */
 const ASK_TIMEOUT_MS = 290_000
-const answers = new Map<number, (yes: boolean) => void>()
+const answers = new Map<number, (answer: Answer) => void>()
 
-/** Shows the request in AgentAskDialog and waits for Yes or No. One at a
+/** What the person said: yes, no, or nothing before the dialog gave up. */
+export type Answer = 'yes' | 'no' | 'none'
+
+/** Shows the request in AgentAskDialog and waits for an answer. One at a
  *  time: callers check `asking()` first and tell Claude to try again. */
-export function askPerson(ask: AgentAsk): Promise<boolean> {
+export function askPerson(ask: AgentAsk): Promise<Answer> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       if (getState().ui.agentAsk?.callId === ask.callId) clearAgentAsk()
-      settle(false)
+      settle('none')
     }, ASK_TIMEOUT_MS)
-    const settle = (yes: boolean) => {
+    const settle = (answer: Answer) => {
       clearTimeout(timer)
       answers.delete(ask.callId)
-      resolve(yes)
+      resolve(answer)
     }
     answers.set(ask.callId, settle)
     showAgentAsk(ask)
@@ -51,7 +54,14 @@ export function answerAgentAsk(yes: boolean) {
   const ask = getState().ui.agentAsk
   if (!ask) return
   clearAgentAsk()
-  answers.get(ask.callId)?.(yes)
+  answers.get(ask.callId)?.(yes ? 'yes' : 'no')
+}
+
+/** For Claude when the person said no, or didn't answer at all. */
+export function notDone(answer: Exclude<Answer, 'yes'>, what: string): Reply {
+  return answer === 'no'
+    ? ok(`The person chose not to ${what}. Don’t ask again unless they bring it up.`)
+    : ok(`The person didn’t answer, so Konscious didn’t ${what}. Ask again if they still want it.`)
 }
 
 /** An exact name first (any case), then a partial one if only one fits.

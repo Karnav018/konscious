@@ -123,13 +123,29 @@ describe('new_session', () => {
     expect(lastReply().text).toContain('Opened “Auth Tests”')
   })
 
-  it('a session a tool opened can’t open more', async () => {
+  it('a session a tool opened may ask too, and the dialog says where it came from', async () => {
     addSession(meta('s3', 'Lead'))
     await asked(call('s3', 'new_session', { task: 'write the migration' }), true)
     const child = Object.values(getState().workspace.sessions).find((m) => m.id !== 's3')!
-    await handleAgentCall(call(child.id, 'new_session', { task: 'anything' }))
-    expect(lastReply().ok).toBe(false)
+    const ask = await asked(call(child.id, 'new_session', { task: 'review the migration' }), true)
+    expect(ask.note).toContain(`${child.name} was itself opened by another session.`)
+    expect(lastReply().text).toContain('Opened “Migration 2”')
+  })
+
+  it('tells Claude when nobody answered, rather than that the person said no', async () => {
+    addSession(meta('s6', 'Backend'))
+    vi.useFakeTimers()
+    try {
+      const done = handleAgentCall(call('s6', 'new_session', { kind: 'terminal' }))
+      await vi.advanceTimersByTimeAsync(10)
+      expect(getState().ui.agentAsk).not.toBeNull()
+      await vi.advanceTimersByTimeAsync(290_000)
+      await done
+    } finally {
+      vi.useRealTimers()
+    }
     expect(getState().ui.agentAsk).toBeNull()
+    expect(lastReply().text).toBe('The person didn’t answer, so Konscious didn’t open “Terminal”. Ask again if they still want it.')
   })
 
   it(`stops after ${OPEN_LIMIT} opens in a short while`, async () => {

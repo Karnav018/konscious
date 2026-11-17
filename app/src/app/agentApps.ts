@@ -25,7 +25,7 @@ import { flash } from '../state/commands/ui'
 import { getState } from '../state/store'
 import type { Theme } from '../types'
 import { setPalette, setTerminalSize, setTheme, toggleWarm } from './actions'
-import { type Args, askPerson, asking, BUSY, type Ctx, fail, ok, pickByName, plain, type Reply, sessionsIn, wholeIn } from './agentKit'
+import { type Args, askPerson, asking, BUSY, type Ctx, fail, notDone, ok, pickByName, plain, type Reply, sessionsIn, wholeIn } from './agentKit'
 
 /* ── notes ─────────────────────────────────────────────────────────── */
 
@@ -280,7 +280,7 @@ export async function settings({ callId, caller }: Ctx, args: Args): Promise<Rep
   if (!rows.length) return ok(`Nothing to change. Now: ${now}`)
   if (asking()) return BUSY
 
-  const yes = await askPerson({
+  const answer = await askPerson({
     callId,
     from: caller.name,
     asks: 'wants to change how Konscious looks',
@@ -288,7 +288,7 @@ export async function settings({ callId, caller }: Ctx, args: Args): Promise<Rep
     note: 'You can change any of these back in Settings.',
     confirm: 'Change',
   })
-  if (!yes) return ok(`The person kept the current look: ${now}`)
+  if (answer !== 'yes') return notDone(answer, 'change the look')
   if (mode && mode !== ui.theme) setTheme(mode as Theme)
   if (palette && palette.id !== ui.palette) await setPalette(palette.id)
   if (size && size !== ui.fontSize) setTerminalSize(size)

@@ -4,9 +4,10 @@
 //
 // Sessions, workspaces and the layout live here; the dock apps, notes and
 // settings in app/agentApps.ts. Anything that opens or stops sessions, or
-// changes how the app looks, waits for the person (AgentAskDialog). Sessions a
-// tool opened can't open more, and each session may open a few at most in a
-// short while, so one runaway prompt can't fill the grid.
+// changes how the app looks, waits for the person (AgentAskDialog). Each
+// session may open a few at most in a short while, and only one request shows
+// at a time, so one runaway prompt can't fill the grid or bury the person in
+// dialogs.
 import { GRID_LAYOUTS, isGridLayout, unavailable } from '../lib/layouts'
 import { errorMessage, ipc, type AgentCall } from '../lib/ipc'
 import { STATUS_LABEL, resetsIn, tildify } from '../lib/format'
@@ -30,7 +31,7 @@ import {
   toggleFocus,
 } from './actions'
 import { caffeine, dock, media, notes, notify, pomodoro, reminders, settings } from './agentApps'
-import { type Args, askPerson, asking, BUSY, type Ctx, fail, ok, pickByName, type Reply, sessionsIn } from './agentKit'
+import { type Args, askPerson, asking, BUSY, type Ctx, fail, notDone, ok, pickByName, type Reply, sessionsIn } from './agentKit'
 import { evenOutPanes, gridPanes, pickGridLayout } from './layouts'
 
 export { answerAgentAsk } from './agentKit'
@@ -39,8 +40,8 @@ export { answerAgentAsk } from './agentKit'
 export const OPEN_LIMIT = 3
 export const OPEN_WINDOW_MS = 10 * 60_000
 
-/** Sessions a tool opened. Kept for this launch only: after a restart they
- *  are ordinary sessions again. */
+/** Sessions a tool opened, so the dialog can say so when one of them asks to
+ *  open another. Kept for this launch only. */
 const openedByTool = new Set<string>()
 const opensBy = new Map<string, number[]>()
 
@@ -126,9 +127,6 @@ export function recentOpens(times: number[], now: number, windowMs = OPEN_WINDOW
 }
 
 async function newSession({ callId, caller }: Ctx, args: Args): Promise<Reply> {
-  if (openedByTool.has(caller.id)) {
-    return fail('Sessions opened by another session can’t open more. Ask the person to open it themselves.')
-  }
   const now = Date.now()
   const recent = recentOpens(opensBy.get(caller.id) ?? [], now)
   if (recent.length >= OPEN_LIMIT) {
@@ -151,7 +149,8 @@ async function newSession({ callId, caller }: Ctx, args: Args): Promise<Reply> {
   const where = tildify(dir, getState().ui.init?.home)
 
   const claude = kind === 'claude'
-  const yes = await askPerson({
+  const chained = openedByTool.has(caller.id)
+  const answer = await askPerson({
     callId,
     from: caller.name,
     asks: claude ? 'wants to open a session' : 'wants to open a terminal',
@@ -161,12 +160,15 @@ async function newSession({ callId, caller }: Ctx, args: Args): Promise<Reply> {
       { label: 'Folder', value: where, mono: true },
       ...(claude ? [{ label: 'Task', value: task || 'No task: it starts empty.', long: true }] : []),
     ],
-    note: claude
-      ? 'It runs as a normal session with your usual permissions, and it can’t open more sessions itself.'
-      : 'It opens a terminal in that folder.',
+    note: [
+      chained && `${caller.name} was itself opened by another session.`,
+      claude ? 'It runs as a normal session with your usual permissions, and Konscious asks you before it opens anything.' : 'It opens a terminal in that folder.',
+    ]
+      .filter(Boolean)
+      .join(' '),
     confirm: claude ? 'Open session' : 'Open terminal',
   })
-  if (!yes) return ok(`The person chose not to open “${name}”. Don’t ask again unless they bring it up.`)
+  if (answer !== 'yes') return notDone(answer, `open “${name}”`)
 
   opensBy.set(caller.id, [...recent, now])
   if (!getState().workspace.workspaces.some((w) => w.id === caller.workspaceId)) {
@@ -211,7 +213,7 @@ async function manageSession({ callId, caller }: Ctx, args: Args): Promise<Reply
   if (asking()) return BUSY
 
   const stop = action === 'stop'
-  const yes = await askPerson({
+  const answer = await askPerson({
     callId,
     from: caller.name,
     asks: `wants to ${action} “${target.name}”`,
@@ -225,7 +227,7 @@ async function manageSession({ callId, caller }: Ctx, args: Args): Promise<Reply
       : 'It stops and starts again, picking up its conversation where it was.',
     confirm: stop ? 'Stop session' : 'Restart session',
   })
-  if (!yes) return ok(`The person chose not to ${action} “${target.name}”.`)
+  if (answer !== 'yes') return notDone(answer, `${action} “${target.name}”`)
   if (stop) stopSession(target.id)
   else await restartSession(target.id)
   return ok(stop ? `Stopped “${target.name}”.` : `Restarted “${target.name}”.`)
@@ -257,7 +259,7 @@ async function workspaces({ callId, caller }: Ctx, args: Args): Promise<Reply> {
   const running = sessionsIn(target.id).filter((m) => s.runtime.bySession[m.id]?.running)
   if (!running.length) return ok(`Nothing is running in ${target.name}.`)
   if (asking()) return BUSY
-  const yes = await askPerson({
+  const answer = await askPerson({
     callId,
     from: caller.name,
     asks: `wants to stop everything in ${target.name}`,
@@ -268,7 +270,7 @@ async function workspaces({ callId, caller }: Ctx, args: Args): Promise<Reply> {
     note: 'Each session keeps its conversation and can be started again.',
     confirm: `Stop ${running.length} session${running.length === 1 ? '' : 's'}`,
   })
-  if (!yes) return ok(`The person chose not to stop ${target.name}.`)
+  if (answer !== 'yes') return notDone(answer, `stop ${target.name}`)
   const n = stopWorkspaceSessions(target.id)
   return ok(`Stopped ${n} session${n === 1 ? '' : 's'} in ${target.name}.`)
 }
