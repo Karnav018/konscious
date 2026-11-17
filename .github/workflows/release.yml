@@ -55,7 +55,7 @@ jobs:
     name: macOS (universal)
     # Skipped when a previous run's macOS build is reused (mac_from_run).
     if: ${{ !inputs.mac_from_run }}
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: app
