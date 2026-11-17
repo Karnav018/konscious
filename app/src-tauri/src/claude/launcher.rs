@@ -43,6 +43,33 @@ pub fn claude_args(name: &str, settings: &Path, session: &Uuid, resume: bool, fo
     args
 }
 
+/// The Konscious tools (`--mcp-config`) and the first message for a new
+/// session. `--mcp-config` takes several values, so it goes right after the
+/// name, where the next flag ends it. The message goes last, after `--`, so it
+/// is always the prompt and never a flag. Not on Windows: there `claude` is often a `.cmd` run through
+/// `cmd.exe`, which would read a message's `&` or `|` as its own syntax.
+pub fn add_extras(args: &mut Vec<String>, mcp: Option<&Path>, prompt: Option<&str>) {
+    if let Some(mcp) = mcp {
+        let at = 1.min(args.len());
+        args.splice(at..at, ["--mcp-config".into(), mcp.to_string_lossy().into_owned()]);
+    }
+    if cfg!(windows) {
+        return;
+    }
+    if let Some(p) = prompt.and_then(sanitize_prompt) {
+        args.push("--".into());
+        args.push(p);
+    }
+}
+
+/// Keeps line breaks and tabs, drops other control characters (escape
+/// sequences), trims, and caps the length. `None` when nothing is left.
+pub fn sanitize_prompt(prompt: &str) -> Option<String> {
+    let clean: String = prompt.chars().filter(|c| !c.is_control() || *c == '\n' || *c == '\t').take(4000).collect();
+    let clean = clean.trim();
+    (!clean.is_empty()).then(|| clean.to_string())
+}
+
 /// Terminal panes: a login zsh/bash on macOS/Linux, PowerShell on Windows.
 pub fn shell_args() -> Vec<String> {
     if cfg!(windows) { vec!["-NoLogo".into()] } else { vec!["-l".into()] }
@@ -129,6 +156,23 @@ mod tests {
         assert_eq!(args.len(), 5);
         let forked = claude_args("Backend", Path::new("/s.json"), &id, true, true);
         assert_eq!(forked.last().unwrap(), "--fork-session");
+    }
+
+    #[test]
+    fn tools_and_first_message_follow_the_session_flags() {
+        let id = Uuid::new_v4();
+        let mut args = claude_args("Tests", Path::new("/s.json"), &id, false, false);
+        add_extras(&mut args, Some(Path::new("/r/s.mcp.json")), Some("--help me\u{1b}[31m run the tests\n"));
+        assert_eq!(&args[1..4], ["--mcp-config", "/r/s.mcp.json", "--settings"], "a flag ends its list");
+        if cfg!(windows) {
+            assert_eq!(args.len(), 7, "no first message through cmd.exe");
+        } else {
+            assert_eq!(args[7], "--", "the message can never be read as a flag");
+            assert_eq!(args[8], "--help me[31m run the tests");
+        }
+        let mut bare = claude_args("Tests", Path::new("/s.json"), &id, false, false);
+        add_extras(&mut bare, None, Some("  \n "));
+        assert_eq!(bare.len(), 5, "nothing added for no tools and an empty message");
     }
 
     #[test]

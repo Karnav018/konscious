@@ -30,9 +30,7 @@ type ReminderId = 'water' | 'stand'
  *  and the island call the same commands, so clearing belongs here rather
  *  than in either of them. */
 function dealtWith(d: Draft<AppState>, app: IslandApp) {
-  const gone = d.ui.island.events.filter((e) => e.app === app).map((e) => e.id)
   d.ui.island.events = withoutApp(d.ui.island.events, app)
-  if (d.ui.island.expanded && gone.includes(d.ui.island.expanded)) d.ui.island.expanded = null
 }
 
 export const setDockPlace = (edge: Edge, along: number) =>

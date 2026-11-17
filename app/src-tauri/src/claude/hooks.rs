@@ -100,6 +100,7 @@ pub fn settings_value(events_path: &Path, status_path: &Path, chain: Option<&str
     let ev = sh_quote(&events_path.to_string_lossy());
     json!({
         "statusLine": { "type": "command", "command": status_command(status_path, chain), "padding": 0 },
+        "permissions": tools_permission(),
         "hooks": {
             "SessionStart": entry(capture("start", &ev), None),
             "UserPromptSubmit": entry(simple("prompt", &ev), None),
@@ -112,6 +113,12 @@ pub fn settings_value(events_path: &Path, status_path: &Path, chain: Option<&str
             "StopFailure": entry(simple("stop", &ev), None),
         }
     })
+}
+
+/// Konscious's own tools run without Claude's per-call prompt: Konscious asks
+/// the person itself before anything that opens a session (see agent.rs).
+pub(crate) fn tools_permission() -> Value {
+    json!({ "allow": [format!("mcp__{}", crate::agent::SERVER_NAME)] })
 }
 
 /// Paths for one session's hook plumbing.

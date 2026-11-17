@@ -156,6 +156,15 @@ pub async fn session_remove(state: State<'_, AppState>, id: String) -> AppResult
     state.sessions.remove(&id)
 }
 
+/// The interface's answer to a tool call from a Claude session (see agent.rs).
+#[tauri::command]
+pub async fn agent_reply(state: State<'_, AppState>, call_id: u64, ok: bool, text: String) -> AppResult<()> {
+    if let Some(agent) = &state.agent {
+        agent.reply(call_id, crate::agent::Reply { ok, text });
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn usage_snapshot(state: State<'_, AppState>) -> AppResult<Value> {
     Ok(state.sessions.usage_snapshot())
@@ -395,6 +404,17 @@ pub async fn media_control(action: String) -> AppResult<bool> {
         return Ok(false);
     };
     Ok(tauri::async_runtime::spawn_blocking(move || crate::media::control(what)).await.unwrap_or(false))
+}
+
+/// The Glass theme: the system's glass behind the page, lit for `mode`
+/// ("dark" or "light"); null puts the plain window back. Nothing happens on
+/// Windows and Linux, where the theme is not offered.
+#[tauri::command]
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+pub async fn window_glass(window: tauri::WebviewWindow, mode: Option<String>) -> AppResult<()> {
+    #[cfg(target_os = "macos")]
+    crate::glass::set(&window, mode.as_deref()).map_err(|e| AppError::Unavailable(format!("glass: {e}")))?;
+    Ok(())
 }
 
 #[tauri::command]

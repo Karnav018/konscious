@@ -22,6 +22,10 @@ pub struct SessionSpec {
     /// at the same conversation, so they never write one history together.
     #[serde(default)]
     pub fork: bool,
+    /// The first message for a brand-new Claude session; one-shot, never used
+    /// on a resume or restart.
+    #[serde(default)]
+    pub prompt: Option<String>,
 }
 
 /// `session_attach` result.

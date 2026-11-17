@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   setAccent,
+  setGlassAmount,
   setPalette,
   setTerminalFont,
   setTerminalSize,
@@ -23,8 +24,9 @@ import {
 } from '../../app/actions'
 import { byNewest, type Landed, newest } from '../../lib/features'
 import { clock } from '../../lib/format'
+import { IS_PC } from '../../lib/platform'
 import { isPlace, localPlace, localZone } from '../../lib/sun'
-import { accentOf, PALETTES, paletteById, statusColors, TERM_FONTS, TERM_SIZES, termFont, type TermFontId } from '../../lib/themes'
+import { accentOf, paletteById, palettesFor, rgba, showsGlass, statusColors, TERM_FONTS, TERM_SIZES, termFont, type TermFontId } from '../../lib/themes'
 import { isWarm, percentAt, type WarmWhen } from '../../lib/warmth'
 import { closeSettingsMenu, toggleSettingsMenu } from '../../state/commands/ui'
 import { useUi } from '../../state/selectors'
@@ -234,14 +236,17 @@ function Section({ title, children, pad = true }: { title?: string; children: Re
   )
 }
 
-/** Eight themes, each drawn as a tiny window in the mode in force: its
- *  window, a pane edged in the accent, two lines of text and a status dot. */
+/** The themes, each drawn as a tiny window in the mode in force: its
+ *  window, a pane edged in the accent, two lines of text and a status dot.
+ *  Glass gets a sheen across its window, since its colour is whatever is
+ *  behind it; it is only listed on a Mac. */
 function ThemeRow() {
   const mode = useUi((u) => u.theme)
   const current = useUi((u) => u.palette)
   const accents = useUi((u) => u.accents)
   const p = paletteById(current)
   const picked = accents[p.id] ?? 0
+  const glass = useUi((u) => u.glass)
   return (
     <>
       <Section>
@@ -260,16 +265,17 @@ function ThemeRow() {
       </Section>
       <Section title="Theme">
         <div className="grid grid-cols-4 gap-x-2.5 gap-y-3">
-          {PALETTES.map((t) => {
+          {palettesFor(!IS_PC, current).map((t) => {
             const b = t[mode]
             const on = t.id === p.id
             const a = accentOf(t, accents[t.id])[mode]
+            const sheen = t.glass ? `linear-gradient(135deg, ${rgba(b.text, 0.3)}, ${rgba(b.text, 0.04)} 62%), ` : ''
             return (
               <div key={t.id} onClick={() => void setPalette(t.id)} title={t.desc} className="flex flex-col gap-1.5 cursor-pointer min-w-0">
                 <div
                   className="aspect-[16/11] p-[6px] flex gap-[5px] rounded-[10px]"
                   style={{
-                    background: b.win,
+                    background: `${sheen}${b.win}`,
                     boxShadow: on ? `0 0 0 2px var(--raised), 0 0 0 3.5px var(--accent)` : `inset 0 0 0 1px ${b.line2}`,
                   }}
                 >
@@ -296,6 +302,29 @@ function ThemeRow() {
           })}
         </div>
       </Section>
+      {showsGlass(p, !IS_PC) && (
+        <Section title="Glass">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={glass}
+            onChange={(e) => setGlassAmount(Number(e.target.value))}
+            aria-label="How see-through the glass is"
+            className="w-full cursor-pointer"
+            style={{ accentColor: 'var(--accent)' }}
+          />
+          <div className="flex items-center justify-between font-mono text-[10.5px] text-faint">
+            <span>Solid</span>
+            <span className="text-accent">{glass}%</span>
+            <span>Clear</span>
+          </div>
+          <div className={hint}>
+            How much shows through the window, the dock, menus and sheets. Panes stay solid, so text reads the same as in any theme.
+          </div>
+        </Section>
+      )}
       <Section title="Accent">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">

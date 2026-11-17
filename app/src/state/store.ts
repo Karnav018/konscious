@@ -13,7 +13,7 @@ import { freshIsland } from '../lib/island'
 import type { SitState } from '../lib/sitting'
 import { freshSit } from '../lib/sitting'
 import type { Place } from '../lib/sun'
-import { DEFAULT_PALETTE, type PaletteId, type TermFontId } from '../lib/themes'
+import { DEFAULT_PALETTE, GLASS_DEFAULT, type PaletteId, type TermFontId } from '../lib/themes'
 import type { WarmWhen } from '../lib/warmth'
 import { DEFAULT_K } from '../lib/warmth'
 import type {
@@ -38,6 +38,23 @@ export interface NewSessionDraft {
   workspaceId: string
   name: string
   dir: string
+}
+
+/** A Claude session asking the person before doing something (app/agentKit.ts):
+ *  opening, stopping or restarting a session, or changing settings. */
+export interface AgentAsk {
+  callId: number
+  /** Name of the session that asked. */
+  from: string
+  /** What it wants, after its name: "wants to open a session". */
+  asks: string
+  rows: { label: string; value: string; mono?: boolean; long?: boolean }[]
+  /** One line on what saying yes means. */
+  note: string
+  /** The yes button: "Open session". */
+  confirm: string
+  /** A new session's name, drawn as its avatar beside the title. */
+  avatar?: string
 }
 
 /**
@@ -119,6 +136,8 @@ export interface UiState {
   palette: PaletteId
   accents: Partial<Record<PaletteId, number>>
   termFont: TermFontId
+  /** How see-through the Glass theme is, 0–100 (lib/themes, glassLevels). */
+  glass: number
   /** Warm colours for late sessions, and the temperature chosen for them. */
   warm: boolean
   warmth: number
@@ -171,6 +190,8 @@ export interface UiState {
   transfer: { kind: 'export'; workspaceId: string } | { kind: 'import'; path: string } | null
   /** Session awaiting typed "delete" confirmation. */
   confirmDelete: string | null
+  /** A Claude session's request to open a session, while it waits. */
+  agentAsk: AgentAsk | null
   /** Workspace awaiting the remove confirmation (RemoveWorkspaceDialog). */
   confirmRemoveWorkspace: string | null
   /** The Notes view replaces the grid (sessions keep running behind it). */
@@ -221,6 +242,7 @@ export const initialState = (): AppState => ({
     palette: DEFAULT_PALETTE,
     accents: {},
     termFont: 'theme',
+    glass: GLASS_DEFAULT,
     warm: false,
     warmth: DEFAULT_K,
     warmWhen: 'always',
@@ -275,6 +297,7 @@ export const initialState = (): AppState => ({
     island: freshIsland(),
     attachments: {},
     confirmDelete: null,
+    agentAsk: null,
     confirmRemoveWorkspace: null,
     notesOpen: false,
     notesSave: null,

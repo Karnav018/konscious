@@ -15,6 +15,7 @@ import { startFileDrop } from './fileDrop'
 import { decode, hydrate, startPersistence } from '../state/persistence'
 import { getState } from '../state/store'
 import { applyTermLook, onInfo, reattachSession, refreshGit, setClaudeSessionId, setTheme, startSession } from './actions'
+import { handleAgentCall } from './agent'
 
 /** Background (not visible) sessions resume one by one, this far apart. */
 const STAGGER_MS = 300
@@ -51,6 +52,7 @@ export async function bootstrap() {
   await ipc.onClaudeId(({ id, claudeSessionId }) => setClaudeSessionId(id, claudeSessionId))
   await ipc.onUsage(setContext)
   await ipc.onLimits(setLimits)
+  await ipc.onAgentCall((call) => void handleAgentCall(call))
   ipc.onWindowResized(async () => setFullscreen(await ipc.isFullscreen()))
 
   setBooted()

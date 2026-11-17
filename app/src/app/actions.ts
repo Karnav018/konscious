@@ -3,10 +3,10 @@
 import { CAP } from '../lib/grid'
 import { errorMessage, ipc, type SessionSpec } from '../lib/ipc'
 import { trimSep } from '../lib/path'
-import { IS_WINDOWS } from '../lib/platform'
+import { IS_PC, IS_WINDOWS } from '../lib/platform'
 import { terminals } from '../lib/terminals'
 import { localPlace, type Place, sunTimes } from '../lib/sun'
-import { type PaletteId, paletteById, type TermFontId, termFont, termFontStack, themeCss, themeTokens } from '../lib/themes'
+import { clampGlass, glassLevels, type PaletteId, paletteById, showsGlass, type TermFontId, termFont, termFontStack, themeCss, themeTokens } from '../lib/themes'
 import {
   atLocalMinutes,
   DEFAULT_K,
@@ -44,6 +44,7 @@ import {
   setPaletteValue,
   setPaneMenu,
   setTermFontValue,
+  setGlassValue,
   setThemeValue,
   setWarmHoursValue,
   setWarmOverride,
@@ -68,13 +69,14 @@ import type { Kind, LayoutMode, SessionInfo, SessionMeta, Theme } from '../types
 
 export { flash }
 
-const specOf = (m: SessionMeta, fork = false): SessionSpec => ({
+const specOf = (m: SessionMeta, fork = false, prompt?: string): SessionSpec => ({
   id: m.id,
   kind: m.kind,
   name: m.name,
   cwd: m.cwd,
   claudeSessionId: m.claudeSessionId,
   fork,
+  ...(prompt ? { prompt } : {}),
 })
 
 export function expandHome(path: string): string {
@@ -144,7 +146,7 @@ export function onInfo(info: SessionInfo) {
 
 const starting = new Set<string>()
 
-export async function startSession(id: string, opts: { fork?: boolean } = {}) {
+export async function startSession(id: string, opts: { fork?: boolean; prompt?: string } = {}) {
   const meta = getState().workspace.sessions[id]
   if (!meta || starting.has(id)) return
   starting.add(id)
@@ -155,7 +157,7 @@ export async function startSession(id: string, opts: { fork?: boolean } = {}) {
   }
 }
 
-async function spawnSession(meta: SessionMeta, opts: { fork?: boolean }) {
+async function spawnSession(meta: SessionMeta, opts: { fork?: boolean; prompt?: string }) {
   const id = meta.id
   terminals.ensure(id, meta.kind)
   // Measure first when visible, so Claude starts at the pane's real width.
@@ -164,7 +166,7 @@ async function spawnSession(meta: SessionMeta, opts: { fork?: boolean }) {
   const channel = terminals.channel(id)
   markStarting(id)
   try {
-    const info = await ipc.sessionStart(specOf(meta, opts.fork), cols, rows, channel)
+    const info = await ipc.sessionStart(specOf(meta, opts.fork, opts.prompt), cols, rows, channel)
     // An idempotent start may return an already-running PTY of unknown size;
     // resending the current size is harmless (no SIGWINCH when unchanged).
     terminals.started(id, null)
@@ -415,11 +417,20 @@ export async function openNewSession(prefill: Partial<NewSessionDraft> = {}) {
   openNewSessionDraft({ kind: 'claude', workspaceId: w.id, name: '', dir: w.path, ...prefill })
 }
 
-export async function createSession(draft: NewSessionDraft) {
+/**
+ * Adds a session and starts it. Returns its id, or null when the folder is
+ * missing. `prompt` is the first message for a new Claude session. `quiet`
+ * (sessions Claude opens) leaves the New Session dialog and the keyboard
+ * where they are, so whoever is typing keeps typing.
+ */
+export async function createSession(
+  draft: NewSessionDraft,
+  opts: { prompt?: string; quiet?: boolean } = {},
+): Promise<string | null> {
   const cwd = expandHome(draft.dir)
   if (!(await ipc.fsIsDir(cwd).catch(() => false))) {
     flash(`Directory does not exist: ${draft.dir}`)
-    return false
+    return null
   }
   const kind: Kind = draft.kind
   const now = Date.now()
@@ -438,11 +449,11 @@ export async function createSession(draft: NewSessionDraft) {
   addSession(meta)
   const l = layoutOf(getState().layout.byWorkspace, meta.workspaceId)
   if (l.mode === 'focus') setLayoutMode(meta.workspaceId, 'grid')
-  closeNewSession()
+  if (!opts.quiet) closeNewSession()
   terminals.ensure(meta.id, kind)
-  selectSession(meta.id, { focus: true })
-  await startSession(meta.id)
-  return true
+  selectSession(meta.id, { focus: !opts.quiet })
+  await startSession(meta.id, { prompt: opts.prompt })
+  return meta.id
 }
 
 /* ── per-pane text size ──────────────────────────────────────────── */
@@ -533,6 +544,43 @@ export function setTheme(theme: Theme) {
 
 const LOOK_STYLE_ID = 'konscious-theme'
 
+// The Glass theme, in two halves that have to agree: macOS puts its glass
+// behind the page (ipc.windowGlass), and data-glass on <html> stops the page
+// painting over it (styles/globals.css). The window is only told when
+// something changed, so a theme without glass never makes the call at all.
+let glassShown: Theme | null = null
+
+function paintGlass(mode: Theme | null) {
+  const root = document.documentElement
+  if (mode) root.dataset.glass = ''
+  else delete root.dataset.glass
+  paintGlassLevels()
+  if (mode === glassShown) return
+  glassShown = mode
+  // If the window refuses, the page must not stay see-through over nothing.
+  void ipc.windowGlass(mode).catch(() => {
+    if (glassShown !== mode) return
+    glassShown = null
+    delete root.dataset.glass
+  })
+}
+
+/** How see-through the glass is, handed to the stylesheet as percentages
+ *  (lib/themes, glassLevels). They only mean anything under data-glass. */
+function paintGlassLevels() {
+  const root = document.documentElement
+  const { tint, body, inner } = glassLevels(getState().ui.glass)
+  root.style.setProperty('--glassTint', `${tint}%`)
+  root.style.setProperty('--glassBody', `${body}%`)
+  root.style.setProperty('--glassInner', `${inner}%`)
+}
+
+/** The Glass slider in Settings: 0 is solid, 100 is as clear as it goes. */
+export function setGlassAmount(amount: number) {
+  setGlassValue(clampGlass(amount))
+  paintGlassLevels()
+}
+
 /** Writes the theme's overrides over tokens.css (lib/themes) for the mode in
  *  force. The stock look writes nothing. The warm pass reads its base values
  *  from the result, so those are read again. */
@@ -541,6 +589,7 @@ function paintLook() {
   const p = paletteById(palette)
   const root = document.documentElement
   root.dataset.palette = p.id
+  paintGlass(showsGlass(p, !IS_PC) ? theme : null)
   let el = document.getElementById(LOOK_STYLE_ID) as HTMLStyleElement | null
   if (!el) {
     el = document.createElement('style')

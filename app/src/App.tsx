@@ -11,6 +11,7 @@ import {
   stepPaneFontSize,
   toggleFocus,
 } from './app/actions'
+import { answerAgentAsk } from './app/agent'
 import { setAppPanel, setAppPopover } from './state/commands/apps'
 import { layoutOf } from './state/commands/layout'
 import { bootstrap } from './app/bootstrap'
@@ -19,6 +20,7 @@ import { startReminders } from './app/reminders'
 import { startBundleOpens } from './app/transfer'
 import { SettingsSheet } from './components/Settings/Settings'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
+import { AgentAskDialog } from './components/AgentAskDialog/AgentAskDialog'
 import { DeleteSessionDialog } from './components/DeleteSessionDialog/DeleteSessionDialog'
 import { RemoveWorkspaceDialog } from './components/RemoveWorkspaceDialog/RemoveWorkspaceDialog'
 import { EmptyState } from './components/EmptyState/EmptyState'
@@ -56,7 +58,7 @@ import { useActiveLayout, useHasWorkspaces, useUi } from './state/selectors'
 import { getState, type UiState } from './state/store'
 
 const anyOverlayOpen = (ui: UiState) =>
-  ui.wsMenu || ui.inspector || !!ui.transfer || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete || !!ui.confirmRemoveWorkspace || !!ui.notesSave
+  !!ui.agentAsk || ui.wsMenu || ui.inspector || !!ui.transfer || !!ui.settingsMenu || !!ui.paneMenu || !!ui.newSession || !!ui.confirmDelete || !!ui.confirmRemoveWorkspace || !!ui.notesSave
 
 /** Capture phase: runs before xterm's own key handling. */
 function onKeyDown(e: KeyboardEvent) {
@@ -110,7 +112,8 @@ function onKeyDown(e: KeyboardEvent) {
     // Escape belongs to Claude unless an overlay is open.
     e.preventDefault()
     e.stopPropagation()
-    if (s.ui.notesSave) closeNotesSave()
+    if (s.ui.agentAsk) answerAgentAsk(false)
+    else if (s.ui.notesSave) closeNotesSave()
     else if (s.ui.confirmRemoveWorkspace) cancelRemoveWorkspace()
     else if (s.ui.confirmDelete) cancelDeleteSession()
     else if (s.ui.renaming) setRenaming(false)
@@ -160,6 +163,7 @@ export default function App() {
   const inspector = useUi((u) => u.inspector)
   const newSession = useUi((u) => u.newSession)
   const confirmDelete = useUi((u) => u.confirmDelete)
+  const agentAsk = useUi((u) => !!u.agentAsk)
   const settingsOpen = useUi((u) => !!u.settingsMenu)
   const confirmRemoveWs = useUi((u) => u.confirmRemoveWorkspace)
   const notesOpen = useUi((u) => u.notesOpen)
@@ -215,10 +219,10 @@ export default function App() {
   return (
     // Linux: a tiling window manager decides the width (half a laptop screen
     // is ~790px), so the layout must fit it rather than be cut off.
-    <div className={`h-full ${IS_LINUX ? '' : 'min-w-[1080px]'} flex flex-col bg-win relative overflow-hidden text-text`}>
+    <div className={`h-full ${IS_LINUX ? '' : 'min-w-[1080px]'} flex flex-col bg-win cw-chrome relative overflow-hidden text-text`}>
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-1 gap-2 bg-win relative">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col p-1 gap-2 bg-win cw-chrome cw-stage relative">
           {/* Notes covers the stage; the panes stay laid out (hidden, inert)
               underneath so the terminals keep their size and keep running. */}
           <div className="flex-1 min-h-0 flex flex-col relative">
@@ -250,6 +254,7 @@ export default function App() {
         {booted && lockOk && confirmDelete && <DeleteSessionDialog />}
         {booted && lockOk && confirmRemoveWs && <RemoveWorkspaceDialog />}
         {booted && lockOk && notesSave && <NotesSaveDialog />}
+        {booted && lockOk && agentAsk && <AgentAskDialog />}
         {booted && lockOk && !firstRun && <AppsPanel />}
         {booted && lockOk && <Transfer />}
       </ErrorBoundary>

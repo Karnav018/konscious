@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import { ansiFor, contrast, islandEdge, PALETTE_IDS, PALETTES, paletteById, selectionFor, TERM_FONT_IDS, TERM_FONTS, themeCss, themeTokens } from './themes'
+import { ansiFor, clampGlass, contrast, GLASS_DEFAULT, glassLevels, islandEdge, PALETTE_IDS, PALETTES, paletteById, palettesFor, selectionFor, showsGlass, TERM_FONT_IDS, TERM_FONTS, themeCss, themeTokens } from './themes'
 
 const css = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8')
 const block = (selector: string) => css.slice(css.indexOf(selector), css.indexOf('}', css.indexOf(selector)))
@@ -25,7 +25,8 @@ describe('themes', () => {
     }
   })
 
-  it('has eight themes, each with three accents, and the ids the settings file accepts', () => {
+  it('has nine themes, each with three accents, and the ids the settings file accepts', () => {
+    expect(PALETTES).toHaveLength(9)
     expect(PALETTES.map((p) => p.id)).toEqual([...PALETTE_IDS])
     expect(TERM_FONTS.map((f) => f.id)).toEqual([...TERM_FONT_IDS])
     for (const p of PALETTES) expect(p.accents).toHaveLength(3)
@@ -62,6 +63,49 @@ describe('themes', () => {
     expect(islandEdge(paletteById('contrast'), 'dark')).toBe('#9a9a9a')
     expect(islandEdge(paletteById('riso'), 'dark')).toBe('#3d362c')
     for (const p of PALETTES) expect(islandEdge(p, 'light'), p.id).toBeNull()
+  })
+
+  it('is glass only on a Mac, and only Glass is', () => {
+    const glass = paletteById('glass')
+    expect(showsGlass(glass, true)).toBe(true)
+    expect(showsGlass(glass, false)).toBe(false)
+    for (const p of PALETTES) if (p.id !== 'glass') expect(showsGlass(p, true), p.id).toBe(false)
+  })
+
+  it('offers Glass on a Mac, and elsewhere only to someone already using it', () => {
+    expect(palettesFor(true).map((p) => p.id)).toEqual([...PALETTE_IDS])
+    expect(palettesFor(false).map((p) => p.id)).not.toContain('glass')
+    expect(palettesFor(false, 'glass').map((p) => p.id)).toContain('glass')
+  })
+
+  it('keeps Glass colours solid: the window goes clear in the stylesheet, not in the tokens', () => {
+    // Sheets and text fields use --win and --raised as surfaces, and the
+    // terminal reads --pane as its background; none of them may be see-through.
+    for (const mode of ['dark', 'light'] as const) {
+      const t = themeTokens(paletteById('glass'), mode, 0)
+      for (const name of ['--win', '--side', '--pane', '--raised']) expect(t[name], `${mode} ${name}`).toMatch(/^#[0-9a-f]{6}$/)
+    }
+  })
+
+  it('always edges the notch island on dark glass, whatever is behind the window', () => {
+    expect(islandEdge(paletteById('glass'), 'dark')).toBe('#48484d')
+    expect(islandEdge(paletteById('glass'), 'light')).toBeNull()
+  })
+
+  it('turns the Glass slider into levels: solid at 0, and a menu always more solid than the window', () => {
+    expect(glassLevels(0)).toEqual({ tint: 100, body: 100, inner: 100 })
+    expect(glassLevels(100)).toEqual({ tint: 18, body: 50, inner: 75 })
+    for (const amount of [10, 25, GLASS_DEFAULT, 75, 100]) {
+      const { tint, body, inner } = glassLevels(amount)
+      expect(body, `${amount} body`).toBeGreaterThan(tint)
+      expect(inner, `${amount} inner`).toBeGreaterThan(body)
+    }
+    // Text in a menu has to read at every setting, so a surface never drops
+    // below half solid.
+    expect(glassLevels(100).body).toBeGreaterThanOrEqual(50)
+    expect(clampGlass(-5)).toBe(0)
+    expect(clampGlass(140)).toBe(100)
+    expect(clampGlass(Number.NaN)).toBe(GLASS_DEFAULT)
   })
 
   it('gives terminals the theme accent as magenta', () => {

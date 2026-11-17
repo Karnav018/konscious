@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -14,6 +14,7 @@ use uuid::Uuid;
 use super::model::{Kind, SessionInfo, SessionSpec};
 use super::process::{ExitInfo, Process, SpawnCtx};
 use super::status::{Status, Tracker};
+use crate::agent::Agent;
 use crate::claude::hooks::{self, ContextUsage, EventTail, HookEvent, Limits};
 use crate::claude::launcher::{self, Launch};
 use crate::env::EnvHandle;
@@ -118,6 +119,8 @@ pub struct SessionManager {
     run_counter: AtomicU64,
     shutting_down: Arc<AtomicBool>,
     limits: Mutex<Option<Limits>>,
+    /// The Konscious tools server, when it could start. Set once at launch.
+    agent: OnceLock<Arc<Agent>>,
 }
 
 impl SessionManager {
@@ -130,7 +133,13 @@ impl SessionManager {
             run_counter: AtomicU64::new(0),
             shutting_down: Arc::new(AtomicBool::new(false)),
             limits: Mutex::new(None),
+            agent: OnceLock::new(),
         })
+    }
+
+    /// Claude sessions launched from now on get the Konscious tools.
+    pub fn set_agent(&self, agent: Arc<Agent>) {
+        let _ = self.agent.set(agent);
     }
 
     fn get(&self, id: &str) -> AppResult<Arc<Session>> {
@@ -177,6 +186,7 @@ impl SessionManager {
                 s.claude_session_id = spec.claude_session_id;
             }
             s.fork = spec.fork;
+            s.prompt = spec.prompt;
         }
         self.spawn_run(&session, cols, rows)
     }
@@ -196,6 +206,7 @@ impl SessionManager {
             let mut guard = s.spec.locked();
             let spec = guard.clone();
             guard.fork = false; // one-shot: a later restart resumes the fork itself
+            guard.prompt = None; // one-shot: a restart must not send the task again
             spec
         };
         let cwd = launcher::validate_cwd(&spec.cwd, &env.info.home)?;
@@ -218,7 +229,10 @@ impl SessionManager {
                 let resume = launcher::transcript_exists(&env.claude_config_dir(), &uuid);
                 let chain = hooks::user_status_line(&cwd, &env.claude_config_dir());
                 let files = hooks::prepare(&self.run_dir, &spec.id, chain.as_deref())?;
-                let args = launcher::claude_args(&spec.name, &files.settings, &uuid, resume, spec.fork);
+                let mut args = launcher::claude_args(&spec.name, &files.settings, &uuid, resume, spec.fork);
+                let mcp = self.agent.get().and_then(|a| a.write_config(&self.run_dir, &spec.id).ok());
+                let prompt = if resume { None } else { spec.prompt.as_deref() };
+                launcher::add_extras(&mut args, mcp.as_deref(), prompt);
                 let (program, args) = launcher::runnable(PathBuf::from(claude), args);
                 (program, args, resume, Some(files.events), Some(files.status))
             }
@@ -331,6 +345,10 @@ impl SessionManager {
         let _ = std::fs::remove_file(self.run_dir.join(format!("{id}.settings.json")));
         let _ = std::fs::remove_file(self.run_dir.join(format!("{id}.events")));
         let _ = std::fs::remove_file(self.run_dir.join(format!("{id}.status.json")));
+        let _ = std::fs::remove_file(self.run_dir.join(format!("{id}.mcp.json")));
+        if let Some(agent) = self.agent.get() {
+            agent.forget(id);
+        }
         Ok(())
     }
 
@@ -509,7 +527,7 @@ mod tests {
     }
 
     fn spec(id: &str, kind: Kind, cwd: &str) -> SessionSpec {
-        SessionSpec { id: id.into(), kind, name: "T".into(), cwd: cwd.into(), claude_session_id: None, fork: false }
+        SessionSpec { id: id.into(), kind, name: "T".into(), cwd: cwd.into(), claude_session_id: None, fork: false, prompt: None }
     }
 
     #[test]

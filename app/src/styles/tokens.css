@@ -70,6 +70,16 @@
      --cpu), so this sits above all of them in lightness rather than beside
      them in hue. */
   --music: #dcc9ff;
+  /* Session avatars (lib/avatar.ts): plum, dusk, sand, slate. Clear of the
+     status hues, so an avatar never reads as a state. */
+  --av0: #c890a7;
+  --av1: #9fb4d9;
+  --av2: #c8b48a;
+  --av3: #a7b0bd;
+  --avBg0: rgba(200, 144, 167, 0.16);
+  --avBg1: rgba(159, 180, 217, 0.16);
+  --avBg2: rgba(200, 180, 138, 0.16);
+  --avBg3: rgba(167, 176, 189, 0.16);
   color-scheme: dark;
 }
 
@@ -112,5 +122,13 @@
   --hot: #c026a8;
   --pomo: #6b4fd0;
   --music: #5d2a8f;
+  --av0: #a35c7a;
+  --av1: #4a69a0;
+  --av2: #7a6a3c;
+  --av3: #56606e;
+  --avBg0: rgba(163, 92, 122, 0.12);
+  --avBg1: rgba(74, 105, 160, 0.12);
+  --avBg2: rgba(122, 106, 60, 0.12);
+  --avBg3: rgba(86, 96, 110, 0.12);
   color-scheme: light;
 }
