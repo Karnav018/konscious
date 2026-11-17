@@ -40,6 +40,23 @@ export interface NewSessionDraft {
   dir: string
 }
 
+/** A Claude session asking the person before doing something (app/agentKit.ts):
+ *  opening, stopping or restarting a session, or changing settings. */
+export interface AgentAsk {
+  callId: number
+  /** Name of the session that asked. */
+  from: string
+  /** What it wants, after its name: "wants to open a session". */
+  asks: string
+  rows: { label: string; value: string; mono?: boolean; long?: boolean }[]
+  /** One line on what saying yes means. */
+  note: string
+  /** The yes button: "Open session". */
+  confirm: string
+  /** A new session's name, drawn as its avatar beside the title. */
+  avatar?: string
+}
+
 /**
  * A background update (lib/update.ts). `ready` means a newer version is
  * downloaded and waiting: installing closes the app, so the restart is the
@@ -173,6 +190,8 @@ export interface UiState {
   transfer: { kind: 'export'; workspaceId: string } | { kind: 'import'; path: string } | null
   /** Session awaiting typed "delete" confirmation. */
   confirmDelete: string | null
+  /** A Claude session's request to open a session, while it waits. */
+  agentAsk: AgentAsk | null
   /** Workspace awaiting the remove confirmation (RemoveWorkspaceDialog). */
   confirmRemoveWorkspace: string | null
   /** The Notes view replaces the grid (sessions keep running behind it). */
@@ -278,6 +297,7 @@ export const initialState = (): AppState => ({
     island: freshIsland(),
     attachments: {},
     confirmDelete: null,
+    agentAsk: null,
     confirmRemoveWorkspace: null,
     notesOpen: false,
     notesSave: null,

@@ -31,6 +31,7 @@ pub fn settings_with(helper: &Path, events_path: &Path, status_path: &Path, git_
     };
     json!({
         "statusLine": { "type": "command", "command": status_command(helper, status_path, git_bash), "padding": 0 },
+        "permissions": super::hooks::tools_permission(),
         "hooks": {
             "SessionStart": hook("start", None),
             "UserPromptSubmit": hook("prompt", None),

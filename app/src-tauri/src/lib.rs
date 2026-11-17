@@ -1,3 +1,4 @@
+mod agent;
 mod claude;
 mod bundle;
 mod clipboard;
@@ -35,6 +36,9 @@ use session::manager::{Emitter as SessionEmitter, SessionManager};
 pub struct AppState {
     pub env: Arc<EnvHandle>,
     pub sessions: Arc<SessionManager>,
+    /// The tools server Claude sessions use to drive Konscious; `None` when
+    /// it couldn't start, or on the lock screen.
+    pub agent: Option<Arc<agent::Agent>>,
     pub store: Arc<Store>,
     /// False when another instance holds ~/.claude-workspace/.lock.
     pub lock_ok: bool,
@@ -212,9 +216,14 @@ pub fn run() {
             let emit: SessionEmitter = Arc::new(move |name, payload| {
                 let _ = handle.emit(name, payload);
             });
-            let sessions = SessionManager::new(emit, Arc::clone(&env), store.run_dir());
+            let sessions = SessionManager::new(Arc::clone(&emit), Arc::clone(&env), store.run_dir());
             sessions.start_ticker();
-            app.manage(AppState { env, sessions, store, lock_ok, pending_bundle: Default::default() });
+            // A second, locked instance launches nothing, so it serves no tools.
+            let agent = if lock_ok { agent::Agent::start(emit) } else { None };
+            if let Some(a) = &agent {
+                sessions.set_agent(Arc::clone(a));
+            }
+            app.manage(AppState { env, sessions, agent, store, lock_ok, pending_bundle: Default::default() });
             // macOS has an app menu bar (Copy/Paste live there); Windows windows
             // get no menu bar — WebView2 handles clipboard keys natively.
             #[cfg(target_os = "macos")]
@@ -264,6 +273,7 @@ pub fn run() {
             commands::fs_suggest_folders,
             commands::fs_is_dir,
             commands::clipboard_read,
+            commands::agent_reply,
             commands::window_glass,
         ])
         .build(context)

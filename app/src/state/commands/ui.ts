@@ -5,7 +5,7 @@ import type { Place } from '../../lib/sun'
 import type { PaletteId, TermFontId } from '../../lib/themes'
 import type { WarmWhen } from '../../lib/warmth'
 import { act } from '../act'
-import { getState, type NewSessionDraft, type PersistStatus, type SettingsMenu, type UpdateState, type WsFilter } from '../store'
+import { type AgentAsk, getState, type NewSessionDraft, type PersistStatus, type SettingsMenu, type UpdateState, type WsFilter } from '../store'
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -142,6 +142,8 @@ export const askDeleteSession = (id: string) =>
     d.ui.paneMenu = null
   })
 export const cancelDeleteSession = () => act('ui/confirmDeleteCancel', (d) => void (d.ui.confirmDelete = null))
+export const showAgentAsk = (ask: AgentAsk) => act('ui/agentAsk', (d) => void (d.ui.agentAsk = ask))
+export const clearAgentAsk = () => act('ui/agentAskClear', (d) => void (d.ui.agentAsk = null))
 export const askRemoveWorkspace = (id: string) => act('ui/confirmRemoveWorkspace', (d) => void (d.ui.confirmRemoveWorkspace = id))
 export const cancelRemoveWorkspace = () =>
   act('ui/confirmRemoveWorkspaceCancel', (d) => void (d.ui.confirmRemoveWorkspace = null))

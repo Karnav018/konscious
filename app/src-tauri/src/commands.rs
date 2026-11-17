@@ -156,6 +156,15 @@ pub async fn session_remove(state: State<'_, AppState>, id: String) -> AppResult
     state.sessions.remove(&id)
 }
 
+/// The interface's answer to a tool call from a Claude session (see agent.rs).
+#[tauri::command]
+pub async fn agent_reply(state: State<'_, AppState>, call_id: u64, ok: bool, text: String) -> AppResult<()> {
+    if let Some(agent) = &state.agent {
+        agent.reply(call_id, crate::agent::Reply { ok, text });
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn usage_snapshot(state: State<'_, AppState>) -> AppResult<Value> {
     Ok(state.sessions.usage_snapshot())

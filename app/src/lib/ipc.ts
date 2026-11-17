@@ -45,6 +45,17 @@ export interface SessionSpec {
   claudeSessionId: string | null
   /** Resume into a copy (`--fork-session`); one-shot. */
   fork?: boolean
+  /** First message for a brand-new Claude session; one-shot. */
+  prompt?: string
+}
+
+/** A tool call from a Claude session (src-tauri/src/agent.rs). */
+export interface AgentCall {
+  callId: number
+  /** The Konscious session that made the call. */
+  sessionId: string
+  tool: string
+  args: Record<string, unknown>
 }
 
 export interface IpcError {
@@ -108,6 +119,11 @@ export const ipc = {
 
   /** A .kon the system asked us to open before the interface was listening. */
   bundlePending: () => invoke<string | null>('bundle_pending'),
+
+  /** Tool calls from Claude sessions; answer each with agentReply. */
+  onAgentCall: (cb: (call: AgentCall) => void): Promise<UnlistenFn> =>
+    listen<AgentCall>('agent-call', (e) => cb(e.payload)),
+  agentReply: (callId: number, ok: boolean, text: string) => invoke<void>('agent_reply', { callId, ok, text }),
 
   /** A .kon opened while the app was already running. */
   onBundleOpened: (cb: (path: string) => void): Promise<UnlistenFn> =>

@@ -69,13 +69,14 @@ import type { Kind, LayoutMode, SessionInfo, SessionMeta, Theme } from '../types
 
 export { flash }
 
-const specOf = (m: SessionMeta, fork = false): SessionSpec => ({
+const specOf = (m: SessionMeta, fork = false, prompt?: string): SessionSpec => ({
   id: m.id,
   kind: m.kind,
   name: m.name,
   cwd: m.cwd,
   claudeSessionId: m.claudeSessionId,
   fork,
+  ...(prompt ? { prompt } : {}),
 })
 
 export function expandHome(path: string): string {
@@ -145,7 +146,7 @@ export function onInfo(info: SessionInfo) {
 
 const starting = new Set<string>()
 
-export async function startSession(id: string, opts: { fork?: boolean } = {}) {
+export async function startSession(id: string, opts: { fork?: boolean; prompt?: string } = {}) {
   const meta = getState().workspace.sessions[id]
   if (!meta || starting.has(id)) return
   starting.add(id)
@@ -156,7 +157,7 @@ export async function startSession(id: string, opts: { fork?: boolean } = {}) {
   }
 }
 
-async function spawnSession(meta: SessionMeta, opts: { fork?: boolean }) {
+async function spawnSession(meta: SessionMeta, opts: { fork?: boolean; prompt?: string }) {
   const id = meta.id
   terminals.ensure(id, meta.kind)
   // Measure first when visible, so Claude starts at the pane's real width.
@@ -165,7 +166,7 @@ async function spawnSession(meta: SessionMeta, opts: { fork?: boolean }) {
   const channel = terminals.channel(id)
   markStarting(id)
   try {
-    const info = await ipc.sessionStart(specOf(meta, opts.fork), cols, rows, channel)
+    const info = await ipc.sessionStart(specOf(meta, opts.fork, opts.prompt), cols, rows, channel)
     // An idempotent start may return an already-running PTY of unknown size;
     // resending the current size is harmless (no SIGWINCH when unchanged).
     terminals.started(id, null)
@@ -416,11 +417,20 @@ export async function openNewSession(prefill: Partial<NewSessionDraft> = {}) {
   openNewSessionDraft({ kind: 'claude', workspaceId: w.id, name: '', dir: w.path, ...prefill })
 }
 
-export async function createSession(draft: NewSessionDraft) {
+/**
+ * Adds a session and starts it. Returns its id, or null when the folder is
+ * missing. `prompt` is the first message for a new Claude session. `quiet`
+ * (sessions Claude opens) leaves the New Session dialog and the keyboard
+ * where they are, so whoever is typing keeps typing.
+ */
+export async function createSession(
+  draft: NewSessionDraft,
+  opts: { prompt?: string; quiet?: boolean } = {},
+): Promise<string | null> {
   const cwd = expandHome(draft.dir)
   if (!(await ipc.fsIsDir(cwd).catch(() => false))) {
     flash(`Directory does not exist: ${draft.dir}`)
-    return false
+    return null
   }
   const kind: Kind = draft.kind
   const now = Date.now()
@@ -439,11 +449,11 @@ export async function createSession(draft: NewSessionDraft) {
   addSession(meta)
   const l = layoutOf(getState().layout.byWorkspace, meta.workspaceId)
   if (l.mode === 'focus') setLayoutMode(meta.workspaceId, 'grid')
-  closeNewSession()
+  if (!opts.quiet) closeNewSession()
   terminals.ensure(meta.id, kind)
-  selectSession(meta.id, { focus: true })
-  await startSession(meta.id)
-  return true
+  selectSession(meta.id, { focus: !opts.quiet })
+  await startSession(meta.id, { prompt: opts.prompt })
+  return meta.id
 }
 
 /* ── per-pane text size ──────────────────────────────────────────── */
