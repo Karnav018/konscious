@@ -121,19 +121,39 @@ describe('the notch island', () => {
     expect(r.queryByText('A glass now and then.')).not.toBeNull()
     act(() => void vi.advanceTimersByTime(COLLAPSE_MS + 1500))
     // The title stays — it is still an activity — but the body goes with the
-    // expanded size.
+    // shelf.
     expect(r.queryByText('A glass now and then.')).toBeNull()
     expect(r.getByText('Drink water')).toBeTruthy()
   })
 
-  it('offers the reminder’s own actions when an alert is clicked', () => {
+  it('puts a fresh reminder’s own buttons in the shelf, one click away', () => {
     pushIsland({ app: 'water', title: 'Drink water' })
     const r = render(<Island />)
-    expect(r.queryByText('Had a glass')).toBeNull()
-    fireEvent.click(r.container.querySelector('[data-island]')!)
     expect(r.getByText('Had a glass')).toBeTruthy()
     expect(r.getByText(/In \d+ min/)).toBeTruthy()
     expect(r.getByText('Skip')).toBeTruthy()
+  })
+
+  it('folds a fresh alert away, and a click holds the shelf open again', () => {
+    vi.useFakeTimers()
+    pushIsland({ app: 'water', title: 'Drink water' })
+    const r = render(<Island />)
+    act(() => void vi.advanceTimersByTime(COLLAPSE_MS + 1500))
+    expect(r.queryByText('Had a glass')).toBeNull()
+    fireEvent.click(r.container.querySelector('[data-island]')!)
+    expect(getState().ui.island.pinned).toBe(true)
+    expect(r.getByText('Had a glass')).toBeTruthy()
+  })
+
+  it('lets go of a pinned shelf on Escape', () => {
+    vi.useFakeTimers()
+    pushIsland({ app: 'water', title: 'Drink water' })
+    const r = render(<Island />)
+    act(() => void vi.advanceTimersByTime(COLLAPSE_MS + 1500))
+    fireEvent.click(r.container.querySelector('[data-island]')!)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(getState().ui.island.pinned).toBe(false)
+    expect(r.queryByText('Had a glass')).toBeNull()
   })
 
   it('acknowledges through the same command the dock uses, and clears itself', () => {
@@ -155,26 +175,65 @@ describe('the notch island', () => {
     expect(getState().ui.apps.glasses).toBe(0)
   })
 
-  it('animates a swap in the direction it travelled', () => {
+  it('lists every activity in the shelf, newest first', () => {
     pushIsland({ app: 'water', title: 'Drink water' }, Date.now() - 2000)
     pushIsland({ app: 'stand', title: 'Stand up' }, Date.now() - 1000)
     const r = render(<Island />)
-    // Newest first, so dot 0 is Stand up and dot 1 is Drink water. Going to
-    // a later dot is forward; coming back is backward.
-    const dots = () => r.container.querySelectorAll('[data-island-dot]')
-    fireEvent.click(dots()[1])
-    expect(r.container.querySelector('.cw-swap-on')).not.toBeNull()
-    fireEvent.click(dots()[0])
-    expect(r.container.querySelector('.cw-swap-back')).not.toBeNull()
+    const rows = r.container.querySelectorAll('[data-island-row]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0].textContent).toContain('Stand up')
+    expect(rows[1].textContent).toContain('Drink water')
   })
 
-  it('shows a dot per activity once there is more than one', () => {
+  it('puts what asks for something above what is only playing', () => {
+    setAppOn('music', true)
+    reading = {
+      now: { app: 'Spotify', title: 'Teardrop', artist: 'Massive Attack', playing: true, positionMs: 0, durationMs: 330_000, artworkUrl: null },
+      // The track started after the reminder, so it ranks newer.
+      since: Date.now() - 1000,
+      denied: false,
+      failed: false,
+    }
+    pushIsland({ app: 'water', title: 'Drink water' }, Date.now() - 2000)
+    const r = render(<Island />)
+    const rows = r.container.querySelectorAll('[data-island-row]')
+    expect(rows[0].textContent).toContain('Drink water')
+    expect(rows[1].textContent).toContain('Teardrop')
+  })
+
+  it('says how many more there are once it folds to compact', () => {
+    vi.useFakeTimers()
     pushIsland({ app: 'water', title: 'Drink water' }, Date.now() - 2000)
     pushIsland({ app: 'stand', title: 'Stand up' }, Date.now() - 1000)
     const r = render(<Island />)
-    expect(r.container.querySelectorAll('[data-island-dot]')).toHaveLength(2)
-    // Newest first, so the one on show is the stand-up nudge.
+    act(() => void vi.advanceTimersByTime(COLLAPSE_MS + 1500))
     expect(r.getByText('Stand up')).toBeTruthy()
+    expect(r.container.querySelector('[data-island-more]')!.textContent).toBe('+1')
+  })
+
+  it('offers a running pomodoro its own buttons, and no dismiss it cannot honour', () => {
+    setAppOn('pomo', true)
+    useApp.setState(
+      (s) => ({ ui: { ...s.ui, apps: { ...s.ui.apps, pomo: { phase: 'focus', endsAt: Date.now() + 60_000, rounds: 0 } } } }),
+      false,
+    )
+    const r = render(<Island />)
+    fireEvent.click(r.container.querySelector('[data-island]')!)
+    // A live activity is derived every render, so a × could only hide it
+    // until the next one. It gets the timer's own controls instead.
+    expect(r.queryByTitle('Dismiss')).toBeNull()
+    fireEvent.click(r.getByText('Break now'))
+    expect(getState().ui.apps.pomo.phase).toBe('break')
+    fireEvent.click(r.getByText('Stop'))
+    expect(getState().ui.apps.pomo.phase).toBe('idle')
+  })
+
+  it('unpins itself once there is nothing left to show', () => {
+    pushIsland({ app: 'water', title: 'Drink water' })
+    const r = render(<Island />)
+    fireEvent.click(r.container.querySelector('[data-island]')!)
+    fireEvent.click(r.getByText('Had a glass'))
+    expect(getState().ui.island.pinned).toBe(false)
   })
 
   it('counts a running pomodoro as a live activity', () => {
@@ -231,7 +290,7 @@ describe('the notch island', () => {
     expect(r.queryByText(/Teardrop/)).toBeNull()
   })
 
-  it('controls the player from the expanded pill', () => {
+  it('controls the player from the shelf', () => {
     setAppOn('music', true)
     const now = {
       app: 'Spotify',

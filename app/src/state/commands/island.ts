@@ -7,7 +7,8 @@ import { type IslandApp, type IslandEvent, islandId, withoutApp, withoutId, with
 import { act } from '../act'
 
 /** An alert from an app. An earlier one from the same app is replaced, not
- *  queued behind: the same rule that stops reminders stacking. */
+ *  queued behind: the same rule that stops reminders stacking. A pinned shelf
+ *  stays pinned — the new row simply arrives at the top of it. */
 export function pushIsland(
   e: { app: IslandApp; kind?: IslandEvent['kind']; title: string; body?: string; ttlMs?: number },
   now = Date.now(),
@@ -23,21 +24,16 @@ export function pushIsland(
   }
   act('island/push', (d) => {
     d.ui.island.events = withPushed(d.ui.island.events, event)
-    // A new alert takes the island; whatever was pinned open is no longer it.
-    d.ui.island.expanded = null
   })
 }
 
-/** The × on an activity: this one goes, the others stay. */
+/** The × on an alert: this one goes, the others stay. */
 export const dismissIsland = (id: string) =>
-  act('island/dismiss', (d) => {
-    d.ui.island.events = withoutId(d.ui.island.events, id)
-    if (d.ui.island.expanded === id) d.ui.island.expanded = null
-  })
+  act('island/dismiss', (d) => void (d.ui.island.events = withoutId(d.ui.island.events, id)))
 
-/** Clicked: holds the activity open and shows its actions. */
-export const expandIsland = (id: string | null) =>
-  act('island/expand', (d) => void (d.ui.island.expanded = id))
+/** A click holds the shelf open; a second click, Escape or a click elsewhere
+ *  lets it fold again. */
+export const pinIsland = (on: boolean) => act('island/pin', (d) => void (d.ui.island.pinned = on))
 
 /** "Show in notch", per app. */
 export const setAppIsland = (app: IslandApp, on: boolean) =>

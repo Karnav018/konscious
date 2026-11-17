@@ -13,7 +13,6 @@ import {
   islandId,
   ISLAND_KEYS,
   MAX,
-  nextIndex,
   MIN_W,
   rankActivities,
   withoutApp,
@@ -69,6 +68,7 @@ describe('what the island shows', () => {
 
   it('caps at MAX, keeping the newest', () => {
     const many = [
+      alert('caff', now - 6000),
       alert('water', now - 5000),
       alert('stand', now - 4000),
       alert('pomo', now - 3000),
@@ -77,7 +77,7 @@ describe('what the island shows', () => {
     ]
     const got = rankActivities(many, now)
     expect(got).toHaveLength(MAX)
-    expect(got.map((e) => e.app)).toEqual(['sys', 'music', 'pomo', 'stand'])
+    expect(got.map((e) => e.app)).toEqual(['sys', 'music', 'pomo', 'stand', 'water'])
   })
 
   it('keeps one per app: a newer event replaces an older one', () => {
@@ -110,7 +110,7 @@ describe('what the island shows', () => {
 
   it('shows nothing when there is nothing', () => {
     expect(rankActivities([], now)).toEqual([])
-    expect(freshIsland()).toEqual({ events: [], expanded: null })
+    expect(freshIsland()).toEqual({ events: [], pinned: false })
   })
 })
 
@@ -141,19 +141,6 @@ describe('pushing and clearing', () => {
   it('clears one event by id', () => {
     const a = alert('water', now)
     expect(withoutId([a, alert('stand', now)], a.id).map((e) => e.app)).toEqual(['stand'])
-  })
-})
-
-describe('cycling through them', () => {
-  it('wraps forward and back', () => {
-    expect(nextIndex(3, 2, 1)).toBe(0)
-    expect(nextIndex(3, 0, -1)).toBe(2)
-    expect(nextIndex(3, 1, 1)).toBe(2)
-  })
-
-  it('stays at 0 with nothing to cycle', () => {
-    expect(nextIndex(0, 0, 1)).toBe(0)
-    expect(nextIndex(0, 3, -1)).toBe(0)
   })
 })
 

@@ -468,6 +468,92 @@ input {
   animation-play-state: paused;
 }
 
+/* The shelf (components/Island). One row per activity: a 28px glyph tile, the
+   words, then the buttons under them, so every row lines up on the same two
+   columns whatever it carries. Literal colours throughout, like the rest of
+   the island: it is black in both themes. */
+.cw-isl:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: -2px;
+}
+.cw-isl-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  padding: 8px 8px 8px 8px;
+  border-radius: 14px;
+  transition: background 120ms;
+}
+.cw-isl-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.cw-isl-tile {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Four kinds of button, one size. 26px tall: small enough that three fit
+   under a line of text, tall enough to hit without aiming. */
+.cw-isl-btn {
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  flex: none;
+  transition: background 120ms, color 120ms, filter 120ms;
+}
+.cw-isl-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 1px;
+}
+.cw-isl-primary {
+  color: #000;
+  font-weight: 500;
+}
+.cw-isl-primary:hover {
+  filter: brightness(1.12);
+}
+.cw-isl-secondary {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.cw-isl-secondary:hover {
+  background: rgba(255, 255, 255, 0.17);
+}
+.cw-isl-quiet {
+  color: rgba(255, 255, 255, 0.62);
+  background: transparent;
+}
+.cw-isl-quiet:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+.cw-isl-icon {
+  width: 26px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+}
+.cw-isl-icon:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cw-bar {
     animation: none;

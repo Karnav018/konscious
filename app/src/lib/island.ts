@@ -38,9 +38,10 @@ export interface IslandEvent {
   ttlMs?: number
 }
 
-/** The island rotates through at most this many. More than four and the dots
- *  stop being countable at a glance, which is the only thing they are for. */
-export const MAX = 4
+/** The shelf lists at most this many, one row each. There are only five apps
+ *  that announce, so in practice this is every one of them — but the shelf
+ *  hangs over the panes, and a sixth row would reach the first line of text. */
+export const MAX = 5
 
 /** How long an alert remains an activity at all. Five minutes, the same span
  *  a reminder holds for a waiting session: a nudge you have ignored that long
@@ -48,11 +49,8 @@ export const MAX = 4
  *  is not the same as being dealt with. */
 export const ALERT_TTL_MS = 5 * 60 * 1000
 
-/** How long a fresh alert stays expanded before it collapses to compact. */
+/** How long a fresh alert holds the shelf open before it folds to compact. */
 export const COLLAPSE_MS = 6000
-
-/** How long each activity holds the island before the next one. */
-export const CYCLE_MS = 4000
 
 /** A pomodoro phase change is announced, but the phase it hands over to is a
  *  live activity that says the same thing for the rest of its run. So that
@@ -84,12 +82,13 @@ export const BREAK_WORDS: readonly string[] = ['Stretch', 'Breathe', 'Look away'
 
 export interface IslandState {
   events: IslandEvent[]
-  /** The activity opened by a click, which holds it open and shows its
-   *  actions. Null while nothing is pinned open. */
-  expanded: string | null
+  /** The shelf, held open by a click until a second click, Escape, or a click
+   *  elsewhere. It is the whole shelf rather than one activity: every row is
+   *  on show at once, so there is no single one to pin. */
+  pinned: boolean
 }
 
-export const freshIsland = (): IslandState => ({ events: [], expanded: null })
+export const freshIsland = (): IslandState => ({ events: [], pinned: false })
 
 export const islandId = (app: IslandApp, at: number): string => `${app}-${at}`
 
@@ -136,12 +135,6 @@ export const withoutApp = (events: readonly IslandEvent[], app: IslandApp): Isla
 
 export const withoutId = (events: readonly IslandEvent[], id: string): IslandEvent[] =>
   events.filter((e) => e.id !== id)
-
-/** The next activity along, wrapping. Returns 0 when there is nothing. */
-export function nextIndex(count: number, i: number, delta: number): number {
-  if (count <= 0) return 0
-  return (((i + delta) % count) + count) % count
-}
 
 /** The narrowest the compact island gets when the bar is crowded. Below this
  *  its text has no room to say anything. */
