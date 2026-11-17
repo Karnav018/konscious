@@ -28,6 +28,7 @@ import { useRuntimeOf, useSession, useUi } from '../../state/selectors'
 import { getState } from '../../state/store'
 import type { Runtime, SessionMeta } from '../../types'
 import { CloseIcon, DotsIcon, GripIcon, MaximizeIcon, MinimizeIcon } from '../common/Icon'
+import { SessionAvatar } from '../common/SessionAvatar'
 import { StatusGlyph } from '../common/StatusGlyph'
 import { AttachedFiles } from './AttachedFiles'
 import { ContextRing, ModelBadge } from '../common/Usage'
@@ -222,6 +223,7 @@ export function SessionPane({
           </div>
         )}
         <StatusGlyph status={rt.status} />
+        <SessionAvatar name={meta.name} />
         <span className="font-semibold text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis min-w-0 flex-[0_0_auto] max-w-[55%]">
           {meta.name}
         </span>
